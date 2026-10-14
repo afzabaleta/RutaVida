@@ -1,0 +1,29 @@
+### Credenciales y configuración local (NUNCA subir) ###
+backend/db.properties
+*.env
+.env
+**/wallet/
+Wallet_*.zip
+
+### Maven ###
+**/target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+### NetBeans / Eclipse / VS Code ###
+nbproject/private/
+.classpath
+.project
+.settings/
+.vscode/
+
+### Sistema operativo ###
+.DS_Store
+Thumbs.db
+desktop.ini

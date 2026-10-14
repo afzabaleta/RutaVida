@@ -1,0 +1,12 @@
+# RutaVida - database connection (local Oracle XE)
+#
+# 1. Copy this file as "db.properties" in the same folder (backend/).
+# 2. Write the password you chose in database/00_crear_usuario.sql.
+# db.properties is listed in .gitignore: it must NEVER be committed.
+#
+# Environment variables override these values:
+#   RUTAVIDA_DB_URL, RUTAVIDA_DB_USER, RUTAVIDA_DB_PASSWORD
+
+db.url=jdbc:oracle:thin:@//localhost:1521/XEPDB1
+db.user=rutavida
+db.password=
