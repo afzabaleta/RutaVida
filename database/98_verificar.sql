@@ -20,6 +20,13 @@ SELECT COUNT(*) AS secuencias,
   FROM user_sequences
  WHERE sequence_name LIKE 'SEQ\_%' ESCAPE '\';
 
+-- 2b. Los 24 índices propios existen (22 ix_ + 2 ux_)
+SELECT COUNT(*) AS indices,
+       CASE WHEN COUNT(*) = 24 THEN 'SI' ELSE 'NO' END AS ok
+  FROM user_indexes
+ WHERE index_name LIKE 'IX\_%' ESCAPE '\'
+    OR index_name LIKE 'UX\_%' ESCAPE '\';
+
 -- 3. Ningún objeto inválido
 SELECT COUNT(*) AS objetos_invalidos,
        CASE WHEN COUNT(*) = 0 THEN 'SI' ELSE 'NO' END AS ok

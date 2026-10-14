@@ -45,12 +45,31 @@ RutaVida/
 
 Requisito: Oracle Database XE instalado y en ejecución, con la PDB `XEPDB1` (puerto 1521).
 
-1. Conectarse como `SYSTEM` al servicio `XEPDB1` (en SQL Developer: host `localhost`, puerto `1521`, *Nombre del servicio* `XEPDB1`).
-2. Ejecutar `database/00_crear_usuario.sql` (pide la contraseña del usuario `RUTAVIDA`).
-3. Crear una conexión nueva con el usuario `RUTAVIDA` en `XEPDB1` y ejecutar, en este orden y como script (F5 en SQL Developer):
-   - `database/01_esquema.sql`
-   - `database/02_datos_iniciales.sql`
-   - `database/98_verificar.sql` → todas las columnas `OK` deben decir `SI`. Las pruebas marcadas "DEBE FALLAR" deben mostrar el error `ORA-02290`.
+Desde la consola de Windows (`cmd`), con SQL*Plus, que viene con Oracle XE:
+
+```
+cd ruta\a\RutaVida\database
+sqlplus /nolog
+```
+
+Dentro de `SQL>`:
+
+```
+CONNECT system/CONTRASEÑA_DE_SYSTEM@localhost:1521/XEPDB1
+@00_crear_usuario.sql
+CONNECT rutavida/CONTRASEÑA_DE_RUTAVIDA@localhost:1521/XEPDB1
+SPOOL instalacion.log
+@01_esquema.sql
+@02_datos_iniciales.sql
+@98_verificar.sql
+SPOOL OFF
+exit
+```
+
+- `00_crear_usuario.sql` pide la contraseña del nuevo usuario `RUTAVIDA` (solo se ejecuta una vez).
+- En `98_verificar.sql` todas las columnas `OK` deben decir `SI`. Las dos pruebas marcadas "DEBE FALLAR" deben mostrar `ORA-02290`: eso es correcto.
+- También sirve SQL Developer (host `localhost`, puerto `1521`, servicio `XEPDB1`, ejecutar cada archivo con F5).
+- En los scripts, un comentario nunca va después del `;` en la misma línea: SQL*Plus lo envía como parte de la sentencia. `SqlScriptStyleTest` lo verifica.
 
 Para borrar todo y empezar de cero: `database/99_eliminar_esquema.sql` y luego repetir desde `01`.
 

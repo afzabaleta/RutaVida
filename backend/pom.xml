@@ -13,7 +13,9 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <ojdbc.version>23.5.0.24.07</ojdbc.version>
+        <!-- 21.x: supports Oracle Database 21c, 19c, 18c and 12.2. The team uses XE 18c;
+             the 23.x driver only supports 19c and later. -->
+        <ojdbc.version>21.9.0.0</ojdbc.version>
         <junit.version>5.11.3</junit.version>
     </properties>
 

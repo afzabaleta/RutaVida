@@ -524,7 +524,8 @@ CREATE INDEX ix_incidente_tramo          ON incidente_vial (id_tramo);
 CREATE INDEX ix_incidente_estado         ON incidente_vial (estado);
 CREATE INDEX ix_ruta_emergencia          ON ruta (id_emergencia);
 CREATE INDEX ix_ruta_vehiculo            ON ruta (id_vehiculo);
-CREATE INDEX ix_ruta_tramo_tramo         ON ruta_tramo (id_tramo);   -- ¿qué rutas pasan por este tramo?
+-- ix_ruta_tramo_tramo responde: ¿qué rutas pasan por este tramo? (recálculo)
+CREATE INDEX ix_ruta_tramo_tramo         ON ruta_tramo (id_tramo);
 CREATE INDEX ix_asignacion_emergencia    ON asignacion_emergencia (id_emergencia);
 CREATE INDEX ix_asignacion_vehiculo      ON asignacion_emergencia (id_vehiculo);
 CREATE INDEX ix_ubicacion_vehiculo_fecha ON ubicacion_vehiculo (id_vehiculo, fecha_hora);
