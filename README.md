@@ -31,9 +31,9 @@ RutaVida/
 
 | Componente | Estado |
 |---|---|
-| Esquema de base de datos (23 tablas, secuencias, índices, restricciones) | Script escrito; **pendiente de ejecutar** en Oracle XE |
-| Datos maestros (roles, permisos, tipos de vehículo y de emergencia) | Script escrito |
-| Conexión JDBC (`DatabaseConnection`) y verificación (`DatabaseCheck`) | Programado |
+| Esquema de base de datos (23 tablas, secuencias, índices, restricciones) | Ejecutado y verificado en Oracle XE 18c (14/10/2026) |
+| Datos maestros (roles, permisos, tipos de vehículo y de emergencia) | Cargados y verificados |
+| Conexión JDBC (`DatabaseConnection`) y verificación (`DatabaseCheck`) | Funciona: "23 de 23" con el driver ojdbc11 21.9 |
 | Arquitectura: paquetes, reglas de dependencia, enums, transacciones, eventos, `AppContext` | Programado y probado ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)) |
 | Triggers, vistas y procedimientos PL/SQL | Pendiente |
 | Entidades, DAO, Service, Controller, vista | Pendiente |
@@ -88,6 +88,7 @@ Para borrar todo y empezar de cero: `database/99_eliminar_esquema.sql` y luego r
 ## Convenciones
 
 - **Idioma:** documentación, commits, ramas y Pull Requests en español. Código fuente (clases, métodos, variables, comentarios) en inglés. Textos que ve el usuario, en español.
+- **Casos de uso:** [`docs/analysis.md`](docs/analysis.md). **Diagrama de clases (Mermaid):** [`docs/class-diagram.md`](docs/class-diagram.md). `ClassDiagramSyncTest` falla si una clase del código no aparece en el diagrama.
 - **Arquitectura, paquetes, GRASP y SOLID:** ver [`docs/arquitectura-software.md`](docs/arquitectura-software.md). `ArchitectureTest` falla si una capa importa algo que no le corresponde.
 - **Base de datos:** ver [`docs/convenciones-base-datos.md`](docs/convenciones-base-datos.md) (estados, catálogos y cambios al diccionario de datos).
 - **Ramas:** `main` (estable), `develop` (integración), `funcionalidad/<nombre>`, `correccion/<nombre>`, `documentacion/<nombre>`.
