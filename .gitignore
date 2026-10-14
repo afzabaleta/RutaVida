@@ -5,6 +5,9 @@ backend/db.properties
 **/wallet/
 Wallet_*.zip
 
+### Registros de ejecución de scripts (SPOOL) ###
+*.log
+
 ### Maven ###
 **/target/
 !.mvn/wrapper/maven-wrapper.jar
