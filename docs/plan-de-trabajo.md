@@ -8,7 +8,7 @@ Cada tarea tiene su rama, sus archivos, de qué depende y **cómo se comprueba q
 
 Las clases y firmas de cada tarea están definidas en `docs/class-diagram.md`; los casos de uso en `docs/analysis.md`. Nadie inventa firmas públicas distintas: si hace falta cambiar una, se acuerda en el grupo y se actualiza el diagrama en el mismo PR.
 
-Las reglas de Git (ramas en español, commits en inglés, PR hacia `develop`, las ramas no se eliminan) están en `CONTRIBUTING.md`.
+Las reglas de Git (ramas y commits en inglés, PR hacia `develop`, las ramas no se eliminan) están en `CONTRIBUTING.md`.
 
 ---
 
@@ -50,7 +50,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| S1 | Entidades del modelo: `GeoPoint`, `Locatable`, `User`, `Role`, `Permission`, `UserSession`, `Emergency`, `EmergencyType`, `EmergencyVehicle`, `VehicleType`, `EmergencyStation`, `Hospital` | `funcionalidad/modelo-base` | A0.7 |
+| S1 | Entidades del modelo: `GeoPoint`, `Locatable`, `User`, `Role`, `Permission`, `UserSession`, `Emergency`, `EmergencyType`, `EmergencyVehicle`, `VehicleType`, `EmergencyStation`, `Hospital` | `feature/base-model` | A0.7 |
 
 **Terminado cuando:**
 - Las entidades validan sus datos en el constructor (por ejemplo, `GeoPoint` rechaza una latitud fuera de -90 a 90) y tienen pruebas JUnit.
@@ -65,8 +65,8 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| A1 | Base común de los DAO: `RowMapper`, `AbstractJdbcDAO` y la excepción `AccessDeniedException` | `funcionalidad/base-dao` | — (puede empezar ya) |
-| A2 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces en `dao` + `JdbcXxxDAO` en `dao.jdbc`) con pruebas de integración contra Oracle | `funcionalidad/dao-seguridad` | A1, S1 |
+| A1 | Base común de los DAO: `RowMapper`, `AbstractJdbcDAO` y la excepción `AccessDeniedException` | `feature/dao-base` | — (puede empezar ya) |
+| A2 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces en `dao` + `JdbcXxxDAO` en `dao.jdbc`) con pruebas de integración contra Oracle | `feature/security-dao` | A1, S1 |
 
 **Terminado cuando:** todas las pruebas pasan. Las pruebas de los DAO insertan, leen y actualizan en el Oracle local y **se saltan solas** si no existe `db.properties`, para que no fallen en otros equipos. Los DAO usan consultas parametrizadas y no hacen `commit` ni `close` de la conexión del `TransactionManager`.
 
@@ -76,8 +76,8 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| K1 | Paquete `graph`: `Node`, `Edge`, `EdgeState`, `VehicleProfile`, `RoadGraph`, `CostFunction`, `EmergencyCost`, `DistanceOnlyCost`, `RouteResult`, `AStarRouter`, `AlternativeRouteFinder` | `funcionalidad/motor-rutas` | — |
-| K2 | Paquete `traffic`: `TrafficProvider`, `EdgeUpdate`, `SimulatedTrafficProvider` con semilla fija (resultados repetibles) | `funcionalidad/trafico-simulado` | K1 |
+| K1 | Paquete `graph`: `Node`, `Edge`, `EdgeState`, `VehicleProfile`, `RoadGraph`, `CostFunction`, `EmergencyCost`, `DistanceOnlyCost`, `RouteResult`, `AStarRouter`, `AlternativeRouteFinder` | `feature/route-engine` | — |
+| K2 | Paquete `traffic`: `TrafficProvider`, `EdgeUpdate`, `SimulatedTrafficProvider` con semilla fija (resultados repetibles) | `feature/simulated-traffic` | K1 |
 
 El documento consolidado (Parte IV) tiene código de referencia de K1. Hay que adaptarlo a los cambios de `docs/class-diagram.md`, sección 6: `dbId` en `Node` y `Edge`, `incidentFactor` en `EdgeState`, `EdgeUpdate` sin `closed` y el nombre `AlternativeRouteFinder`.
 
@@ -96,7 +96,7 @@ Además, una prueba de rendimiento que mida en milisegundos el tiempo de A* cont
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| S2 | `PasswordHasher` + `Pbkdf2PasswordHasher` (PBKDF2 con sal, viene en Java), `AuditService` y `AuthService` | `funcionalidad/servicio-autenticacion` | S1; usa las interfaces DAO de A2 |
+| S2 | `PasswordHasher` + `Pbkdf2PasswordHasher` (PBKDF2 con sal, viene en Java), `AuditService` y `AuthService` | `feature/auth-service` | S1; usa las interfaces DAO de A2 |
 
 **Terminado cuando:** `AuthService` tiene pruebas **con DAOs falsos**, sin Oracle, que cubren: login correcto, contraseña incorrecta, usuario inexistente (el mismo mensaje en ambos casos), usuario inactivo y auditoría registrada en cada caso. El hash de la misma contraseña da resultados distintos (por la sal) y `matches` funciona. Los servicios no importan `dao.jdbc`.
 
@@ -110,7 +110,7 @@ Los servicios de Kendrick (`RouteService`, `DispatchService`, `TrackingService`�
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| S3 | `SessionContext`, `OperationResult`, `LoginController` y `Messages` (textos en español) | `funcionalidad/controlador-login` | S2 |
+| S3 | `SessionContext`, `OperationResult`, `LoginController` y `Messages` (textos en español) | `feature/login-controller` | S2 |
 
 **Terminado cuando:** `LoginController` delega en `AuthService`, no tiene SQL y convierte los errores en mensajes en español sin mostrar excepciones técnicas. Tiene pruebas con un `AuthService` falso.
 
@@ -122,14 +122,14 @@ La vista es **web** (HTML, CSS, JavaScript y Leaflet), decisión DT-01 en `docs/
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| D1 | Mockups de 5 pantallas: inicio de sesión, pantalla principal (mapa + tarjetas de indicadores + panel de emergencias), registrar emergencia, despacho con las 3 rutas y su explicación, y control de la simulación. Interfaz oscura con detalles rojos y azules; logo arriba a la izquierda, usuario y rol arriba a la derecha | `documentacion/mockups` | — |
-| D2 | Datos reales de Valledupar: hospitales y clínicas con urgencias, estaciones de bomberos y bases de ambulancias, con dirección, coordenadas y **fuente de cada dato**. Entregarlos como `database/03_datos_valledupar.sql` | `funcionalidad/datos-valledupar` | — |
+| D1 | Mockups de 5 pantallas: inicio de sesión, pantalla principal (mapa + tarjetas de indicadores + panel de emergencias), registrar emergencia, despacho con las 3 rutas y su explicación, y control de la simulación. Interfaz oscura con detalles rojos y azules; logo arriba a la izquierda, usuario y rol arriba a la derecha | `docs/mockups` | — |
+| D2 | Datos reales de Valledupar: hospitales y clínicas con urgencias, estaciones de bomberos y bases de ambulancias, con dirección, coordenadas y **fuente de cada dato**. Entregarlos como `database/03_datos_valledupar.sql` | `feature/valledupar-data` | — |
 
 **Terminado cuando:**
 - D1: las imágenes de los mockups están en `docs/mockups/` y aparecen en `docs/mockups.md`, con una línea por pantalla que indique qué caso de uso cubre.
 - D2: el script se ejecuta sin errores en Oracle y `98_verificar.sql` sigue saliendo bien. Cada fila tiene un comentario con su fuente. Ningún dato inventado: si no se encuentra la coordenada de un lugar, ese lugar no se incluye. Andrés revisa este PR porque toca `database/`.
 
-Diego puede empezar la maqueta web con datos de ejemplo (claramente marcados como ejemplo) en `frontend/` (`funcionalidad/vista-login`, `funcionalidad/vista-mapa`). La conexión con datos reales se hace cuando exista la API REST.
+Diego puede empezar la maqueta web con datos de ejemplo (claramente marcados como ejemplo) en `frontend/` (`feature/login-view`, `feature/map-view`). La conexión con datos reales se hace cuando exista la API REST.
 
 ---
 
@@ -137,7 +137,7 @@ Diego puede empezar la maqueta web con datos de ejemplo (claramente marcados com
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| A3 | Conectar el login en `AppContext` (inyección manual) y la herramienta `CreateAdminUser`, que crea el primer administrador con la contraseña en hash | `funcionalidad/integracion-login` | A2, S2, S3 |
+| A3 | Conectar el login en `AppContext` (inyección manual) y la herramienta `CreateAdminUser`, que crea el primer administrador con la contraseña en hash | `feature/login-integration` | A2, S2, S3 |
 
 **Terminado cuando:** el administrador creado con `CreateAdminUser` inicia sesión y queda un registro `LOGIN / EXITO` en `AUDITORIA`.
 

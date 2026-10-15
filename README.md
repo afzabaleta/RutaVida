@@ -93,11 +93,11 @@ exit
 
 ## Convenciones
 
-- **Idioma:** documentación, ramas y Pull Requests en español. **Commits en inglés.** Código fuente (clases, métodos, variables, comentarios) en inglés. Textos que ve el usuario, en español.
+- **Idioma:** documentación y Pull Requests en español. **Ramas y commits en inglés.** Código fuente (clases, métodos, variables, comentarios) en inglés. Textos que ve el usuario, en español.
 - **Casos de uso:** [`docs/analysis.md`](docs/analysis.md). **Diagrama de clases (Mermaid):** [`docs/class-diagram.md`](docs/class-diagram.md). `ClassDiagramSyncTest` falla si una clase del código no aparece en el diagrama.
 - **Arquitectura, paquetes, GRASP y SOLID:** ver [`docs/arquitectura-software.md`](docs/arquitectura-software.md). `ArchitectureTest` falla si una capa importa algo que no le corresponde.
 - **Base de datos:** ver [`docs/convenciones-base-datos.md`](docs/convenciones-base-datos.md) (estados, catálogos y cambios al diccionario de datos).
-- **Ramas:** `main` (estable, rama por defecto), `develop` (integración), `funcionalidad/<nombre>`, `correccion/<nombre>`, `documentacion/<nombre>`, `pruebas/<nombre>`, `refactorizacion/<nombre>`, `estructura/<nombre>`.
+- **Ramas (en inglés):** `main` (estable, rama por defecto), `develop` (integración), `feature/<name>`, `fix/<name>`, `docs/<name>`, `test/<name>`, `refactor/<name>`, `chore/<name>`.
 - **Commits:** `type: short-description` en inglés, por ejemplo `feature: dao-emergencies`. Tipos: `feature`, `fix`, `docs`, `test`, `refactor`, `chore`.
 - Nadie hace commit ni push directo a `main` ni a `develop`: todo entra por Pull Request hacia `develop`, revisado por otra persona.
 - **Las ramas no se eliminan**, ni después del merge. Detalles en [`CONTRIBUTING.md`](CONTRIBUTING.md).

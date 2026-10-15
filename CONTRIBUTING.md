@@ -43,7 +43,7 @@ En `98_verificar.sql` todo debe decir `SI` (23 tablas, 21 secuencias, 24 índice
 
 | Qué | Idioma | Ejemplo |
 |---|---|---|
-| Nombres de ramas | Español | `funcionalidad/dao-emergencias` |
+| Nombres de ramas | **Inglés** (desde el 15/10/2026) | `feature/emergency-dao` |
 | Mensajes de commit | **Inglés** | `feature: dao-emergencies` |
 | Título y descripción de los Pull Requests | Español | "Agregar DAO de emergencias" |
 | Código: clases, métodos, variables, comentarios | Inglés | `EmergencyService`, `calculateRoute()` |
@@ -59,14 +59,16 @@ En `98_verificar.sql` todo debe decir `SI` (23 tablas, 21 secuencias, 24 índice
 |---|---|---|
 | `main` | Versión estable que se presenta. Es la rama por defecto del repositorio | Solo por Pull Request desde `develop`, cuando el equipo lo decide |
 | `develop` | Integración del trabajo de todos | Solo por Pull Request revisado por otra persona |
-| `funcionalidad/<nombre>` | Una funcionalidad nueva (incluye scripts de datos) | Su responsable |
-| `correccion/<nombre>` | Arreglar un error | Quien lo arregla |
-| `documentacion/<nombre>` | Documentos, diagramas y mockups | Quien los escribe |
-| `pruebas/<nombre>` | Agregar o mejorar pruebas | Quien las escribe |
-| `refactorizacion/<nombre>` | Mejorar código sin cambiar lo que hace | Quien lo mejora |
-| `estructura/<nombre>` | Carpetas, configuración, `pom.xml` | Quien lo cambia (avisando antes al grupo) |
+| `feature/<name>` | Una funcionalidad nueva (incluye scripts de datos) | Su responsable |
+| `fix/<name>` | Arreglar un error | Quien lo arregla |
+| `docs/<name>` | Documentos, diagramas y mockups | Quien los escribe |
+| `test/<name>` | Agregar o mejorar pruebas | Quien las escribe |
+| `refactor/<name>` | Mejorar código sin cambiar lo que hace | Quien lo mejora |
+| `chore/<name>` | Carpetas, configuración, `pom.xml`, `.gitignore` | Quien lo cambia (avisando antes al grupo) |
 
-Los nombres de las ramas van en español, en minúsculas, sin tildes ni espacios: `funcionalidad/motor-rutas`, `correccion/validacion-incidentes`, `documentacion/actualizar-modelo-datos`, `pruebas/servicio-despacho`.
+Los nombres de las ramas van **en inglés**, en minúsculas, con guiones y sin espacios. El prefijo es el mismo tipo que se usa en el commit: `feature/route-engine`, `fix/incident-validation`, `docs/update-data-model`, `test/dispatch-service`.
+
+Las ramas creadas antes de esta regla conservan su nombre en español (`documentacion/ajustar-convenciones-git`, `documentacion/documento-consolidado-v2`, `documentacion/contratos-entidades`). No se renombran, porque renombrar una rama en GitHub implica borrar la anterior.
 
 **Nadie hace commit ni push directo a `main` ni a `develop`.**
 
@@ -91,7 +93,7 @@ Tampoco se usan `git reset --hard`, `git clean -fd` ni `git push --force` sin ap
 git status
 git checkout develop
 git pull origin develop
-git checkout -b funcionalidad/dao-emergencias
+git checkout -b feature/emergency-dao
 ```
 `git status` primero: si tienes cambios sin guardar, haz commit en tu rama actual antes de cambiar de rama.
 
@@ -105,7 +107,7 @@ Antes de cada commit, revisa en `git status` que no aparezcan `db.properties`, `
 
 **3. Subir la rama**
 ```
-git push -u origin funcionalidad/dao-emergencias
+git push -u origin feature/emergency-dao
 ```
 La primera vez se usa `-u`. Después basta con `git push`.
 
@@ -113,7 +115,7 @@ La primera vez se usa `-u`. Después basta con `git push`.
 ```
 git checkout develop
 git pull origin develop
-git checkout funcionalidad/dao-emergencias
+git checkout feature/emergency-dao
 git merge develop
 ```
 Si hay conflictos, IntelliJ los muestra en *Git → Resolve Conflicts*. Cuando quede resuelto, haz commit y `git push`. Nunca resuelvas un conflicto borrando el trabajo de un compañero: si no sabes cuál versión queda, pregúntale.

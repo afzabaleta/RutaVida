@@ -7,6 +7,7 @@ Registro de las decisiones que afectan a todo el proyecto. Cada decisión dice q
 | DT-01 | La interfaz es **web** (HTML, CSS, JavaScript y Leaflet) y consume una API REST en Java | 15/10/2026 | Decidida por el equipo |
 | DT-02 | Base de datos **Oracle XE local** durante el desarrollo; la migración a Oracle Cloud se evalúa después | 15/10/2026 | Decidida por el equipo |
 | DT-03 | Tablas y columnas de Oracle **en español**; código Java en inglés | 15/10/2026 | Decidida por el equipo |
+| DT-04 | Nombres de **ramas en inglés** (`feature/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`) | 15/10/2026 | Decidida por el líder; cambia la regla anterior de ramas en español |
 
 ---
 
@@ -58,3 +59,15 @@ Nada de esto está programado todavía: el estado actual es **diseñado**.
 **Por qué:** el modelo de datos ya fue aprobado y documentado en español, y el código en inglés sigue la convención del equipo.
 
 **Qué implica:** los DAO de `dao.jdbc` son los únicos que traducen entre columnas en español y atributos en inglés. Esa correspondencia queda escrita en el contrato de cada entidad.
+
+---
+
+## DT-04 · Ramas en inglés
+
+**Decisión:** desde el 15/10/2026, los nombres de las ramas nuevas van en inglés. El prefijo es el mismo tipo del commit: `feature/`, `fix/`, `docs/`, `test/`, `refactor/` y `chore/`. Ejemplos: `feature/route-engine`, `fix/incident-validation`, `docs/update-data-model`.
+
+**Por qué:** las ramas y los commits quedan con el mismo idioma y los mismos prefijos, lo que facilita leer el historial.
+
+**Qué cambia respecto a la regla anterior:** el prompt maestro del proyecto pedía ramas en español. Esta decisión la reemplaza. Lo demás se mantiene: commits en inglés, títulos y descripciones de Pull Requests en español, documentación en español.
+
+**Ramas anteriores:** `documentacion/ajustar-convenciones-git`, `documentacion/documento-consolidado-v2` y `documentacion/contratos-entidades` conservan su nombre. No se renombran porque renombrar una rama en GitHub implica borrar la anterior, y la regla del equipo es no eliminar ramas.
