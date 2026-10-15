@@ -21,7 +21,7 @@ classDiagram
     direction TB
 
     class MainView {
-        <<view - Swing o web>>
+        <<view - web>>
     }
     class EmergencyController {
         +register(request: EmergencyRequest) OperationResult~Emergency~
@@ -1818,7 +1818,7 @@ classDiagram
 
 Los controladores atrapan las `RutaVidaException` y devuelven un `OperationResult` con el mensaje en español de `Messages`. La vista no maneja excepciones técnicas.
 
-Las clases de la vista son provisionales: sus nombres y sus métodos dependen de que el profesor confirme Swing o web. En ambos casos solo pueden usar controladores, DTO, modelo y eventos (`ArchitectureTest`).
+La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases de esta sección son provisionales: en el backend se reemplazarán por los adaptadores REST del paquete `api`, que solo pueden usar controladores, DTO, modelo y eventos (`ArchitectureTest`). La página web (HTML, CSS, JavaScript y Leaflet) no forma parte de este diagrama de clases Java.
 
 ---
 
@@ -1838,6 +1838,6 @@ Las clases de la vista son provisionales: sus nombres y sus métodos dependen de
 | Motor de rutas, tráfico y simulación | `graph`, `traffic`, `simulation`, `service` | Diseñado (código de referencia en el documento consolidado, Parte IV) |
 | Eventos concretos (`UnitDispatched`…) | `event` | Diseñado |
 | Controladores, `SessionContext`, `OperationResult` | `controller`, `dto` | Diseñado |
-| Vista | `view` | Pendiente de la decisión Swing o web |
+| Vista web y adaptadores REST | `view` → `api`, `frontend/` | Decidido (web); pendiente de programar |
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
