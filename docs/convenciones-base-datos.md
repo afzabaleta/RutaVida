@@ -18,12 +18,12 @@ Este documento corrige las inconsistencias detectadas entre el diccionario de da
 | Usuario / esquema | `RUTAVIDA` |
 | Contraseña | La define cada integrante; va en `backend/db.properties`, que **no** se sube a GitHub |
 
-**Decisión del equipo (14/10/2026):** se trabaja con Oracle local en lugar de Oracle Cloud.
+**Decisión del equipo (14/10/2026, confirmada el 15/10/2026 como DT-02 en `docs/decisiones-tecnicas.md`):** se trabaja con Oracle local durante el desarrollo; la migración a Oracle Cloud se evalúa después.
 
 **Consecuencias que hay que tener presentes:**
 
 - Cada integrante tiene **su propia** base de datos. Los datos no se comparten: lo que uno inserta no lo ve otro. Por eso el esquema y los datos iniciales viven en scripts versionados en `database/`, y cualquier cambio de estructura se hace en un script nuevo, nunca a mano.
-- La propuesta entregada al profesor dice "Oracle alojado en la nube". Hay que informarle del cambio o confirmar que lo acepta.
+- La propuesta entregada al profesor dice "Oracle alojado en la nube". Antes de la entrega final hay que decidir si se migra o explicarle por qué se mantuvo en local.
 - Si más adelante se vuelve a la nube, el código Java no cambia: solo cambian la URL y las credenciales en `db.properties`.
 
 ---
@@ -161,8 +161,7 @@ El simulador solo modifica la congestión y los semáforos; **no cierra tramos**
 
 | Decisión | Responsable |
 |---|---|
-| Confirmar con el profesor el cambio de Oracle Cloud a Oracle local | Andrés |
-| Confirmar con el profesor que las tablas pueden quedar en español | Andrés |
+| Decidir antes de la entrega final si se migra a Oracle Cloud (DT-02) | Equipo |
 | Justificar las prioridades de `TIPO_EMERGENCIA` y `TIPO_VEHICULO` (los valores actuales son provisionales) | Equipo |
 | Algoritmo de hash de contraseñas (necesario para crear el primer usuario) | Sherly (Util) |
 | Cargar hospitales, estaciones y red vial con datos reales de Valledupar | Andrés |

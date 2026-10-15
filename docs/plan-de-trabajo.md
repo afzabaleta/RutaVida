@@ -24,7 +24,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 | 4. Grafo, tráfico y simulación | Kendrick | Algoritmos y simulación probados con escenarios conocidos | K1, K2 (en paralelo desde el inicio) |
 | 5. Servicios de negocio | Kendrick y Sherly | Casos de uso del núcleo con servicios, validaciones y pruebas | S2 |
 | 6. Controladores y utilidades | Sherly | Controladores conectados a los servicios, errores en español | S3 |
-| 7. Vista | Diego | Pantallas conectadas a los controladores (Swing o web, según el profesor) | D1, D2 (preparación) |
+| 7. Vista web | Diego | Pantallas web conectadas a la API REST | D1, D2 (preparación) |
 | 8. Integración | Andrés (todo el equipo) | `AppContext` conecta todo y el flujo completo funciona | A3 |
 
 ---
@@ -37,10 +37,10 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 | A0.2 | Conexión JDBC verificada con `DatabaseCheck` ("23 de 23") | Probado (14/10/2026) |
 | A0.3 | Infraestructura (Maven, enums, transacciones, eventos, `AppContext`) y pruebas de arquitectura: 37 pruebas en verde | Probado (14/10/2026) |
 | A0.4 | Inconsistencias documentadas en `docs/convenciones-base-datos.md` y en el documento consolidado v2 | Hecho |
-| A0.5 | Convenciones de Git alineadas (`CONTRIBUTING.md`, `README.md`, este plan) | Rama `documentacion/ajustar-convenciones-git` |
-| A0.6 | Configurar GitHub: colaboradores, `main` como rama por defecto, borrado automático de ramas **desactivado**, protección de `main` y `develop` (ver `CONTRIBUTING.md`, sección 6) | Pendiente |
+| A0.5 | Convenciones de Git alineadas (`CONTRIBUTING.md`, `README.md`, este plan) | PR abierto desde `documentacion/ajustar-convenciones-git` |
+| A0.6 | Configurar GitHub: colaboradores, `main` como rama por defecto, borrado automático de ramas **desactivado**, protección de `main` y `develop` (ver `CONTRIBUTING.md`, sección 6) | Hecho (15/10/2026) |
 | A0.7 | Acordar con Sherly los contratos de las entidades de S1: atributos, tipos Java, relaciones y columna Oracle de cada campo | Pendiente |
-| A0.8 | Consultar al profesor las decisiones de la sección "Decisiones que bloquean al equipo" | Pendiente |
+| A0.8 | Decisiones del equipo: vista web, Oracle local, tablas en español (`docs/decisiones-tecnicas.md`) | Hecho (15/10/2026) |
 
 **Terminado cuando:** A0.5 está en `develop` por PR revisado, A0.6 está configurado y Sherly aprueba los contratos de A0.7 (comentario de aprobación en un PR o nota en `docs/`).
 
@@ -118,7 +118,7 @@ Los servicios de Kendrick (`RouteService`, `DispatchService`, `TrackingService`�
 
 ## Fase 7. Diego — vista y datos reales (preparación)
 
-La tecnología de la vista (Swing o web) **depende del profesor**. Mientras tanto, Diego trabaja en tareas que sirven en cualquier caso:
+La vista es **web** (HTML, CSS, JavaScript y Leaflet), decisión DT-01 en `docs/decisiones-tecnicas.md`. Mientras se programan los servicios y la API, Diego prepara el diseño y los datos:
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
@@ -129,7 +129,7 @@ La tecnología de la vista (Swing o web) **depende del profesor**. Mientras tant
 - D1: las imágenes de los mockups están en `docs/mockups/` y aparecen en `docs/mockups.md`, con una línea por pantalla que indique qué caso de uso cubre.
 - D2: el script se ejecuta sin errores en Oracle y `98_verificar.sql` sigue saliendo bien. Cada fila tiene un comentario con su fuente. Ningún dato inventado: si no se encuentra la coordenada de un lugar, ese lugar no se incluye. Andrés revisa este PR porque toca `database/`.
 
-Cuando el profesor decida, Diego empieza la vista real (`funcionalidad/vista-login`, `funcionalidad/vista-mapa`).
+Diego puede empezar la maqueta web con datos de ejemplo (claramente marcados como ejemplo) en `frontend/` (`funcionalidad/vista-login`, `funcionalidad/vista-mapa`). La conexión con datos reales se hace cuando exista la API REST.
 
 ---
 
@@ -157,13 +157,19 @@ Cuando el profesor decida, Diego empieza la vista real (`funcionalidad/vista-log
 
 ---
 
-## Decisiones que bloquean al equipo
+## Decisiones
+
+**Tomadas por el equipo (15/10/2026)**, detalle en `docs/decisiones-tecnicas.md`:
+- DT-01: vista **web** con Leaflet y API REST en Java.
+- DT-02: **Oracle local** durante el desarrollo; Oracle Cloud se evalúa antes de la entrega final.
+- DT-03: tablas y columnas de Oracle **en español**, código Java en inglés.
+
+**Pendientes:**
 
 | Decisión | Quién | Afecta a |
 |---|---|---|
-| Vista en Swing o web | Andrés pregunta al profesor | Diego (vista real) |
-| Oracle local en lugar de la nube | Andrés informa al profesor | Todos |
-| Tablas en español | Andrés pregunta al profesor | Andrés |
+| Servidor HTTP y librería JSON de la API REST | Andrés, Sherly y Diego | Fases 6 y 7 |
+| Tiempo real en el navegador (consultas periódicas o *Server-Sent Events*) | Andrés y Diego | Fase 7 |
 | Zona de Valledupar que se va a cargar de OpenStreetMap | Andrés y Kendrick | Sprint 2 (red vial real) |
 
 ---

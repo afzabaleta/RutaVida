@@ -37,7 +37,8 @@ RutaVida/
 | Arquitectura: paquetes, reglas de dependencia, enums, transacciones, eventos, `AppContext` | Programado y probado: 37 pruebas en verde en IntelliJ ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)) |
 | Triggers, vistas y procedimientos PL/SQL | Pendiente |
 | Entidades, DAO, Service, Controller, vista | Pendiente |
-| Vista: Swing o web | **Pendiente de confirmar con el profesor** |
+| Vista | **Decidido: web** (HTML, CSS, JavaScript y Leaflet + API REST en Java). Pendiente de programar |
+| Decisiones del equipo (vista web, Oracle local, tablas en español) | Registradas en [`docs/decisiones-tecnicas.md`](docs/decisiones-tecnicas.md) |
 
 ## Puesta en marcha (cada integrante, una sola vez)
 
