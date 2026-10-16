@@ -3,7 +3,7 @@
 Acuerdo entre **Andrés** (base de datos y DAO) y **Sherly** (modelo) sobre las entidades que se programan en la tarea S1. Define, para cada clase, sus atributos, el tipo Java, la columna de Oracle que le corresponde y las validaciones del constructor.
 
 - **Fuente:** `database/01_esquema.sql` (columnas y restricciones) y `docs/class-diagram.md`, secciones 1.1 a 1.3 (atributos y métodos).
-- **Estado:** propuesta. Queda **acordado** cuando Sherly aprueba el Pull Request que agrega este documento.
+- **Estado:** **acordado** el 15/10/2026. Sherly aprobó el PR #3 y eligió la propuesta en los 5 puntos de la sección 7.
 - Si al programar hace falta cambiar algo, se cambia aquí y en `docs/class-diagram.md` en el mismo PR, y se avisa al grupo.
 
 ---
@@ -142,8 +142,8 @@ Métodos:
 
 Métodos:
 - `changeStatus(next, at)`:
-    - Usa `EmergencyStatus.canChangeTo(next)`, que ya existe. Si la transición no está permitida, lanza `BusinessRuleException`.
-    - Al pasar a `CLOSED`, asigna `closedAt = at`.
+  - Usa `EmergencyStatus.canChangeTo(next)`, que ya existe. Si la transición no está permitida, lanza `BusinessRuleException`.
+  - Al pasar a `CLOSED`, asigna `closedAt = at`.
 - `isActive()` delega en `status.isActive()`.
 - `getLocation()`.
 
@@ -218,13 +218,13 @@ Métodos: `getLocation()` e `isOperational()` (`status` activo).
 
 ---
 
-## 7. Puntos que hay que decidir en la revisión
+## 7. Puntos decididos en la revisión
 
-Sherly marca su opción en el PR. Si está de acuerdo con la propuesta, basta con aprobar.
+Sherly eligió la propuesta en los cinco puntos (comentario en el PR #3, 15/10/2026).
 
-| # | Tema | Propuesta | Alternativa |
+| # | Tema | Decisión | Alternativa descartada |
 |---|---|---|---|
-| P1 | **`AccessDeniedException`** la necesita `UserSession.require()` (S1), pero en el plan está en la tarea A1 de Andrés | Sherly la crea en S1 (es una clase de 5 líneas en `exception`) y se quita de A1 | Andrés la sube antes, en un PR aparte |
+| P1 | **`AccessDeniedException`** la necesita `UserSession.require()` (S1), pero en el plan está en la tarea A1 de Andrés **Sherly la crea en S1** (es una clase de 5 líneas en `exception`); se quitó de A1 | Andrés la sube antes, en un PR aparte |
 | P2 | Identificador de una entidad sin guardar | `long id = 0` + `assignId()` (R3) | `Long id = null` |
 | P3 | Formato del documento de identidad | Letras y números, de 5 a 20 | Solo dígitos (excluye pasaportes) |
 | P4 | Email y `username` | Se guardan en minúsculas | Se guardan como se escriben |
