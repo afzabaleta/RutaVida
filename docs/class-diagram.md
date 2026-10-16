@@ -21,7 +21,7 @@ classDiagram
     direction TB
 
     class MainView {
-        <<view - Swing o web>>
+        <<view - web>>
     }
     class EmergencyController {
         +register(request: EmergencyRequest) OperationResult~Emergency~
@@ -967,6 +967,10 @@ Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la secció
 
 ## 5. Capa Service — reglas de negocio, DTO y utilidades
 
+### 5.1 Servicios
+
+Cada servicio agrupa las reglas de un área del negocio (*High Cohesion*) y recibe sus dependencias por constructor.
+
 ```mermaid
 ---
 config:
@@ -975,7 +979,6 @@ config:
 classDiagram
     direction LR
 
-    %% ===== SECURITY AND AUDIT =====
     class AuthService {
         -userDao : UserDAO
         -roleDao : RoleDAO
@@ -1002,8 +1005,6 @@ classDiagram
         +record(userId: Long, module: String, operation: String, recordId: Long, result: AuditResult, detail: String) void
         +findByRecord(module: String, recordId: long) List~AuditLog~
     }
-
-    %% ===== EMERGENCIES AND DISPATCH =====
     class EmergencyService {
         -emergencyDao : EmergencyDAO
         -emergencyTypeDao : EmergencyTypeDAO
@@ -1056,8 +1057,6 @@ classDiagram
         +rankForTransfer(from: GeoPoint, requiredService: String, vehicleTypeId: long) List~HospitalOption~
         +updateServiceAvailability(offering: HospitalServiceOffering, session: UserSession) void
     }
-
-    %% ===== DASHBOARD AND ALERTS =====
     class DashboardService {
         -emergencyDao : EmergencyDAO
         -vehicleDao : EmergencyVehicleDAO
@@ -1075,8 +1074,45 @@ classDiagram
         +listUnread(session: UserSession) List~Alert~
         +markAsRead(alertId: long, session: UserSession) void
     }
+    class PasswordHasher {
+        <<interface>>
+        +hash(raw: char[]) String
+        +matches(raw: char[], stored: String) boolean
+    }
+    class Pbkdf2PasswordHasher {
+        -iterations : int
+        +hash(raw: char[]) String
+        +matches(raw: char[], stored: String) boolean
+    }
+    class RouteService
 
-    %% ===== DTO (package dto) =====
+    PasswordHasher <|.. Pbkdf2PasswordHasher
+    AuthService ..> PasswordHasher
+    UserService ..> PasswordHasher
+    AuthService ..> AuditService
+    UserService ..> AuditService
+    EmergencyService ..> AuditService
+    DispatchService ..> AuditService
+    FleetService ..> AuditService
+    EmergencyService ..> RouteService
+    DispatchService ..> RouteService
+    DispatchService ..> HospitalService
+    DispatchService ..> HungarianAlgorithm
+    HospitalService ..> RouteService
+```
+
+### 5.2 DTO y utilidades
+
+Los DTO (paquete `dto`) son *records* sin lógica que viajan entre el controlador y la vista. Las utilidades (paquete `util`) no tienen reglas de negocio.
+
+```mermaid
+---
+config:
+  markdownAutoWrap: false
+---
+classDiagram
+    direction LR
+
     class EmergencyRequest {
         <<record>>
         +emergencyTypeId : long
@@ -1123,18 +1159,6 @@ classDiagram
         +username : String
         +password : char[]
     }
-
-    %% ===== UTIL (package util) =====
-    class PasswordHasher {
-        <<interface>>
-        +hash(raw: char[]) String
-        +matches(raw: char[], stored: String) boolean
-    }
-    class Pbkdf2PasswordHasher {
-        -iterations : int
-        +hash(raw: char[]) String
-        +matches(raw: char[], stored: String) boolean
-    }
     class ValidationUtil {
         +requireText(value: String, field: String) String$
         +requireInRange(value: double, min: double, max: double, field: String) double$
@@ -1142,20 +1166,14 @@ classDiagram
     class Messages {
         +get(key: String) String$
     }
+    class AuthService
+    class UserService
+    class EmergencyService
+    class DispatchService
+    class HospitalService
+    class DashboardService
 
-    PasswordHasher <|.. Pbkdf2PasswordHasher
-    AuthService ..> PasswordHasher
-    UserService ..> PasswordHasher
-    AuthService ..> AuditService
-    UserService ..> AuditService
-    EmergencyService ..> AuditService
-    DispatchService ..> AuditService
-    FleetService ..> AuditService
-    EmergencyService ..> RouteService
-    DispatchService ..> RouteService
     DispatchService ..> HospitalService
-    DispatchService ..> HungarianAlgorithm
-    HospitalService ..> RouteService
     EmergencyService ..> EmergencyRequest
     EmergencyService ..> EmergencyHistory
     DispatchService ..> UnitSuggestion
@@ -1614,6 +1632,10 @@ classDiagram
 
 ## 8. Capas Controller, View y App
 
+### 8.1 Controladores
+
+Un controlador por grupo de casos de uso (*GRASP Controller*). Devuelven `OperationResult` para que la vista muestre el mensaje sin manejar excepciones.
+
 ```mermaid
 ---
 config:
@@ -1622,7 +1644,6 @@ config:
 classDiagram
     direction LR
 
-    %% ===== CONTROLLER =====
     class SessionContext {
         -current : UserSession
         +start(session: UserSession) void
@@ -1714,7 +1735,26 @@ classDiagram
         +updateService(offering: HospitalServiceOffering) OperationResult~Void~
     }
 
-    %% ===== VIEW (technology pending: Swing or web) =====
+    LoginController --> SessionContext
+    EmergencyController --> SessionContext
+    DispatchController --> SessionContext
+    LoginController ..> OperationResult~T~
+    EmergencyController ..> OperationResult~T~
+    DispatchController ..> OperationResult~T~
+```
+
+### 8.2 Vista y arranque
+
+La vista solo usa controladores. `AppContext` crea todos los objetos e inyecta las dependencias.
+
+```mermaid
+---
+config:
+  markdownAutoWrap: false
+---
+classDiagram
+    direction LR
+
     class LoginView {
         <<view>>
     }
@@ -1730,8 +1770,6 @@ classDiagram
     class DispatchView {
         <<view>>
     }
-
-    %% ===== APP =====
     class AppContext {
         -database : DatabaseConnection
         -jdbc : JdbcTransactionManager
@@ -1749,13 +1787,17 @@ classDiagram
     class DatabaseCheck {
         +main(args: String[]) void$
     }
-
-    LoginController --> SessionContext
-    EmergencyController --> SessionContext
-    DispatchController --> SessionContext
-    LoginController ..> OperationResult~T~
-    EmergencyController ..> OperationResult~T~
-    DispatchController ..> OperationResult~T~
+    class CreateAdminUser {
+        +main(args: String[]) void$
+    }
+    class LoginController
+    class EmergencyController
+    class DispatchController
+    class RouteController
+    class IncidentController
+    class DashboardController
+    class AlertController
+    class SimulationController
 
     LoginView ..> LoginController
     MainView ..> DashboardController
@@ -1766,9 +1808,9 @@ classDiagram
     EmergencyFormView ..> EmergencyController
     DispatchView ..> DispatchController
     MainView *-- MapView
-
     Main ..> AppContext : crea
     Main ..> LoginView : muestra
+    CreateAdminUser ..> AppContext : usa
     AppContext ..> LoginController : crea e inyecta
     AppContext ..> EmergencyController : crea e inyecta
     AppContext ..> DispatchController : crea e inyecta
@@ -1776,7 +1818,7 @@ classDiagram
 
 Los controladores atrapan las `RutaVidaException` y devuelven un `OperationResult` con el mensaje en español de `Messages`. La vista no maneja excepciones técnicas.
 
-Las clases de la vista son provisionales: sus nombres y sus métodos dependen de que el profesor confirme Swing o web. En ambos casos solo pueden usar controladores, DTO, modelo y eventos (`ArchitectureTest`).
+La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases de esta sección son provisionales: en el backend se reemplazarán por los adaptadores REST del paquete `api`, que solo pueden usar controladores, DTO, modelo y eventos (`ArchitectureTest`). La página web (HTML, CSS, JavaScript y Leaflet) no forma parte de este diagrama de clases Java.
 
 ---
 
@@ -1789,13 +1831,13 @@ Las clases de la vista son provisionales: sus nombres y sus métodos dependen de
 | `DomainEvent`, `EventPublisher`, `EventBus`, `InMemoryEventBus` | `event` | **Programado y probado** |
 | `RutaVidaException`, `ValidationException`, `NotFoundException`, `BusinessRuleException`, `DataAccessException` | `exception` | **Programado** |
 | `DatabaseConnection`, `AppContext`, `DatabaseCheck` | `util`, `app` | **Programado y probado** contra Oracle XE 18c |
-| `AccessDeniedException`, `RowMapper`, `AbstractJdbcDAO` | `exception`, `dao.jdbc` | Diseñado |
+| `AccessDeniedException`, `RowMapper`, `AbstractJdbcDAO`, `CreateAdminUser` | `exception`, `dao.jdbc`, `app` | Diseñado |
 | Entidades (sección 1), `GeoPoint`, `Locatable`, `UserSession` | `model` | Diseñado |
 | Interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | Servicios, DTO, `PasswordHasher` | `service`, `dto`, `util` | Diseñado |
 | Motor de rutas, tráfico y simulación | `graph`, `traffic`, `simulation`, `service` | Diseñado (código de referencia en el documento consolidado, Parte IV) |
 | Eventos concretos (`UnitDispatched`…) | `event` | Diseñado |
 | Controladores, `SessionContext`, `OperationResult` | `controller`, `dto` | Diseñado |
-| Vista | `view` | Pendiente de la decisión Swing o web |
+| Vista web y adaptadores REST | `view` → `api`, `frontend/` | Decidido (web); pendiente de programar |
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
