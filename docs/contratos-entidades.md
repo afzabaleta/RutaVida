@@ -1,0 +1,239 @@
+# Contratos de las entidades — Fase 2 (S1)
+
+Acuerdo entre **Andrés** (base de datos y DAO) y **Sherly** (modelo) sobre las entidades que se programan en la tarea S1. Define, para cada clase, sus atributos, el tipo Java, la columna de Oracle que le corresponde y las validaciones del constructor.
+
+- **Fuente:** `database/01_esquema.sql` (columnas y restricciones) y `docs/class-diagram.md`, secciones 1.1 a 1.3 (atributos y métodos).
+- **Estado:** propuesta. Queda **acordado** cuando Sherly aprueba el Pull Request que agrega este documento.
+- Si al programar hace falta cambiar algo, se cambia aquí y en `docs/class-diagram.md` en el mismo PR, y se avisa al grupo.
+
+---
+
+## 1. Reglas comunes
+
+Estas reglas aplican a todas las entidades de S1.
+
+| # | Regla | Motivo |
+|---|---|---|
+| R1 | Las entidades van en el paquete `model` y **no importan** JDBC, DAO, service, controller, view ni Swing. Sí pueden usar `model.enums` y `exception` | `ArchitectureTest` |
+| R2 | Todos los datos se reciben en el **constructor**, que valida y lanza `ValidationException` si algo no cumple. No hay *setters* públicos: el estado solo cambia por métodos con significado (`changeStatus`, `moveTo`) | Una entidad nunca existe en un estado inválido |
+| R3 | **Identificador:** `long id`. El valor `0` significa "todavía no está guardado". El DAO, después del `INSERT`, llama a `assignId(long)`, que solo funciona si el id actual es 0 (si no, lanza `IllegalStateException`) | Las secuencias de Oracle generan el id |
+| R4 | **Otras entidades se referencian por id** (`roleId`, `emergencyTypeId`), no por el objeto completo. Excepción: `Role.permissions` y `UserSession`, que sí guardan objetos | Evita cargar media base de datos para leer una emergencia |
+| R5 | **Campos opcionales** (columnas que aceptan `NULL`): `String` → `null` (nunca `""`); números → `Integer`/`Long`/`Double`; fechas → `LocalDateTime` en `null`. Campos obligatorios: primitivos (`long`, `int`) u objetos no nulos | Igual a la base de datos |
+| R6 | **Textos:** el constructor hace `trim()`. Un texto obligatorio vacío o en blanco es inválido. Un texto opcional en blanco se guarda como `null` | Evita guardar espacios |
+| R7 | **Longitudes:** el constructor rechaza un texto más largo que su columna `VARCHAR2` | Mejor un mensaje claro que un error de Oracle |
+| R8 | **Códigos en mayúsculas:** nombres de rol, de tipo y de módulo/acción se pasan a mayúsculas en el constructor (`toUpperCase(Locale.ROOT)`) | Las restricciones `CHECK (x = UPPER(x))` |
+| R9 | **Estados y catálogos:** se usan los enums que **ya existen** en `model.enums` (`RecordStatus`, `Severity`, `EmergencyStatus`, `VehicleOperationalStatus`, `HospitalLevel`). No se crean enums nuevos ni se duplican. La conversión al código de Oracle (`'A'`, `'REPORTADA'`) la hace el DAO con `code()` y `fromCode()` | `EnumSqlContractTest` |
+| R10 | **Fechas:** `TIMESTAMP` ↔ `LocalDateTime`. Las fechas de creación (`registeredAt`, `reportedAt`) las pone el **servicio** con el `Clock` de `AppContext` y el DAO las inserta explícitamente (no se depende del `DEFAULT SYSTIMESTAMP`) | Pruebas repetibles |
+| R11 | **Coordenadas:** siempre como `GeoPoint`, nunca como dos `double` sueltos | Información en un solo lugar |
+| R12 | `equals` y `hashCode`: por `id` si la entidad ya está guardada (id ≠ 0); por identidad si no. Los *records* (`GeoPoint`, `UserSession`) comparan por valor | Comparación coherente |
+| R13 | `toString()` **nunca** incluye `passwordHash` | Seguridad |
+| R14 | Los mensajes de `ValidationException` van **en español** y sin detalles técnicos (por ejemplo: "La latitud debe estar entre -90 y 90") | Pueden llegar al usuario |
+
+---
+
+## 2. Tipos compartidos
+
+### `GeoPoint` (*record*)
+
+| Atributo | Tipo | Columnas Oracle | Validación |
+|---|---|---|---|
+| `latitude` | `double` | `latitud NUMBER(9,6)` | Entre -90 y 90 |
+| `longitude` | `double` | `longitud NUMBER(9,6)` | Entre -180 y 180 |
+
+Métodos: `distanceMetersTo(GeoPoint other)` con la fórmula de Haversine (radio de la Tierra 6 371 000 m).
+
+`GeoPoint` acepta cualquier punto válido del planeta. Validar que una emergencia esté **dentro de Valledupar** es una regla del servicio, no de esta clase.
+
+### `Locatable` (interfaz)
+
+`GeoPoint getLocation()`. La implementan `EmergencyStation`, `EmergencyVehicle`, `Hospital` y `Emergency` (y más adelante `RoadNode`, de Kendrick).
+
+`EmergencyVehicle.getLocation()` puede devolver `null` si la unidad todavía no tiene posición.
+
+---
+
+## 3. Seguridad
+
+### `Role` ↔ `ROL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_rol NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre_rol VARCHAR2(50)` | Sí | Mayúsculas, máx. 50, único (lo garantiza Oracle) |
+| `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | `ACTIVE` ↔ `'A'`, `INACTIVE` ↔ `'I'` |
+| `permissions` | `Set<Permission>` | Tabla `ROL_PERMISO` | Sí (puede estar vacío) | Copia inmutable |
+
+Métodos:
+- `isActive()`.
+- `hasPermission(module, action)`: `true` solo si el rol está activo **y** tiene un permiso con ese módulo y esa acción exactos. `GESTIONAR` **no** incluye `CONSULTAR`: en los datos iniciales cada rol tiene los dos cuando corresponde.
+
+`ROL_PERMISO` no tiene clase propia: el DAO la usa para llenar `permissions`.
+
+### `Permission` ↔ `PERMISO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_permiso NUMBER(10)` | Sí | R3 |
+| `module` | `String` | `modulo VARCHAR2(60)` | Sí | Mayúsculas, máx. 60 |
+| `action` | `String` | `accion VARCHAR2(40)` | Sí | Mayúsculas, máx. 40 (`CONSULTAR` o `GESTIONAR` en los datos actuales) |
+| `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
+
+Métodos: `matches(module, action)` compara sin importar mayúsculas o minúsculas.
+
+### `User` ↔ `USUARIO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_usuario NUMBER(10)` | Sí | R3 |
+| `roleId` | `long` | `id_rol NUMBER(10)` | Sí | Mayor que 0 |
+| `document` | `String` | `documento VARCHAR2(20)` | Sí | Solo letras y números, de 5 a 20 caracteres |
+| `firstNames` | `String` | `nombres VARCHAR2(80)` | Sí | Máx. 80 |
+| `lastNames` | `String` | `apellidos VARCHAR2(80)` | Sí | Máx. 80 |
+| `email` | `String` | `email VARCHAR2(120)` | Sí | Se pasa a minúsculas; formato `texto@texto.texto`; máx. 120 |
+| `username` | `String` | `username VARCHAR2(40)` | Sí | Se pasa a minúsculas; letras, números, `.`, `_`; de 4 a 40 |
+| `passwordHash` | `String` | `password_hash VARCHAR2(255)` | Sí | No vacío, máx. 255. **Nunca** una contraseña en texto plano |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+| `registeredAt` | `LocalDateTime` | `fecha_registro TIMESTAMP` | Sí | R10 |
+
+Métodos: `getFullName()` (nombres + apellidos) e `isActive()`. `toString()` sin `passwordHash` (R13).
+
+El formato exacto del hash (algoritmo, iteraciones, sal) lo define Sherly en S2 con `Pbkdf2PasswordHasher`. La entidad solo guarda el texto resultante.
+
+### `UserSession` (*record*, no es tabla)
+
+| Atributo | Tipo |
+|---|---|
+| `user` | `User` |
+| `role` | `Role` (con sus permisos) |
+| `startedAt` | `LocalDateTime` |
+
+Métodos:
+- `hasPermission(module, action)` delega en `role`.
+- `require(module, action)` lanza `AccessDeniedException` si no tiene el permiso.
+
+---
+
+## 4. Emergencias
+
+### `EmergencyType` ↔ `TIPO_EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_tipo_emergencia NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre VARCHAR2(80)` | Sí | Mayúsculas, máx. 80 |
+| `priority` | `int` | `prioridad NUMBER(2)` | Sí | Entre 1 y 10 |
+| `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
+
+### `Emergency` ↔ `EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_emergencia NUMBER(10)` | Sí | R3 |
+| `emergencyTypeId` | `long` | `id_tipo_emergencia` | Sí | Mayor que 0 |
+| `reportedByUserId` | `long` | `id_usuario_reporta` | Sí | Mayor que 0 |
+| `addressReference` | `String` | `direccion_referencia VARCHAR2(200)` | Sí | Máx. 200 |
+| `location` | `GeoPoint` | `latitud`, `longitud NUMBER(9,6)` | Sí | No nulo |
+| `reportedAt` | `LocalDateTime` | `fecha_hora_reporte TIMESTAMP` | Sí | R10 |
+| `severity` | `Severity` | `severidad VARCHAR2(20)` | Sí | `LOW`/`MEDIUM`/`HIGH`/`CRITICAL` ↔ `BAJA`/`MEDIA`/`ALTA`/`CRITICA` |
+| `description` | `String` | `descripcion VARCHAR2(400)` | No | Máx. 400 |
+| `status` | `EmergencyStatus` | `estado VARCHAR2(30)` | Sí | Una emergencia nueva empieza en `REPORTED` |
+| `closedAt` | `LocalDateTime` | `fecha_hora_cierre TIMESTAMP` | No | Con valor **si y solo si** `status` es `CLOSED`; no puede ser anterior a `reportedAt` |
+
+Métodos:
+- `changeStatus(next, at)`:
+    - Usa `EmergencyStatus.canChangeTo(next)`, que ya existe. Si la transición no está permitida, lanza `BusinessRuleException`.
+    - Al pasar a `CLOSED`, asigna `closedAt = at`.
+- `isActive()` delega en `status.isActive()`.
+- `getLocation()`.
+
+Estas reglas repiten en Java las restricciones `ck_emergencia_cierre` y `ck_emergencia_fechas` de Oracle, para que el error se detecte antes de llegar a la base de datos.
+
+---
+
+## 5. Unidades y estaciones
+
+### `EmergencyStation` ↔ `ESTACION_EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_estacion NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre VARCHAR2(100)` | Sí | Máx. 100 |
+| `address` | `String` | `direccion VARCHAR2(180)` | Sí | Máx. 180 |
+| `neighborhood` | `String` | `barrio VARCHAR2(100)` | No | Máx. 100 |
+| `phone` | `String` | `telefono VARCHAR2(20)` | No | Dígitos, espacios, `+` y `-`; de 7 a 20 |
+| `location` | `GeoPoint` | `latitud`, `longitud` | Sí | No nulo |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+
+### `VehicleType` ↔ `TIPO_VEHICULO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_tipo_vehiculo NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre VARCHAR2(50)` | Sí | Mayúsculas, máx. 50 (`AMBULANCIA`, `BOMBERO`) |
+| `priority` | `int` | `prioridad NUMBER(2)` | Sí | Entre 1 y 10 |
+| `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
+
+### `EmergencyVehicle` ↔ `VEHICULO_EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_vehiculo NUMBER(10)` | Sí | R3 |
+| `vehicleTypeId` | `long` | `id_tipo_vehiculo` | Sí | Mayor que 0 |
+| `stationId` | `long` | `id_estacion` | Sí | Mayor que 0 |
+| `unitCode` | `String` | `codigo_unidad VARCHAR2(30)` | Sí | Mayúsculas, máx. 30 |
+| `plate` | `String` | `placa VARCHAR2(10)` | No | Mayúsculas y sin espacios, máx. 10 |
+| `operationalStatus` | `VehicleOperationalStatus` | `estado_operativo VARCHAR2(30)` | Sí | Una unidad nueva empieza en `AVAILABLE` |
+| `lastLocation` | `GeoPoint` | `latitud`, `longitud` | No | Las dos columnas juntas o ninguna (`ck_vehiculo_posicion`) |
+| `lastLocationAt` | `LocalDateTime` | `fecha_actualizacion TIMESTAMP` | No | Si hay `lastLocation`, debe tener fecha |
+
+Métodos:
+- `getLocation()` devuelve `lastLocation` (puede ser `null`).
+- `isDispatchable()` delega en `operationalStatus.isDispatchable()`.
+- `moveTo(point, at)`: actualiza `lastLocation` y `lastLocationAt`. Rechaza `null` y una fecha anterior a la última conocida.
+- `changeStatus(next)`: cualquier cambio entre los cuatro estados es válido (el enum no define transiciones). No cambia si `next` es igual al actual.
+
+La **fase de la misión** (despachada, en ruta, en sitio) no está aquí: está en `ASIGNACION_EMERGENCIA` y es de la Fase 5.
+
+---
+
+## 6. Hospitales
+
+### `Hospital` ↔ `HOSPITAL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_hospital NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre VARCHAR2(150)` | Sí | Máx. 150 |
+| `level` | `HospitalLevel` | `nivel VARCHAR2(3)` | Sí | `LEVEL_I`…`LEVEL_IV` ↔ `'I'`…`'IV'` |
+| `address` | `String` | `direccion VARCHAR2(180)` | Sí | Máx. 180 |
+| `phone` | `String` | `telefono VARCHAR2(20)` | No | Igual que en `EmergencyStation` |
+| `location` | `GeoPoint` | `latitud`, `longitud` | Sí | No nulo |
+| `emergencyCapacity` | `Integer` | `capacidad_urgencias NUMBER(5)` | No | Mayor o igual a 0 |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+
+Métodos: `getLocation()` e `isOperational()` (`status` activo).
+
+`HospitalServiceOffering` (`SERVICIO_HOSPITAL`) **no** es parte de S1; se programa con el módulo de hospitales.
+
+---
+
+## 7. Puntos que hay que decidir en la revisión
+
+Sherly marca su opción en el PR. Si está de acuerdo con la propuesta, basta con aprobar.
+
+| # | Tema | Propuesta | Alternativa |
+|---|---|---|---|
+| P1 | **`AccessDeniedException`** la necesita `UserSession.require()` (S1), pero en el plan está en la tarea A1 de Andrés | Sherly la crea en S1 (es una clase de 5 líneas en `exception`) y se quita de A1 | Andrés la sube antes, en un PR aparte |
+| P2 | Identificador de una entidad sin guardar | `long id = 0` + `assignId()` (R3) | `Long id = null` |
+| P3 | Formato del documento de identidad | Letras y números, de 5 a 20 | Solo dígitos (excluye pasaportes) |
+| P4 | Email y `username` | Se guardan en minúsculas | Se guardan como se escriben |
+| P5 | Clases de prueba | Una por entidad (`EmergencyTest`, `GeoPointTest`…), con al menos un caso válido y uno inválido por regla | — |
+
+---
+
+## 8. Cómo se comprueba que S1 cumple este contrato
+
+1. Cada entidad tiene sus pruebas JUnit: datos válidos, cada validación que falla, y los métodos con reglas (`changeStatus`, `moveTo`, `hasPermission`, `distanceMetersTo`).
+2. `ArchitectureTest` y `ClassDiagramSyncTest` en verde. El método `assignId(long)` (R3) todavía no aparece en `docs/class-diagram.md`: se agrega a las entidades del diagrama en el mismo PR de S1.
+3. Revisión de Andrés en el PR de S1: los nombres de atributos y tipos de este documento son los que va a usar el `RowMapper` de cada DAO en la Fase 3.
