@@ -18,7 +18,7 @@ RutaVida usa una **arquitectura en capas** con tres decisiones que la hacen defe
 
 ```mermaid
 flowchart TB
-    VIEW["view<br/>(Swing o web — por confirmar)"]
+    VIEW["view → api REST<br/>(vista web con Leaflet)"]
     CTRL["controller<br/>Controladores de casos de uso"]
     SRV["service<br/>Reglas de negocio"]
     ENG["graph · traffic · simulation<br/>Motor de rutas y simulación"]
@@ -60,7 +60,7 @@ flowchart TB
 | `simulation` | Service | Ciclo de tiempo real, movimiento simulado de unidades y escenarios de demostración | Kendrick |
 | `event` | Transversal | Publicación y suscripción de eventos para el tiempo real | Andrés |
 | `controller` | Controller | Controladores de casos de uso: reciben la acción del usuario y delegan en los servicios | Sherly |
-| `view` | View | Interfaz de usuario. **Tecnología pendiente (Swing o web)** | Diego |
+| `view` | View | Interfaz de usuario. **Decidido: web** (DT-01); en el backend este paquete pasará a ser `api` (adaptadores REST) y la página web irá en `frontend/` | Diego (página web), Andrés y Sherly (`api`) |
 | `util` | Util | Configuración de la conexión, hash de contraseñas, validaciones y mensajes en español | Sherly (`DatabaseConnection`: Andrés) |
 | `exception` | Transversal | Jerarquía de excepciones compartida | Andrés |
 
@@ -131,7 +131,7 @@ simulation (cada tick) ──► TrafficProvider.poll() ──► actualiza el g
 ```
 
 - El historial (`TRAFICO`, `UBICACION_VEHICULO`) se guarda **por lotes**, no en cada tick.
-- `InMemoryEventBus` entrega los eventos en el hilo que publica. Una vista Swing debe actualizar la pantalla con `SwingUtilities.invokeLater`; una vista web reenviaría el evento al navegador.
+- `InMemoryEventBus` entrega los eventos en el hilo que publica. Como la vista es web, la capa `api` reenviará los eventos al navegador (por consultas periódicas o *Server-Sent Events*, pendiente de decidir).
 
 ---
 
@@ -211,14 +211,14 @@ Ejemplo: *consultar los hospitales operativos*.
 | `TransactionManager`, `ConnectionProvider`, `JdbcTransactionManager` | Programado y probado con conexiones falsas |
 | `EventBus`, `InMemoryEventBus`, `DomainEvent` | Programado y probado |
 | `AppContext` (composition root) | Programado; se completa a medida que aparecen DAOs y servicios |
-| `DatabaseConnection`, `DatabaseCheck` | Programado; falta probarlos contra Oracle XE |
+| `DatabaseConnection`, `DatabaseCheck` | Programado y probado contra Oracle XE 18c ("23 de 23") |
 | Pruebas de arquitectura (`ArchitectureTest`) | Programadas y probadas |
 | Entidades, DAOs, servicios, controladores | **Pendiente** |
 | Motor de rutas (`graph`, `traffic`) | Diseñado en el documento consolidado; **no está en el repositorio** |
-| Vista | **Pendiente**: depende de la decisión Swing o web |
+| Vista web y API REST | **Pendiente** (decidido: web, ver `docs/decisiones-tecnicas.md`, DT-01) |
 
 ## 11. Decisiones tomadas y pendientes
 
-- **Sin framework de inyección (sin Spring) por ahora.** `AppContext` cumple esa función en pocas líneas y es fácil de explicar en la sustentación. Si se elige la vista web, se agregará un paquete `api` con adaptadores REST que llamen a los mismos controladores, sin tocar `service` ni `dao`.
-- **Pendiente:** vista en Swing o web (confirmar con el profesor).
+- **Sin framework de inyección (sin Spring) por ahora.** `AppContext` cumple esa función en pocas líneas y es fácil de explicar en la sustentación.
+- **Vista web (DT-01, 15/10/2026).** Se agregará un paquete `api` con adaptadores REST que llamen a los mismos controladores, sin tocar `service` ni `dao`. El paquete `view` del backend se reemplazará por `api` cuando se programe, ajustando `ArchitectureTest` y el diagrama de clases en el mismo PR. El servidor HTTP, la librería JSON y el mecanismo de tiempo real están pendientes (ver `docs/decisiones-tecnicas.md`).
 - **Pendiente:** contratos de los servicios principales (`DispatchService`, `RouteService`), a acordar entre Kendrick, Sherly y Andrés antes de programarlos.

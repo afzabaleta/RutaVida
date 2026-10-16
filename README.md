@@ -31,13 +31,14 @@ RutaVida/
 
 | Componente | Estado |
 |---|---|
-| Esquema de base de datos (23 tablas, secuencias, índices, restricciones) | Ejecutado y verificado en Oracle XE 18c (14/10/2026) |
+| Esquema de base de datos (23 tablas, 21 secuencias, 24 índices, restricciones) | Ejecutado y verificado en Oracle XE 18c con `98_verificar.sql` (14/10/2026) |
 | Datos maestros (roles, permisos, tipos de vehículo y de emergencia) | Cargados y verificados |
 | Conexión JDBC (`DatabaseConnection`) y verificación (`DatabaseCheck`) | Funciona: "23 de 23" con el driver ojdbc11 21.9 |
-| Arquitectura: paquetes, reglas de dependencia, enums, transacciones, eventos, `AppContext` | Programado y probado ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)) |
+| Arquitectura: paquetes, reglas de dependencia, enums, transacciones, eventos, `AppContext` | Programado y probado: 37 pruebas en verde en IntelliJ ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)) |
 | Triggers, vistas y procedimientos PL/SQL | Pendiente |
 | Entidades, DAO, Service, Controller, vista | Pendiente |
-| Vista: Swing o web | **Pendiente de confirmar con el profesor** |
+| Vista | **Decidido: web** (HTML, CSS, JavaScript y Leaflet + API REST en Java). Pendiente de programar |
+| Decisiones del equipo (vista web, Oracle local, tablas en español) | Registradas en [`docs/decisiones-tecnicas.md`](docs/decisiones-tecnicas.md) |
 
 ## Puesta en marcha (cada integrante, una sola vez)
 
@@ -71,7 +72,7 @@ exit
 - También sirve SQL Developer (host `localhost`, puerto `1521`, servicio `XEPDB1`, ejecutar cada archivo con F5).
 - En los scripts, un comentario nunca va después del `;` en la misma línea: SQL*Plus lo envía como parte de la sentencia. `SqlScriptStyleTest` lo verifica.
 
-Para borrar todo y empezar de cero: `database/99_eliminar_esquema.sql` y luego repetir desde `01`.
+`database/99_eliminar_esquema.sql` borra todas las tablas. **Solo se ejecuta con autorización explícita del líder**; después hay que repetir desde `01`.
 
 ### 2. Backend
 
@@ -85,13 +86,19 @@ Para borrar todo y empezar de cero: `database/99_eliminar_esquema.sql` y luego r
    ```
 4. Ejecutar las pruebas: clic derecho sobre `src/test/java` → *Run 'All Tests'* (o `mvn test`).
 
+## Trabajo en equipo
+
+- **Cómo trabajar con Git, ramas y Pull Requests:** [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **Tareas de cada integrante:** [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
+
 ## Convenciones
 
-- **Idioma:** documentación, commits, ramas y Pull Requests en español. Código fuente (clases, métodos, variables, comentarios) en inglés. Textos que ve el usuario, en español.
+- **Idioma:** documentación y Pull Requests en español. **Ramas y commits en inglés.** Código fuente (clases, métodos, variables, comentarios) en inglés. Textos que ve el usuario, en español.
 - **Casos de uso:** [`docs/analysis.md`](docs/analysis.md). **Diagrama de clases (Mermaid):** [`docs/class-diagram.md`](docs/class-diagram.md). `ClassDiagramSyncTest` falla si una clase del código no aparece en el diagrama.
 - **Arquitectura, paquetes, GRASP y SOLID:** ver [`docs/arquitectura-software.md`](docs/arquitectura-software.md). `ArchitectureTest` falla si una capa importa algo que no le corresponde.
 - **Base de datos:** ver [`docs/convenciones-base-datos.md`](docs/convenciones-base-datos.md) (estados, catálogos y cambios al diccionario de datos).
-- **Ramas:** `main` (estable), `develop` (integración), `funcionalidad/<nombre>`, `correccion/<nombre>`, `documentacion/<nombre>`.
-- **Commits:** `tipo: mensaje corto`, por ejemplo `funcionalidad: agrega DAO de emergencias`. Tipos: `funcionalidad`, `correccion`, `documentacion`, `refactorizacion`, `pruebas`, `estructura`.
-- Nadie hace push directo a `main` ni a `develop`: todo entra por Pull Request revisado por otra persona.
+- **Ramas (en inglés):** `main` (estable, rama por defecto), `develop` (integración), `feature/<name>`, `fix/<name>`, `docs/<name>`, `test/<name>`, `refactor/<name>`, `chore/<name>`.
+- **Commits:** `type: short-description` en inglés, por ejemplo `feature: dao-emergencies`. Tipos: `feature`, `fix`, `docs`, `test`, `refactor`, `chore`.
+- Nadie hace commit ni push directo a `main` ni a `develop`: todo entra por Pull Request hacia `develop`, revisado por otra persona.
+- **Las ramas no se eliminan**, ni después del merge. Detalles en [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - Las credenciales nunca se suben al repositorio.
