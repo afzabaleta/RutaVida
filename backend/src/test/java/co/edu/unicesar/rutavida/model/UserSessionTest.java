@@ -111,4 +111,18 @@ class UserSessionTest {
         assertThrows(AccessDeniedException.class, () ->
                 session.require("EMERGENCIAS", "CONSULTAR"));
     }
+
+
+    @Test
+    void rejectsSessionWithDifferentRole() {
+        User user = createUser(RecordStatus.ACTIVE);
+
+        Role differentRole = new Role(
+                3, "SUPERVISOR", null,
+                RecordStatus.ACTIVE, Set.of());
+
+        assertThrows(ValidationException.class, () ->
+                new UserSession(user, differentRole, NOW));
+    }
+
 }

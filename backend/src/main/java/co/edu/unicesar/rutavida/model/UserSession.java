@@ -5,6 +5,7 @@ import co.edu.unicesar.rutavida.exception.AccessDeniedException;
 import co.edu.unicesar.rutavida.util.ValidationUtil;
 
 import java.time.LocalDateTime;
+import co.edu.unicesar.rutavida.exception.ValidationException;
 
 /**
  * Authenticated user session with the role and permissions
@@ -15,11 +16,18 @@ public record UserSession(
         Role role,
         LocalDateTime startedAt) {
 
+
     public UserSession {
         ValidationUtil.requireNonNull(user, "usuario");
         ValidationUtil.requireNonNull(role, "rol");
         ValidationUtil.requireNonNull(startedAt, "inicio de sesión");
+
+        if (user.getRoleId() != role.getId()) {
+            throw new ValidationException(
+                    "El rol de la sesión no corresponde al usuario.");
+        }
     }
+
 
     /** Checks whether the user and role are active and permission exists. */
     public boolean hasPermission(String module, String action) {
