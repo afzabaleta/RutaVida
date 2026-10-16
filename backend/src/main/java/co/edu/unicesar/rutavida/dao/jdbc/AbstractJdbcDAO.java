@@ -1,8 +1,10 @@
 package co.edu.unicesar.rutavida.dao.jdbc;
 
+import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.exception.DataAccessException;
 import co.edu.unicesar.rutavida.model.enums.CodedEnum;
 
+import java.sql.CallableStatement;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,8 +29,16 @@ import java.util.Optional;
  * <p>Parameter conversion done by {@link #bind}: {@code null} → NULL, {@link LocalDateTime}
  * → TIMESTAMP, {@link LocalDate} → DATE, {@link Boolean} → 'S'/'N', {@link CodedEnum} →
  * its Spanish code (e.g. Severity.HIGH → 'ALTA'), anything else → setObject.
+ *
+ * <p>Stored procedures are called with {@link #callProcedure} and
+ * {@link #callProcedureReturningLong}. A PL/SQL function needs no special method: it is
+ * read with a SELECT, e.g. {@code queryOne("SELECT fn_tiempo_respuesta(?) FROM dual", ...)}.
  */
 public abstract class AbstractJdbcDAO {
+
+    /** Oracle leaves ORA-20000 … ORA-20999 for RAISE_APPLICATION_ERROR (see 04_plsql.sql). */
+    private static final int FIRST_APPLICATION_ERROR = 20000;
+    private static final int LAST_APPLICATION_ERROR = 20999;
 
     protected final ConnectionProvider connections;
 
@@ -93,6 +103,56 @@ public abstract class AbstractJdbcDAO {
         });
     }
 
+    /**
+     * Calls a stored procedure that has only IN parameters, e.g.
+     * {@code callProcedure("{call sp_cerrar_emergencia(?, ?)}", emergencyId, closedAt)}.
+     * The parameters are converted like in {@link #bind}. The procedure does not commit:
+     * the TransactionManager does.
+     *
+     * <p>An error raised by the procedure with RAISE_APPLICATION_ERROR is a broken business
+     * rule, so it becomes a {@link BusinessRuleException} with the procedure's own message
+     * (e.g. "La unidad 5 no esta disponible (OCUPADO)"). Any other SQL error becomes a
+     * DataAccessException.
+     */
+    protected void callProcedure(String call, Object... params) {
+        connections.withConnection(connection -> {
+            try (CallableStatement statement = connection.prepareCall(call)) {
+                bind(statement, params);
+                statement.execute();
+                return null;
+            } catch (SQLException e) {
+                rejectIfApplicationError(e);
+                throw e;
+            }
+        });
+    }
+
+    /**
+     * Calls a stored procedure whose LAST parameter is a NUMBER OUT and returns that value.
+     * Pass only the IN parameters; the OUT one is registered here, e.g.
+     * {@code callProcedureReturningLong("{call sp_asignar_unidad(?, ?, ?, ?, ?)}",
+     * emergencyId, vehicleId, coordinatorId, null)} returns the id of the new assignment.
+     * Errors are translated like in {@link #callProcedure}.
+     */
+    protected long callProcedureReturningLong(String call, Object... inParams) {
+        return connections.withConnection(connection -> {
+            try (CallableStatement statement = connection.prepareCall(call)) {
+                bind(statement, inParams);
+                int outIndex = (inParams == null ? 0 : inParams.length) + 1;
+                statement.registerOutParameter(outIndex, Types.NUMERIC);
+                statement.execute();
+                long value = statement.getLong(outIndex);
+                if (statement.wasNull()) {
+                    throw new DataAccessException("The procedure returned NULL in its OUT parameter: " + call, null);
+                }
+                return value;
+            } catch (SQLException e) {
+                rejectIfApplicationError(e);
+                throw e;
+            }
+        });
+    }
+
     /** Binds the parameters in order (index 1, 2, 3…), converting the types listed above. */
     protected static void bind(PreparedStatement statement, Object... params) throws SQLException {
         if (params == null) {
@@ -138,5 +198,30 @@ public abstract class AbstractJdbcDAO {
     /** Reads an S/N flag column: 'S' → true, anything else → false. */
     protected static boolean getFlag(ResultSet row, String column) throws SQLException {
         return "S".equals(row.getString(column));
+    }
+
+    /** Throws BusinessRuleException if the error came from RAISE_APPLICATION_ERROR; otherwise does nothing. */
+    static void rejectIfApplicationError(SQLException error) {
+        if (isApplicationError(error)) {
+            throw new BusinessRuleException(applicationMessage(error));
+        }
+    }
+
+    /** True for ORA-20000 … ORA-20999 (getErrorCode() gives the number without the sign). */
+    static boolean isApplicationError(SQLException error) {
+        int code = error.getErrorCode();
+        return code >= FIRST_APPLICATION_ERROR && code <= LAST_APPLICATION_ERROR;
+    }
+
+    /**
+     * The procedure's message without the Oracle prefix and without the ORA-06512 lines
+     * that point to the PL/SQL line: "ORA-20004: La unidad 5 no esta…\nORA-06512: at…"
+     * → "La unidad 5 no esta…".
+     */
+    static String applicationMessage(SQLException error) {
+        String message = error.getMessage() == null ? "" : error.getMessage();
+        String firstLine = message.lines().findFirst().orElse("").strip();
+        int colon = firstLine.indexOf(": ");
+        return firstLine.startsWith("ORA-") && colon > 0 ? firstLine.substring(colon + 2) : firstLine;
     }
 }

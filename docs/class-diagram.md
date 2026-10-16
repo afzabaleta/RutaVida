@@ -909,6 +909,8 @@ classDiagram
         #getNullableLong(row: ResultSet, column: String) Long$
         #getNullableInt(row: ResultSet, column: String) Integer$
         #getFlag(row: ResultSet, column: String) boolean$
+        #callProcedure(call: String, params: Object[]) void
+        #callProcedureReturningLong(call: String, inParams: Object[]) long
     }
     class DatabaseConnection {
         +fromEnvironment() DatabaseConnection$
