@@ -37,12 +37,14 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 | A0.2 | Conexión JDBC verificada con `DatabaseCheck` ("23 de 23") | Probado (14/10/2026) |
 | A0.3 | Infraestructura (Maven, enums, transacciones, eventos, `AppContext`) y pruebas de arquitectura: 37 pruebas en verde | Probado (14/10/2026) |
 | A0.4 | Inconsistencias documentadas en `docs/convenciones-base-datos.md` y en el documento consolidado v2 | Hecho |
-| A0.5 | Convenciones de Git alineadas (`CONTRIBUTING.md`, `README.md`, este plan) | PR abierto desde `documentacion/ajustar-convenciones-git` |
+| A0.5 | Convenciones de Git alineadas (`CONTRIBUTING.md`, `README.md`, este plan) | Hecho: PR #1 fusionado (15/10/2026) |
 | A0.6 | Configurar GitHub: colaboradores, `main` como rama por defecto, borrado automático de ramas **desactivado**, protección de `main` y `develop` (ver `CONTRIBUTING.md`, sección 6) | Hecho (15/10/2026) |
-| A0.7 | Acordar con Sherly los contratos de las entidades de S1: atributos, tipos Java, relaciones y columna Oracle de cada campo | Pendiente |
+| A0.7 | Acordar con Sherly los contratos de las entidades de S1 (`docs/contratos-entidades.md`) | Hecho: PR #3 aprobado por Sherly y fusionado (15/10/2026) |
 | A0.8 | Decisiones del equipo: vista web, Oracle local, tablas en español (`docs/decisiones-tecnicas.md`) | Hecho (15/10/2026) |
 
-**Terminado cuando:** A0.5 está en `develop` por PR revisado, A0.6 está configurado y Sherly aprueba los contratos de A0.7 (comentario de aprobación en un PR o nota en `docs/`).
+**Terminado cuando:** A0.5 está en `develop` por PR revisado, A0.6 está configurado y Sherly aprueba los contratos de A0.7.
+
+**Fase 1 terminada el 15/10/2026.** Los PR #1, #2 y #3 están fusionados en `develop`.
 
 ---
 
@@ -50,7 +52,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| S1 | Entidades del modelo: `GeoPoint`, `Locatable`, `User`, `Role`, `Permission`, `UserSession`, `Emergency`, `EmergencyType`, `EmergencyVehicle`, `VehicleType`, `EmergencyStation`, `Hospital` | `feature/base-model` | A0.7 |
+| S1 | Entidades del modelo: `GeoPoint`, `Locatable`, `User`, `Role`, `Permission`, `UserSession`, `Emergency`, `EmergencyType`, `EmergencyVehicle`, `VehicleType`, `EmergencyStation`, `Hospital`, y la excepción `AccessDeniedException` (la usa `UserSession`). Siguen `docs/contratos-entidades.md` | `feature/base-model` | A0.7 |
 
 **Terminado cuando:**
 - Las entidades validan sus datos en el constructor (por ejemplo, `GeoPoint` rechaza una latitud fuera de -90 a 90) y tienen pruebas JUnit.
@@ -65,7 +67,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
-| A1 | Base común de los DAO: `RowMapper`, `AbstractJdbcDAO` y la excepción `AccessDeniedException` | `feature/dao-base` | — (puede empezar ya) |
+| A1 | Base común de los DAO: `RowMapper` y `AbstractJdbcDAO` (`AccessDeniedException` pasó a S1 por acuerdo del contrato) | `feature/dao-base` | — (puede empezar ya) |
 | A2 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces en `dao` + `JdbcXxxDAO` en `dao.jdbc`) con pruebas de integración contra Oracle | `feature/security-dao` | A1, S1 |
 
 **Terminado cuando:** todas las pruebas pasan. Las pruebas de los DAO insertan, leen y actualizan en el Oracle local y **se saltan solas** si no existe `db.properties`, para que no fallen en otros equipos. Los DAO usan consultas parametrizadas y no hacen `commit` ni `close` de la conexión del `TransactionManager`.
