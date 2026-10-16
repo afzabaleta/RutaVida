@@ -904,6 +904,11 @@ classDiagram
         #queryOne(sql: String, mapper: RowMapper~T~, params: Object[]) Optional~T~
         #execute(sql: String, params: Object[]) int
         #insertReturningId(sql: String, idColumn: String, params: Object[]) long
+        #bind(statement: PreparedStatement, params: Object[]) void$
+        #getLocalDateTime(row: ResultSet, column: String) LocalDateTime$
+        #getNullableLong(row: ResultSet, column: String) Long$
+        #getNullableInt(row: ResultSet, column: String) Integer$
+        #getFlag(row: ResultSet, column: String) boolean$
     }
     class DatabaseConnection {
         +fromEnvironment() DatabaseConnection$
@@ -1831,8 +1836,8 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `DomainEvent`, `EventPublisher`, `EventBus`, `InMemoryEventBus` | `event` | **Programado y probado** |
 | `RutaVidaException`, `ValidationException`, `NotFoundException`, `BusinessRuleException`, `DataAccessException` | `exception` | **Programado** |
 | `DatabaseConnection`, `AppContext`, `DatabaseCheck` | `util`, `app` | **Programado y probado** contra Oracle XE 18c |
-| `AccessDeniedException`, `RowMapper`, `AbstractJdbcDAO`, `CreateAdminUser` | `exception`, `dao.jdbc`, `app` | Diseñado |
-| Entidades (sección 1), `GeoPoint`, `Locatable`, `UserSession` | `model` | Diseñado |
+| `RowMapper`, `AbstractJdbcDAO` | `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (8 pruebas de integración) |
+| `AccessDeniedException`, `CreateAdminUser` | `exception`, `app` | Diseñado || Entidades (sección 1), `GeoPoint`, `Locatable`, `UserSession` | `model` | Diseñado |
 | Interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | Servicios, DTO, `PasswordHasher` | `service`, `dto`, `util` | Diseñado |
 | Motor de rutas, tráfico y simulación | `graph`, `traffic`, `simulation`, `service` | Diseñado (código de referencia en el documento consolidado, Parte IV) |
