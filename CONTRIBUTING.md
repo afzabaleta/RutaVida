@@ -21,11 +21,12 @@ CONNECT system/TU_CONTRASEÑA_DE_SYSTEM@localhost:1521/XEPDB1
 CONNECT rutavida/LA_CONTRASEÑA_QUE_ELEGISTE@localhost:1521/XEPDB1
 @01_esquema.sql
 @02_datos_iniciales.sql
+@04_plsql.sql
 @98_verificar.sql
 exit
 ```
 
-En `98_verificar.sql` todo debe decir `SI` (23 tablas, 21 secuencias, 24 índices, 0 objetos inválidos). Las dos pruebas marcadas "DEBE FALLAR" muestran `ORA-02290`, y eso es lo correcto.
+En `98_verificar.sql` todo debe decir `SI` (23 tablas, 21 secuencias, 24 índices, 0 objetos inválidos, objetos PL/SQL y las 14 líneas de la prueba 8). Las dos pruebas marcadas "DEBE FALLAR" muestran `ORA-02290`, y eso es lo correcto.
 
 `SYSTEM` solo se usa para crear el usuario. La aplicación y los demás scripts trabajan siempre con el usuario `RUTAVIDA`.
 

@@ -35,7 +35,7 @@ RutaVida/
 | Datos maestros (roles, permisos, tipos de vehículo y de emergencia) | Cargados y verificados |
 | Conexión JDBC (`DatabaseConnection`) y verificación (`DatabaseCheck`) | Funciona: "23 de 23" con el driver ojdbc11 21.9 |
 | Arquitectura: paquetes, reglas de dependencia, enums, transacciones, eventos, `AppContext` | Programado y probado: 37 pruebas en verde en IntelliJ ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)) |
-| Triggers, vistas y procedimientos PL/SQL | Pendiente |
+| Vistas, funciones, procedimientos y triggers PL/SQL (`04_plsql.sql`) | Programado; se prueba con la sección 8 de `98_verificar.sql` |
 | Entidades, DAO, Service, Controller, vista | Pendiente |
 | Vista | **Decidido: web** (HTML, CSS, JavaScript y Leaflet + API REST en Java). Pendiente de programar |
 | Decisiones del equipo (vista web, Oracle local, tablas en español) | Registradas en [`docs/decisiones-tecnicas.md`](docs/decisiones-tecnicas.md) |
@@ -62,13 +62,14 @@ CONNECT rutavida/CONTRASEÑA_DE_RUTAVIDA@localhost:1521/XEPDB1
 SPOOL instalacion.log
 @01_esquema.sql
 @02_datos_iniciales.sql
+@04_plsql.sql
 @98_verificar.sql
 SPOOL OFF
 exit
 ```
 
 - `00_crear_usuario.sql` pide la contraseña del nuevo usuario `RUTAVIDA` (solo se ejecuta una vez).
-- En `98_verificar.sql` todas las columnas `OK` deben decir `SI`. Las dos pruebas marcadas "DEBE FALLAR" deben mostrar `ORA-02290`: eso es correcto.
+- En `98_verificar.sql` todas las columnas `OK` deben decir `SI`, y cada línea de la prueba 8 (PL/SQL) debe terminar en `SI`. Las dos pruebas marcadas "DEBE FALLAR" deben mostrar `ORA-02290`: eso es correcto.
 - También sirve SQL Developer (host `localhost`, puerto `1521`, servicio `XEPDB1`, ejecutar cada archivo con F5).
 - En los scripts, un comentario nunca va después del `;` en la misma línea: SQL*Plus lo envía como parte de la sentencia. `SqlScriptStyleTest` lo verifica.
 

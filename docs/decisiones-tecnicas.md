@@ -8,6 +8,7 @@ Registro de las decisiones que afectan a todo el proyecto. Cada decisión dice q
 | DT-02 | Base de datos **Oracle XE local** durante el desarrollo; la migración a Oracle Cloud se evalúa después | 15/10/2026 | Decidida por el equipo |
 | DT-03 | Tablas y columnas de Oracle **en español**; código Java en inglés | 15/10/2026 | Decidida por el equipo |
 | DT-04 | Nombres de **ramas en inglés** (`feature/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`) | 15/10/2026 | Decidida por el líder; cambia la regla anterior de ramas en español |
+| DT-05 | PL/SQL: Java decide y PL/SQL ejecuta; triggers solo para cambios de estado; tiempo de respuesta = reporte → llegada | 15/10/2026 | Decidida por el líder |
 
 ---
 
@@ -71,3 +72,32 @@ Nada de esto está programado todavía: el estado actual es **diseñado**.
 **Qué cambia respecto a la regla anterior:** el prompt maestro del proyecto pedía ramas en español. Esta decisión la reemplaza. Lo demás se mantiene: commits en inglés, títulos y descripciones de Pull Requests en español, documentación en español.
 
 **Ramas anteriores:** `documentacion/ajustar-convenciones-git`, `documentacion/documento-consolidado-v2` y `documentacion/contratos-entidades` conservan su nombre. No se renombran porque renombrar una rama en GitHub implica borrar la anterior, y la regla del equipo es no eliminar ramas.
+
+---
+
+## DT-05 · Objetos PL/SQL (`database/04_plsql.sql`)
+
+**Decisión:** se crean los objetos planeados en la sección 7.13 del documento consolidado, con tres reglas para no duplicar lógica con el backend Java.
+
+| Objeto | Qué hace |
+|---|---|
+| `vw_emergencias_activas`, `vw_unidades_disponibles`, `vw_hospitales_operativos` | Consultas del dashboard |
+| `fn_tiempo_respuesta(id_asignacion)` | Minutos desde el **reporte** de la emergencia hasta la **llegada** de la unidad |
+| `fn_unidades_disponibles(id_tipo_vehiculo)` | Cuántas unidades están `DISPONIBLE` (todas o de un tipo) |
+| `sp_asignar_unidad` | Crea la asignación, marca la unidad `OCUPADO` y pasa la emergencia a `ASIGNADA` |
+| `sp_cerrar_emergencia` | Finaliza o cancela las asignaciones abiertas, libera las unidades, cierra las rutas y marca la emergencia `CERRADA` |
+| `trg_emergencia_estado`, `trg_asignacion_estado`, `trg_incidente_estado` | Guardan en `AUDITORIA` cada cambio de estado (`ANTES -> DESPUES`) |
+| `fn_usuario_sesion` | Auxiliar de los triggers: lee el usuario de `CLIENT_IDENTIFIER` |
+
+**Reglas:**
+
+1. **Java decide, PL/SQL ejecuta.** `DispatchService` valida las reglas de negocio y llama a los procedimientos desde su DAO. Los procedimientos revalidan (errores `-20001` a `-20006`), hacen todos los cambios juntos y **no hacen `COMMIT`**: la transacción es del `TransactionManager`.
+2. **Los triggers solo auditan cambios de estado.** `AuditService` sigue registrando inicios de sesión y operaciones de negocio. El usuario de un cambio se toma de `CLIENT_IDENTIFIER`; si no hay uno válido, se guarda `NULL` y el trigger nunca falla.
+3. **Tiempo de respuesta = reporte → llegada al sitio**, que es lo que vive el ciudadano.
+
+**Pendiente:**
+
+- El backend debe fijar `CLIENT_IDENTIFIER` con el id del usuario en cada conexión (por ejemplo con `connection.setClientInfo("OCSID.CLIENTID", ...)`). Se hace en la integración del login (A3).
+- `AbstractJdbcDAO` todavía no tiene un método para llamar procedimientos (`CallableStatement`). Se agrega cuando se programe el DAO de despacho (Sprint 2).
+- `99_eliminar_esquema.sql` no borra estas vistas, funciones y procedimientos (los triggers sí se borran con sus tablas). Quedan inválidos hasta volver a ejecutar `01` y `04`. Cambiar `99` requiere autorización del líder.
+
