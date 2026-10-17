@@ -138,6 +138,7 @@ classDiagram
         -permissions : Set~Permission~
         +hasPermission(module: String, action: String) boolean
         +isActive() boolean
+        +assignId(id: long) void
     }
     class Permission {
         -id : long
@@ -145,6 +146,7 @@ classDiagram
         -action : String
         -description : String
         +matches(module: String, action: String) boolean
+        +assignId(id: long) void
     }
     class User {
         -id : long
@@ -159,6 +161,7 @@ classDiagram
         -registeredAt : LocalDateTime
         +getFullName() String
         +isActive() boolean
+        +assignId(id: long) void
     }
     class Alert {
         -id : long
@@ -217,6 +220,7 @@ classDiagram
         -name : String
         -priority : int
         -description : String
+        +assignId(id: long) void
     }
     class Emergency {
         -id : long
@@ -232,6 +236,7 @@ classDiagram
         +getLocation() GeoPoint
         +changeStatus(next: EmergencyStatus, at: LocalDateTime) void
         +isActive() boolean
+        +assignId(id: long) void
     }
     class EmergencyAssignment {
         -id : long
@@ -259,12 +264,14 @@ classDiagram
         +isDispatchable() boolean
         +moveTo(point: GeoPoint, at: LocalDateTime) void
         +changeStatus(next: VehicleOperationalStatus) void
+        +assignId(id: long) void
     }
     class VehicleType {
         -id : long
         -name : String
         -priority : int
         -description : String
+        +assignId(id: long) void
     }
     class EmergencyStation {
         -id : long
@@ -275,6 +282,7 @@ classDiagram
         -location : GeoPoint
         -status : RecordStatus
         +getLocation() GeoPoint
+        +assignId(id: long) void
     }
     class Hospital {
         -id : long
@@ -287,6 +295,7 @@ classDiagram
         -status : RecordStatus
         +getLocation() GeoPoint
         +isOperational() boolean
+        +assignId(id: long) void
     }
     class HospitalServiceOffering {
         -id : long
@@ -1166,10 +1175,14 @@ classDiagram
         +username : String
         +password : char[]
     }
-    class ValidationUtil {
-        +requireText(value: String, field: String) String$
-        +requireInRange(value: double, min: double, max: double, field: String) double$
-    }
+class ValidationUtil {
+    +requireText(value: String, field: String, maxLength: int) String$
+    +optionalText(value: String, field: String, maxLength: int) String$
+    +requirePositiveId(id: long, field: String) long$
+    +requireNonNull(value: T, field: String) T$
+    +requireInRange(value: double, min: double, max: double, field: String) double$
+}
+
     class Messages {
         +get(key: String) String$
     }
@@ -1846,7 +1859,10 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `RutaVidaException`, `ValidationException`, `NotFoundException`, `BusinessRuleException`, `DataAccessException` | `exception` | **Programado** |
 | `DatabaseConnection`, `AppContext`, `DatabaseCheck` | `util`, `app` | **Programado y probado** contra Oracle XE 18c |
 | `RowMapper`, `AbstractJdbcDAO` | `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (8 pruebas de integración) |
-| `AccessDeniedException`, `CreateAdminUser` | `exception`, `app` | Diseñado || Entidades (sección 1), `GeoPoint`, `Locatable`, `UserSession` | `model` | Diseñado |
+| `AccessDeniedException` | `exception` | **Programado y probado** |
+| `CreateAdminUser` | `app` | Diseñado |
+| `GeoPoint`, `Locatable`, `UserSession`, `ValidationUtil`, `EmergencyType`, `VehicleType`, `Permission`, `Role`, `User`, `EmergencyStation`, `Hospital`, `EmergencyVehicle`, `Emergency` | `model`, `util` | **Programado y probado** |
+| Otras entidades de la sección 1, pendientes de implementación | `model` | Diseñado |
 | Interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | Servicios, DTO, `PasswordHasher` | `service`, `dto`, `util` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
