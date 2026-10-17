@@ -54,6 +54,14 @@ public class EmergencyVehicle implements Locatable {
         this.operationalStatus = ValidationUtil.requireNonNull(
                 operationalStatus, "estado operativo");
 
+
+        if (id == 0
+                && operationalStatus != VehicleOperationalStatus.AVAILABLE) {
+            throw new ValidationException(
+                    "Una unidad nueva debe iniciar en estado DISPONIBLE.");
+        }
+
+
         if (lastLocation != null && lastLocationAt == null) {
             throw new ValidationException(
                     "La fecha de ubicación es obligatoria cuando existe una posición.");

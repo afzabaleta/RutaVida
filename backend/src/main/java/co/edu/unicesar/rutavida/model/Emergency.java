@@ -53,6 +53,12 @@ public class Emergency implements Locatable {
         this.status = ValidationUtil.requireNonNull(
                 status, "estado");
 
+        if (id == 0 && status != EmergencyStatus.REPORTED) {
+            throw new ValidationException(
+                    "Una emergencia nueva debe iniciar en estado REPORTADA.");
+        }
+
+
         validateClosure(this.status, closedAt);
         this.closedAt = closedAt;
     }

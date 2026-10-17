@@ -139,4 +139,16 @@ class EmergencyTest {
         assertThrows(IllegalStateException.class,
                 () -> emergency.assignId(16));
     }
+
+
+    @Test
+    void newEmergencyMustStartReported() {
+        assertThrows(ValidationException.class, () ->
+                new Emergency(
+                        0, 1, 1, "Calle 16",
+                        LOCATION, REPORTED_AT, SEVERITY,
+                        "Emergencia de prueba",
+                        EmergencyStatus.ASSIGNED, null));
+    }
+
 }

@@ -145,4 +145,15 @@ class EmergencyVehicleTest {
         assertThrows(IllegalStateException.class,
                 () -> vehicle.assignId(11));
     }
+
+
+    @Test
+    void newVehicleMustStartAvailable() {
+        assertThrows(ValidationException.class, () ->
+                new EmergencyVehicle(
+                        0, 1, 1, "AMB-01", null,
+                        VehicleOperationalStatus.BUSY,
+                        null, null));
+    }
+
 }
