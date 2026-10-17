@@ -1378,6 +1378,7 @@ classDiagram
     class TrafficProvider {
         <<interface>>
         +poll() List~EdgeUpdate~
+        +source() TrafficSource
     }
     class EdgeUpdate {
         <<record>>
@@ -1386,15 +1387,19 @@ classDiagram
         +signalDelaySec : double
     }
     class SimulatedTrafficProvider {
-        -graph : RoadGraph
+        -edgeCount : int
+        -forced : Map~Integer,Double~
         -random : Random
         -clock : Clock
+
         +poll() List~EdgeUpdate~
         +forceCongestion(edgeIndex: int, congestion: double) void
+        +source() TrafficSource
     }
     class ExternalTrafficProvider {
         <<fase 2>>
         +poll() List~EdgeUpdate~
+        +source() TrafficSource
     }
     class IncidentService {
         -incidentDao : RoadIncidentDAO
@@ -1870,7 +1875,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | Servicios, DTO, `PasswordHasher` | `service`, `dto`, `util` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
-| Tráfico | `traffic` | Diseñado |
+| Tráfico | `traffic` | **Programado y probado** |
 | Simulación | `simulation` | Diseñado |
 | Eventos concretos (`UnitDispatched`…) | `event` | Diseñado |
 | Controladores, `SessionContext`, `OperationResult` | `controller`, `dto` | Diseñado |
