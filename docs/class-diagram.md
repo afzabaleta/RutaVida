@@ -1214,6 +1214,9 @@ classDiagram
         +dbId : long
         +lat : double
         +lon : double
+
+        +distanceMetersTo(other: Node) double
+        +distanceMetersTo(lat: double, lon: double) double
     }
     class Edge {
         <<record>>
@@ -1249,6 +1252,10 @@ classDiagram
         -outgoing : List~Edge~[]
         -states : AtomicReferenceArray~EdgeState~
         -version : long
+
+        +nodeCount() int
+        +edgeCount() int
+
         +outgoing(nodeIndex: int) List~Edge~
         +node(index: int) Node
         +edge(index: int) Edge
@@ -1842,7 +1849,9 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `AccessDeniedException`, `CreateAdminUser` | `exception`, `app` | Diseñado || Entidades (sección 1), `GeoPoint`, `Locatable`, `UserSession` | `model` | Diseñado |
 | Interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | Servicios, DTO, `PasswordHasher` | `service`, `dto`, `util` | Diseñado |
-| Motor de rutas, tráfico y simulación | `graph`, `traffic`, `simulation`, `service` | Diseñado (código de referencia en el documento consolidado, Parte IV) |
+| Motor de rutas | `graph` | **Programado y probado** |
+| Tráfico | `traffic` | Diseñado |
+| Simulación | `simulation` | Diseñado |
 | Eventos concretos (`UnitDispatched`…) | `event` | Diseñado |
 | Controladores, `SessionContext`, `OperationResult` | `controller`, `dto` | Diseñado |
 | Vista web y adaptadores REST | `view` → `api`, `frontend/` | Decidido (web); pendiente de programar |
