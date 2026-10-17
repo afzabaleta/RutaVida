@@ -6,10 +6,12 @@ import co.edu.unicesar.rutavida.model.enums.TrafficSource;
 import java.time.Clock;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 /** Simulated traffic (phase 1). Never closes edges and never modifies the graph. */
 public class SimulatedTrafficProvider implements TrafficProvider {
@@ -37,6 +39,7 @@ public class SimulatedTrafficProvider implements TrafficProvider {
         for (Map.Entry<Integer, Double> entry : forced.entrySet()) {
             updates.add(new EdgeUpdate(entry.getKey(), entry.getValue(), 0));
         }
+        Set<Integer> forcedNow = new HashSet<>(forced.keySet());
         forced.clear();
 
         int count = Math.max(1, (int) Math.round(edgeCount * SAMPLE_SHARE));
@@ -45,7 +48,9 @@ public class SimulatedTrafficProvider implements TrafficProvider {
             int edge = random.nextInt(edgeCount);
             double congestion = peak ? 1.5 + random.nextDouble() * 1.5 : 1.0 + random.nextDouble() * 0.8;
             double signal = random.nextDouble() * MAX_SIGNAL_DELAY_SEC;
-            updates.add(new EdgeUpdate(edge, congestion, signal));
+            if (!forcedNow.contains(edge)) {
+                updates.add(new EdgeUpdate(edge, congestion, signal));
+            }
         }
         return updates;
     }
@@ -66,6 +71,7 @@ public class SimulatedTrafficProvider implements TrafficProvider {
         return TrafficSource.SIMULATION;
     }
 
+    /** Peak hours are assumptions to calibrate (6:30-8:30, 11:30-13:30, 17:00-19:00), not measured data. */
     private boolean isPeakHour() {
         LocalTime now = LocalTime.now(clock);
         return between(now, 6, 30, 8, 30) || between(now, 11, 30, 13, 30) || between(now, 17, 0, 19, 0);

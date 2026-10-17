@@ -1386,7 +1386,8 @@ classDiagram
         +signalDelaySec : double
     }
     class SimulatedTrafficProvider {
-        -graph : RoadGraph
+        -edgeCount : int
+        -forced : Map~Integer,Double~
         -random : Random
         -clock : Clock
 

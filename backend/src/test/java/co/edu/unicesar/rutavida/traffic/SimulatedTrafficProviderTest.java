@@ -76,6 +76,21 @@ class SimulatedTrafficProviderTest {
     }
 
     @Test
+    void forcedCongestionIsNotOverwrittenInTheSamePoll() {
+        RoadGraph graph = SampleGraph.sixNodes();
+        SimulatedTrafficProvider provider = provider(graph, 42, PEAK);
+        for (int i = 0; i < graph.edgeCount(); i++) {
+            provider.forceCongestion(i, 2.5);
+        }
+        List<EdgeUpdate> updates = provider.poll();
+        assertEquals(graph.edgeCount(), updates.size());
+        for (EdgeUpdate update : updates) {
+            assertEquals(2.5, update.congestion(), 0.0001);
+            assertEquals(0.0, update.signalDelaySec(), 0.0001);
+        }
+    }
+
+    @Test
     void doesNotTouchTheGraph() {
         RoadGraph graph = SampleGraph.sixNodes();
         SimulatedTrafficProvider provider = provider(graph, 42, PEAK);
