@@ -100,6 +100,23 @@ Métodos: `getFullName()` (nombres + apellidos) e `isActive()`. `toString()` sin
 
 El formato exacto del hash (algoritmo, iteraciones, sal) lo define Sherly en S2 con `Pbkdf2PasswordHasher`. La entidad solo guarda el texto resultante.
 
+### `AuditLog` ↔ `AUDITORIA`
+
+Agregada el 16/10/2026: no estaba en S1, pero la necesitan `AuditDAO` (A2) y `AuditService` (S2). La programa Andrés con las mismas reglas R1–R14, para que no la creen dos personas.
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_auditoria NUMBER(12)` | Sí | R3 |
+| `userId` | `Long` | `id_usuario NUMBER(10)` | No | Mayor que 0 si tiene valor. `null` = acción sin usuario autenticado (inicio de sesión fallido, simulador) |
+| `module` | `String` | `modulo VARCHAR2(60)` | Sí | Mayúsculas, máx. 60 (`SEGURIDAD`, `EMERGENCIAS`, `DESPACHO`…) |
+| `operation` | `String` | `operacion VARCHAR2(40)` | Sí | Mayúsculas, máx. 40 (`LOGIN`, `REGISTRAR`, `CAMBIO_ESTADO`…) |
+| `recordId` | `Long` | `registro_id NUMBER(12)` | No | Mayor que 0 si tiene valor |
+| `occurredAt` | `LocalDateTime` | `fecha_hora TIMESTAMP` | Sí | R10 |
+| `result` | `AuditResult` | `resultado VARCHAR2(20)` | Sí | `SUCCESS` ↔ `EXITO`, `FAILURE` ↔ `FALLO` |
+| `detail` | `String` | `detalle VARCHAR2(500)` | No | Máx. 500 |
+
+Es historial: no tiene métodos que la cambien después de crearla (solo `assignId`). Los cambios de estado de emergencias, asignaciones e incidentes los escriben los triggers de `04_plsql.sql` (DT-05); `AuditService` registra el resto.
+
 ### `UserSession` (*record*, no es tabla)
 
 | Atributo | Tipo |

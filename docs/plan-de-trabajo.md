@@ -68,7 +68,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 | # | Tarea | Rama | Depende de |
 |---|---|---|---|
 | A1 | Base común de los DAO: `RowMapper` y `AbstractJdbcDAO` (`AccessDeniedException` pasó a S1 por acuerdo del contrato) | `feature/dao-base` | — (puede empezar ya) |
-| A2 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces en `dao` + `JdbcXxxDAO` en `dao.jdbc`) con pruebas de integración contra Oracle | `feature/security-dao` | A1, S1 |
+| A2 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces en `dao` + `JdbcXxxDAO` en `dao.jdbc`) con pruebas de integración contra Oracle. Se entrega en **dos PR**: primero las interfaces y la entidad `AuditLog` (`feature/security-dao-interfaces`), para que Sherly avance S2 sin esperar; después las implementaciones JDBC (`feature/security-dao`) | `feature/security-dao-interfaces`, `feature/security-dao` | A1, S1 |
 
 **Terminado cuando:** todas las pruebas pasan. Las pruebas de los DAO insertan, leen y actualizan en el Oracle local y **se saltan solas** si no existe `db.properties`, para que no fallen en otros equipos. Los DAO usan consultas parametrizadas y no hacen `commit` ni `close` de la conexión del `TransactionManager`.
 
