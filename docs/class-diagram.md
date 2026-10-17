@@ -1249,14 +1249,14 @@ classDiagram
     class RoadGraph {
         -nodes : Node[]
         -edges : Edge[]
-        -outgoing : List<Edge>[]
-        -states : AtomicReferenceArray<EdgeState>
+        -outgoing : List~Edge~[]
+        -states : AtomicReferenceArray~EdgeState~
         -version : long
 
         +nodeCount() int
         +edgeCount() int
 
-        +outgoing(nodeIndex: int) List<Edge>
+        +outgoing(nodeIndex: int) List~Edge~
         +node(index: int) Node
         +edge(index: int) Edge
         +state(edgeIndex: int) EdgeState
