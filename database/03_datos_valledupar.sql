@@ -40,3 +40,65 @@ WHERE NOT EXISTS (
 );
 
 COMMIT;
+
+-- ============================================================
+-- 2. HOSPITALES DE VALLEDUPAR
+-- Direcciones verificadas en fuentes institucionales.
+-- Coordenadas consultadas en OpenStreetMap mediante Mapcarta.
+-- ============================================================
+
+-- Hospital Rosario Pumarejo de Lopez
+INSERT INTO hospital (
+    nombre,
+    nivel,
+    direccion,
+    telefono,
+    latitud,
+    longitud,
+    capacidad_urgencias,
+    estado
+)
+SELECT
+    'HOSPITAL ROSARIO PUMAREJO DE LOPEZ',
+    'III',
+    'Calle 16 No. 17-141, Valledupar, Cesar',
+    NULL,
+    10.469330,
+    -73.254520,
+    NULL,
+    'A'
+FROM dual
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM hospital
+    WHERE nombre = 'HOSPITAL ROSARIO PUMAREJO DE LOPEZ'
+);
+
+-- Hospital Eduardo Arredondo Daza - sede San Martin
+INSERT INTO hospital (
+    nombre,
+    nivel,
+    direccion,
+    telefono,
+    latitud,
+    longitud,
+    capacidad_urgencias,
+    estado
+)
+SELECT
+    'HOSPITAL EDUARDO ARREDONDO DAZA - SAN MARTIN',
+    'I',
+    'Carrera 20 No. 43-63, barrio San Martin, Valledupar, Cesar',
+    '6055840179',
+    10.446380,
+    -73.247410,
+    NULL,
+    'A'
+FROM dual
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM hospital
+    WHERE nombre = 'HOSPITAL EDUARDO ARREDONDO DAZA - SAN MARTIN'
+);
+
+COMMIT;
