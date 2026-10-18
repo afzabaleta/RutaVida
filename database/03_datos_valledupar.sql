@@ -102,3 +102,67 @@ WHERE NOT EXISTS (
 );
 
 COMMIT;
+
+-- ============================================================
+-- 3. SERVICIOS HOSPITALARIOS
+-- Disponibilidad marcada como N hasta contar con confirmacion.
+-- No representa disponibilidad hospitalaria en tiempo real.
+-- ============================================================
+
+-- Servicios asociados al Hospital Rosario Pumarejo de Lopez
+INSERT INTO servicio_hospital (
+    id_hospital,
+    nombre_servicio,
+    disponible,
+    capacidad
+)
+SELECT
+    h.id_hospital,
+    s.nombre_servicio,
+    'N',
+    NULL
+FROM hospital h
+CROSS JOIN (
+    SELECT 'URGENCIAS' AS nombre_servicio FROM dual
+    UNION ALL
+    SELECT 'HOSPITALIZACION' FROM dual
+    UNION ALL
+    SELECT 'CIRUGIA' FROM dual
+) s
+WHERE h.nombre = 'HOSPITAL ROSARIO PUMAREJO DE LOPEZ'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM servicio_hospital sh
+      WHERE sh.id_hospital = h.id_hospital
+        AND sh.nombre_servicio = s.nombre_servicio
+  );
+
+-- Servicios asociados al Hospital Eduardo Arredondo Daza - San Martin
+INSERT INTO servicio_hospital (
+    id_hospital,
+    nombre_servicio,
+    disponible,
+    capacidad
+)
+SELECT
+    h.id_hospital,
+    s.nombre_servicio,
+    'N',
+    NULL
+FROM hospital h
+CROSS JOIN (
+    SELECT 'URGENCIAS' AS nombre_servicio FROM dual
+    UNION ALL
+    SELECT 'CONSULTA EXTERNA' FROM dual
+    UNION ALL
+    SELECT 'HOSPITALIZACION' FROM dual
+) s
+WHERE h.nombre = 'HOSPITAL EDUARDO ARREDONDO DAZA - SAN MARTIN'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM servicio_hospital sh
+      WHERE sh.id_hospital = h.id_hospital
+        AND sh.nombre_servicio = s.nombre_servicio
+  );
+
+COMMIT;
