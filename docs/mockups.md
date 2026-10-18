@@ -1,4 +1,4 @@
-# Mockups de RutaVida
+﻿# Mockups de RutaVida
 
 Diseño de la interfaz web (decisión DT-01).
 
