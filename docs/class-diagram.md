@@ -1349,7 +1349,9 @@ classDiagram
         +saveForMission(emergencyId: long, vehicleId: long, hospitalId: Long, options: List~RouteOption~) List~Route~
     }
     class RouteExplanationBuilder {
+        +CONGESTED_FROM : double$
         +explain(option: RouteResult, best: RouteResult, graph: RoadGraph) String
+        +toOption(rank: int, route: RouteResult, best: RouteResult, graph: RoadGraph) RouteOption
     }
     class RouteOption {
         <<record>>
@@ -1876,6 +1878,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | Servicios, DTO, `PasswordHasher` | `service`, `dto`, `util` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
+| `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | Simulación | `simulation` | Diseñado |
 | Eventos concretos (`UnitDispatched`…) | `event` | Diseñado |
 | Controladores, `SessionContext`, `OperationResult` | `controller`, `dto` | Diseñado |
