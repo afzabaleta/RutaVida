@@ -80,6 +80,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 |---|---|---|---|
 | K1 | Paquete `graph`: `Node`, `Edge`, `EdgeState`, `VehicleProfile`, `RoadGraph`, `CostFunction`, `EmergencyCost`, `DistanceOnlyCost`, `RouteResult`, `AStarRouter`, `AlternativeRouteFinder` | `feature/route-engine` | — |
 | K2 | Paquete `traffic`: `TrafficProvider`, `EdgeUpdate`, `SimulatedTrafficProvider` con semilla fija (resultados repetibles) | `feature/simulated-traffic` | K1 |
+| K3 | `RouteOption` (dto) y `RouteExplanationBuilder` (service): datos y explicación en español de cada ruta (CU-08, paso 5) | `feature/route-explanation` | K1 |
 
 El documento consolidado (Parte IV) tiene código de referencia de K1. Hay que adaptarlo a los cambios de `docs/class-diagram.md`, sección 6: `dbId` en `Node` y `Edge`, `incidentFactor` en `EdgeState`, `EdgeUpdate` sin `closed` y el nombre `AlternativeRouteFinder`.
 
