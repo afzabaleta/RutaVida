@@ -62,6 +62,7 @@ CONNECT rutavida/CONTRASEÑA_DE_RUTAVIDA@localhost:1521/XEPDB1
 SPOOL instalacion.log
 @01_esquema.sql
 @02_datos_iniciales.sql
+@03_datos_valledupar.sql
 @04_plsql.sql
 @98_verificar.sql
 SPOOL OFF
