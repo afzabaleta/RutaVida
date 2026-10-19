@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- RutaVida - Datos reales de Valledupar
 -- Archivo: 03_datos_valledupar.sql
 -- Coordenadas y ubicacion: OpenStreetMap
@@ -10,6 +10,10 @@
 -- La ficha se basa en datos de OpenStreetMap.
 -- Coordenadas publicadas: 10.46858, -73.25759.
 
+-- Fuente cartografica de la ubicacion aproximada:
+-- https://mapcarta.com/es/W687362314
+-- La fuente no confirma una direccion postal exacta.
+-- Coordenadas publicadas: 10.46858, -73.25759.
 -- 1. ESTACION DE BOMBEROS
 -- Se omiten telefono y barrio porque no se han verificado.
 -- WHERE NOT EXISTS evita insertar nuevamente el mismo registro.
@@ -25,7 +29,7 @@ INSERT INTO estacion_emergencia (
 )
 SELECT
     'Estacion de Bomberos',
-    'Avenida Pedro Castro Monsalvo, Valledupar, Cesar',
+    'Ubicacion en Valledupar, Cesar; direccion exacta no verificada',
     NULL,
     NULL,
     10.468580,
@@ -36,7 +40,7 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM estacion_emergencia
     WHERE nombre = 'Estacion de Bomberos'
-      AND direccion = 'Avenida Pedro Castro Monsalvo, Valledupar, Cesar'
+      AND direccion = 'Ubicacion en Valledupar, Cesar; direccion exacta no verificada'
 );
 
 COMMIT;
@@ -47,6 +51,11 @@ COMMIT;
 -- Coordenadas consultadas en OpenStreetMap mediante Mapcarta.
 -- ============================================================
 
+-- Fuente institucional para direccion y contacto:
+-- https://hrplopez.gov.co/sitio/index.php/es/transparencia/52-trasparencia-y-acceso-a-la-informacion-publica/50-1-2-mecanismos-para-la-atencion-al-ciudadano
+-- Fuente cartografica para coordenadas:
+-- https://mapcarta.com/es/N6456494546
+-- Nivel II pendiente de confirmar con una fuente oficial especifica.
 -- Hospital Rosario Pumarejo de Lopez
 INSERT INTO hospital (
     nombre,
@@ -60,7 +69,7 @@ INSERT INTO hospital (
 )
 SELECT
     'HOSPITAL ROSARIO PUMAREJO DE LOPEZ',
-    'III',
+    'II',
     'Calle 16 No. 17-141, Valledupar, Cesar',
     NULL,
     10.469330,
@@ -74,6 +83,10 @@ WHERE NOT EXISTS (
     WHERE nombre = 'HOSPITAL ROSARIO PUMAREJO DE LOPEZ'
 );
 
+-- Fuente institucional para direccion, telefono y atencion:
+-- https://www.headese.gov.co/2021/preguntas-frecuentes/
+-- Fuente cartografica para coordenadas:
+-- https://mapcarta.com/es/W687415468
 -- Hospital Eduardo Arredondo Daza - sede San Martin
 INSERT INTO hospital (
     nombre,

@@ -21,6 +21,7 @@ CONNECT system/TU_CONTRASEÑA_DE_SYSTEM@localhost:1521/XEPDB1
 CONNECT rutavida/LA_CONTRASEÑA_QUE_ELEGISTE@localhost:1521/XEPDB1
 @01_esquema.sql
 @02_datos_iniciales.sql
+@03_datos_valledupar.sql
 @04_plsql.sql
 @98_verificar.sql
 exit
