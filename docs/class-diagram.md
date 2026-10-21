@@ -1005,6 +1005,39 @@ classDiagram
         +login(username: String, password: char[]) UserSession
         +logout(session: UserSession) void
     }
+
+class AuditService {
+    -auditDao : AuditDAO
+    -clock : Clock
+    +record(userId: Long, module: String, operation: String, recordId: Long, result: AuditResult, detail: String) void
+    +findByRecord(module: String, recordId: long) List~AuditLog~
+}
+
+interface PasswordHasher {
+    +hash(raw: char[]) String
+    +matches(raw: char[], stored: String) boolean
+}
+
+class Pbkdf2PasswordHasher {
+    +DEFAULT_ITERATIONS : int
+    -iterations : int
+    -random : SecureRandom
+    +hash(raw: char[]) String
+    +matches(raw: char[], stored: String) boolean
+    -derive(raw: char[], salt: byte[], iterations: int) byte[]
+}
+
+Pbkdf2PasswordHasher ..|> PasswordHasher
+
+AuthService ..> UserDAO
+AuthService ..> RoleDAO
+AuthService ..> PasswordHasher
+AuthService ..> AuditService
+AuthService ..> UserSession
+
+AuditService ..> AuditDAO
+AuditService ..> AuditLog
+
     class UserService {
         -userDao : UserDAO
         -roleDao : RoleDAO
@@ -1187,7 +1220,18 @@ class ValidationUtil {
     class Messages {
         +get(key: String) String$
     }
-    class AuthService
+
+class AuthService {
+    -userDao : UserDAO
+    -roleDao : RoleDAO
+    -passwordHasher : PasswordHasher
+    -auditService : AuditService
+    -clock : Clock
+    -dummyHash : String
+    +login(username: String, password: char[]) UserSession
+    +logout(session: UserSession) void
+}
+
     class UserService
     class EmergencyService
     class DispatchService
