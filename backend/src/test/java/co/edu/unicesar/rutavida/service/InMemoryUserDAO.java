@@ -15,7 +15,9 @@ import java.util.Optional;
  * Fake UserDAO for service tests:
  * keeps users in memory without Oracle.
  */
-class InMemoryUserDAO implements UserDAO {
+
+public class InMemoryUserDAO implements UserDAO {
+
 
     private final Map<Long, User> users = new LinkedHashMap<>();
 

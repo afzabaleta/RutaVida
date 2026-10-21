@@ -13,9 +13,11 @@ import java.util.Locale;
  * Fake AuditDAO for service tests:
  * keeps audit entries in memory, without Oracle.
  */
-class InMemoryAuditDAO implements AuditDAO {
+public class InMemoryAuditDAO implements AuditDAO {
 
-    final List<AuditLog> saved = new ArrayList<>();
+
+    public final List<AuditLog> saved = new ArrayList<>();
+
 
     @Override
     public void insert(AuditLog log) {
@@ -46,7 +48,9 @@ class InMemoryAuditDAO implements AuditDAO {
                 .toList();
     }
 
-    AuditLog last() {
+
+    public AuditLog last() {
+
         return saved.get(saved.size() - 1);
     }
 }
