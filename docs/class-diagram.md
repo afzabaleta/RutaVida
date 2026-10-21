@@ -1185,9 +1185,12 @@ class ValidationUtil {
 }
 
 
+
 class Messages {
-    +get(key: String) String
-    +userMessage(error: RuntimeException) String
+    +get(key: String) String$
+    +userMessage(error: RuntimeException) String$
+}
+
 }
     class AuthService
     class UserService
@@ -1878,13 +1881,14 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces) | `dao` | **Programado** (A2) |
 | `JdbcUserDAO`, `JdbcRoleDAO`, `JdbcAuditDAO` | `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (17 pruebas de integración) |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
-| Servicios, DTO, `PasswordHasher` | `service`, `dto`, `util` | Diseñado |
+| `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** |
+| Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | Simulación | `simulation` | Diseñado |
 | Eventos concretos (`UnitDispatched`…) | `event` | Diseñado |
-| Controladores, `SessionContext`, `OperationResult` | `controller`, `dto` | Diseñado |
+| `LoginController`, `SessionContext`, `OperationResult` | `controller`, `dto` | **Programado y probado** |
+| Demás controladores | `controller` | Diseñado |
 | Vista web y adaptadores REST | `view` → `api`, `frontend/` | Decidido (web); pendiente de programar |
-
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.

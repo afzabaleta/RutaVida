@@ -1,7 +1,11 @@
+
 /**
- * <b>Responsibility.</b> Use-case controllers (GRASP Controller): receive the system operations triggered by the user (login, register emergency, dispatch unit, close emergency), delegate to services and return model/DTO objects. No SQL, no business rules, no Swing or HTML code.
+ * <b>Responsibility.</b> Use-case controllers (GRASP Controller):
+ * receive the system operations and coordinate their execution.
  *
- * <p><b>Allowed dependencies.</b> May depend on {@code service}, {@code model}, {@code dto}, {@code exception}, {@code event}. Must NOT import dao, java.sql or view.
+ * <p><b>Allowed dependencies.</b> May depend on
+ * {@code service}, {@code model}, {@code dto},
+ * {@code exception}, {@code event}, {@code util}.
  *
  * <p><b>Principles.</b> GRASP Controller, Low Coupling.
  *
