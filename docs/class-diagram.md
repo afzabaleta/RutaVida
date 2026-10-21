@@ -1184,9 +1184,11 @@ class ValidationUtil {
     +requireInRange(value: double, min: double, max: double, field: String) double$
 }
 
-    class Messages {
-        +get(key: String) String$
-    }
+
+class Messages {
+    +get(key: String) String
+    +userMessage(error: RuntimeException) String
+}
     class AuthService
     class UserService
     class EmergencyService
@@ -1771,6 +1773,7 @@ classDiagram
     }
 
     LoginController --> SessionContext
+    LoginController --> AuthService
     EmergencyController --> SessionContext
     DispatchController --> SessionContext
     LoginController ..> OperationResult~T~
