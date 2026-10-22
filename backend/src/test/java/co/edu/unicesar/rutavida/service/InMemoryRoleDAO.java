@@ -13,13 +13,15 @@ import java.util.Optional;
 /**
  * Fake RoleDAO for service tests.
  */
-class InMemoryRoleDAO implements RoleDAO {
+public class InMemoryRoleDAO implements RoleDAO {
 
     private final Map<Long, Role> roles = new LinkedHashMap<>();
 
-    void add(Role role) {
+
+    public void add(Role role) {
         roles.put(role.getId(), role);
     }
+
 
     @Override
     public Optional<Role> findById(long id) {
