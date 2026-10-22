@@ -896,6 +896,13 @@ classDiagram
         <<interface>>
         +open() Connection
     }
+    
+    class ClientIdentifierConnectionFactory {
+        -delegate : ConnectionFactory
+        -currentUserId : Supplier~Long~
+        +open() Connection
+    }
+    
     class JdbcTransactionManager {
         -factory : ConnectionFactory
         -current : ThreadLocal~Connection~
@@ -933,6 +940,8 @@ classDiagram
     ConnectionProvider <|.. JdbcTransactionManager
     ConnectionProvider ..> SqlWork~T~
     JdbcTransactionManager --> ConnectionFactory
+    ConnectionFactory <|.. ClientIdentifierConnectionFactory
+    ClientIdentifierConnectionFactory --> ConnectionFactory : decora
     ConnectionFactory <.. DatabaseConnection : open() cumple el contrato
     AbstractJdbcDAO --> ConnectionProvider
     AbstractJdbcDAO ..> RowMapper~T~
@@ -1022,6 +1031,18 @@ classDiagram
         +record(userId: Long, module: String, operation: String, recordId: Long, result: AuditResult, detail: String) void
         +findByRecord(module: String, recordId: long) List~AuditLog~
     }
+    
+    class AdminBootstrapService {
+        -userDao : UserDAO
+        -roleDao : RoleDAO
+        -passwordHasher : PasswordHasher
+        -auditService : AuditService
+        -transactions : TransactionManager
+        -clock : Clock
+        +countAdmins() long
+        +createAdmin(document: String, firstNames: String, lastNames: String, email: String, username: String, password: char[]) User
+    }
+    
     class EmergencyService {
         -emergencyDao : EmergencyDAO
         -emergencyTypeDao : EmergencyTypeDAO
@@ -1106,7 +1127,9 @@ classDiagram
     PasswordHasher <|.. Pbkdf2PasswordHasher
     AuthService ..> PasswordHasher
     UserService ..> PasswordHasher
+    AdminBootstrapService ..> PasswordHasher
     AuthService ..> AuditService
+    AdminBootstrapService ..> AuditService
     UserService ..> AuditService
     EmergencyService ..> AuditService
     DispatchService ..> AuditService
@@ -1816,11 +1839,17 @@ classDiagram
         -jdbc : JdbcTransactionManager
         -events : EventBus
         -clock : Clock
+        -session : SessionContext
+        -adminBootstrap : AdminBootstrapService
+        -loginController : LoginController
         +create() AppContext$
         +transactions() TransactionManager
         +events() EventBus
         +clock() Clock
         +database() DatabaseConnection
+        +session() SessionContext
+        +loginController() LoginController
+        +adminBootstrap() AdminBootstrapService
     }
     class Main {
         +main(args: String[]) void$
@@ -1852,6 +1881,7 @@ classDiagram
     Main ..> AppContext : crea
     Main ..> LoginView : muestra
     CreateAdminUser ..> AppContext : usa
+    CreateAdminUser ..> AdminBootstrapService : crea el administrador
     AppContext ..> LoginController : crea e inyecta
     AppContext ..> EmergencyController : crea e inyecta
     AppContext ..> DispatchController : crea e inyecta
@@ -1874,7 +1904,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `DatabaseConnection`, `AppContext`, `DatabaseCheck` | `util`, `app` | **Programado y probado** contra Oracle XE 18c |
 | `RowMapper`, `AbstractJdbcDAO` | `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (8 pruebas de integración) |
 | `AccessDeniedException` | `exception` | **Programado y probado** |
-| `CreateAdminUser` | `app` | Diseñado |
+| `CreateAdminUser`, `AdminBootstrapService`, `ClientIdentifierConnectionFactory` y el inicio de sesión conectado en `AppContext` | `app`, `service`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A3) |
 | `GeoPoint`, `Locatable`, `UserSession`, `ValidationUtil`, `EmergencyType`, `VehicleType`, `Permission`, `Role`, `User`, `EmergencyStation`, `Hospital`, `EmergencyVehicle`, `Emergency` | `model`, `util` | **Programado y probado** |
 | Otras entidades de la sección 1, pendientes de implementación | `model` | Diseñado |
 | `AuditLog` | `model` | **Programado y probado** (creado por Andrés con el contrato de S1; ver `docs/contratos-entidades.md`, sección 3) |
