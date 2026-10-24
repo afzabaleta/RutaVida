@@ -250,7 +250,9 @@ classDiagram
         -status : AssignmentStatus
         +changeStatus(next: AssignmentStatus, at: LocalDateTime) void
         +isOpen() boolean
-        +getResponseTime() Duration
+        +getTimeToArrival() Duration
+        +assignId(id: long) void
+
     }
     class EmergencyVehicle {
         -id : long
@@ -321,15 +323,18 @@ classDiagram
         -segments : List~RouteSegment~
         +isToHospital() boolean
         +usesSegment(segmentId: long) boolean
+        +assignId(id: long) void
+
     }
-    class RouteSegment {
-        -routeId : long
-        -order : int
-        -segmentId : long
-        -estimatedSeconds : double
-        -congestionFactor : double
-        -trafficLightCount : int
-    }
+        class RouteSegment {
+            <<record>>
+            +order : int
+            +segmentId : long
+            +estimatedSeconds : Double
+            +congestionFactor : Double
+            +trafficLightCount : Integer
+        }
+
     class VehicleLocation {
         -id : long
         -vehicleId : long
@@ -338,6 +343,9 @@ classDiagram
         -speedKmh : Double
         -headingDegrees : Double
         -source : PositionSource
+        +isSimulated() boolean
+        +assignId(id: long) void
+
     }
     class User
     class RoadSegment
@@ -908,13 +916,13 @@ classDiagram
         <<interface>>
         +open() Connection
     }
-    
+
     class ClientIdentifierConnectionFactory {
         -delegate : ConnectionFactory
         -currentUserId : Supplier~Long~
         +open() Connection
     }
-    
+
     class JdbcTransactionManager {
         -factory : ConnectionFactory
         -current : ThreadLocal~Connection~
@@ -1043,7 +1051,7 @@ classDiagram
         +record(userId: Long, module: String, operation: String, recordId: Long, result: AuditResult, detail: String) void
         +findByRecord(module: String, recordId: long) List~AuditLog~
     }
-    
+
     class AdminBootstrapService {
         -userDao : UserDAO
         -roleDao : RoleDAO
@@ -1054,7 +1062,7 @@ classDiagram
         +countAdmins() long
         +createAdmin(document: String, firstNames: String, lastNames: String, email: String, username: String, password: char[]) User
     }
-    
+
     class EmergencyService {
         -emergencyDao : EmergencyDAO
         -emergencyTypeDao : EmergencyTypeDAO
@@ -1919,6 +1927,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `CreateAdminUser`, `AdminBootstrapService`, `ClientIdentifierConnectionFactory` y el inicio de sesión conectado en `AppContext` | `app`, `service`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A3) |
 | `GeoPoint`, `Locatable`, `UserSession`, `ValidationUtil`, `EmergencyType`, `VehicleType`, `Permission`, `Role`, `User`, `EmergencyStation`, `Hospital`, `EmergencyVehicle`, `Emergency` | `model`, `util` | **Programado y probado** |
 | `RoadNode`, `RoadSegment`, `TrafficLight`, `TrafficReading`, `RoadIncident` | `model` | **Programado y probado** (S4) |
+| `EmergencyAssignment`, `Route`, `RouteSegment`, `VehicleLocation` | `model` | **Programado y probado** (S5) |
 | Otras entidades de la sección 1, pendientes de implementación | `model` | Diseñado |
 | `AuditLog` | `model` | **Programado y probado** (creado por Andrés con el contrato de S1; ver `docs/contratos-entidades.md`, sección 3) |
 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces) | `dao` | **Programado** (A2) |
