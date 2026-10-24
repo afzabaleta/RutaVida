@@ -81,6 +81,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 | K1 | Paquete `graph`: `Node`, `Edge`, `EdgeState`, `VehicleProfile`, `RoadGraph`, `CostFunction`, `EmergencyCost`, `DistanceOnlyCost`, `RouteResult`, `AStarRouter`, `AlternativeRouteFinder` | `feature/route-engine` | — |
 | K2 | Paquete `traffic`: `TrafficProvider`, `EdgeUpdate`, `SimulatedTrafficProvider` con semilla fija (resultados repetibles) | `feature/simulated-traffic` | K1 |
 | K3 | `RouteOption` (dto) y `RouteExplanationBuilder` (service): datos y explicación en español de cada ruta (CU-08, paso 5) | `feature/route-explanation` | K1 |
+| K4 | Red vial real de la zona de la demostración: consulta de Overpass, `OsmImporter` (paquete `osm`) y `database/05_red_vial_valledupar.sql` | `feature/osm-road-network` | Zona acordada (21/10/2026) |
 
 El documento consolidado (Parte IV) tiene código de referencia de K1. Hay que adaptarlo a los cambios de `docs/class-diagram.md`, sección 6: `dbId` en `Node` y `Edge`, `incidentFactor` en `EdgeState`, `EdgeUpdate` sin `closed` y el nombre `AlternativeRouteFinder`.
 
@@ -167,13 +168,14 @@ Diego puede empezar la maqueta web con datos de ejemplo (claramente marcados com
 - DT-02: **Oracle local** durante el desarrollo; Oracle Cloud se evalúa antes de la entrega final.
 - DT-03: tablas y columnas de Oracle **en español**, código Java en inglés.
 
+**Tomada por Andrés y Kendrick (21/10/2026):** zona de la red vial de la demostración: sur 10.435, oeste -73.280, norte 10.480, este -73.235 (unos 5 × 4,9 km). Incluye la estación de bomberos y los dos hospitales de `03_datos_valledupar.sql` y el Parque La Popa (lugar de la emergencia de la demostración) con al menos 1 km de margen.
+
 **Pendientes:**
 
 | Decisión | Quién | Afecta a |
 |---|---|---|
 | Servidor HTTP y librería JSON de la API REST | Andrés, Sherly y Diego | Fases 6 y 7 |
 | Tiempo real en el navegador (consultas periódicas o *Server-Sent Events*) | Andrés y Diego | Fase 7 |
-| Zona de Valledupar que se va a cargar de OpenStreetMap | Andrés y Kendrick | Sprint 2 (red vial real) |
 
 ---
 
