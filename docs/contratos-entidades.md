@@ -46,7 +46,9 @@ Métodos: `distanceMetersTo(GeoPoint other)` con la fórmula de Haversine (radio
 
 ### `Locatable` (interfaz)
 
-`GeoPoint getLocation()`. La implementan `EmergencyStation`, `EmergencyVehicle`, `Hospital` y `Emergency` (y más adelante `RoadNode`, de Kendrick).
+
+`GeoPoint getLocation()`. La implementan `EmergencyStation`,`EmergencyVehicle`, `Hospital`, `Emergency` y `RoadNode` (sección 9).
+
 
 `EmergencyVehicle.getLocation()` puede devolver `null` si la unidad todavía no tiene posición.
 
@@ -254,3 +256,103 @@ Sherly eligió la propuesta en los cinco puntos (comentario en el PR #3, 15/10/2
 1. Cada entidad tiene sus pruebas JUnit: datos válidos, cada validación que falla, y los métodos con reglas (`changeStatus`, `moveTo`, `hasPermission`, `distanceMetersTo`).
 2. `ArchitectureTest` y `ClassDiagramSyncTest` en verde. El método `assignId(long)` (R3) todavía no aparece en `docs/class-diagram.md`: se agrega a las entidades del diagrama en el mismo PR de S1.
 3. Revisión de Andrés en el PR de S1: los nombres de atributos y tipos de este documento son los que va a usar el `RowMapper` de cada DAO en la Fase 3.
+
+
+---
+
+## 9. Red vial y tráfico (S4)
+
+Agregada el 22/10/2026 para la tarea S4. Se aplican las mismas reglas R1–R14.
+
+Estas cinco clases las usan los DAO de la red vial (A4) y `GraphLoader` y `RoadConditionService` (Kendrick, Sprint 2). La aprueba Andrés en el PR de S4.
+
+### `RoadNode` ↔ `NODO_VIAL` (implementa `Locatable`)
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_nodo NUMBER(10)` | Sí | R3 |
+| `osmId` | `Long` | `osm_id NUMBER(19)` | No | Mayor que 0 si tiene valor (único, lo garantiza Oracle) |
+| `reference` | `String` | `referencia VARCHAR2(120)` | No | Máx. 120 |
+| `location` | `GeoPoint` | `latitud`, `longitud NUMBER(9,6)` | Sí | No nulo |
+| `nodeType` | `NodeType` | `tipo_nodo VARCHAR2(30)` | Sí | — |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+
+Métodos: `getLocation()` e `isActive()`.
+
+
+### `RoadSegment` ↔ `TRAMO_VIAL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_tramo NUMBER(10)` | Sí | R3 |
+| `fromNodeId` | `long` | `id_nodo_origen` | Sí | Mayor que 0 |
+| `toNodeId` | `long` | `id_nodo_destino` | Sí | Mayor que 0 y distinto de `fromNodeId` (`ck_tramo_nodos`) |
+| `osmWayId` | `Long` | `osm_way_id NUMBER(19)` | No | Mayor que 0 si tiene valor |
+| `roadName` | `String` | `nombre_via VARCHAR2(120)` | Sí | Máx. 120 |
+| `lengthMeters` | `double` | `distancia_m NUMBER(10,2)` | Sí | Entre 0.01 y 99 999 999.99 |
+| `maxSpeedKmh` | `double` | `velocidad_max_kmh NUMBER(5,2)` | Sí | Entre 0.01 y 120 |
+| `status` | `RoadSegmentStatus` | `estado VARCHAR2(30)` | Sí | — |
+
+`tiempo_base_seg` no es un atributo: es una columna virtual que Oracle calcula.
+
+Métodos:
+- `getBaseTimeSeconds()`: distancia / (velocidad / 3.6), la misma fórmula de la columna virtual.
+- `isOpen()`: falso solo si el estado es `CERRADO`; `RESTRINGIDO` deja pasar.
+
+
+### `TrafficLight` ↔ `SEMAFORO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_semaforo NUMBER(10)` | Sí | R3 |
+| `nodeId` | `long` | `id_nodo` | Sí | Mayor que 0 |
+| `code` | `String` | `codigo VARCHAR2(30)` | Sí | Mayúsculas, máx. 30 (único, lo garantiza Oracle) |
+| `currentState` | `TrafficLightState` | `estado_actual VARCHAR2(20)` | Sí | — |
+| `cycleSeconds` | `Integer` | `tiempo_ciclo_seg NUMBER(4)` | No | Entre 1 y 9999 |
+| `synchronizedSignal` | `boolean` | `sincronizado CHAR(1)` | Sí | `true` ↔ `'S'`, `false` ↔ `'N'` (lo convierte el DAO) |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+
+Métodos: `isActive()` y `changeState(next)` (el simulador cambia la luz; RutaVida nunca controla un semáforo real).
+
+
+### `TrafficReading` ↔ `TRAFICO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_trafico NUMBER(12)` | Sí | R3 |
+| `segmentId` | `long` | `id_tramo` | Sí | Mayor que 0 |
+| `measuredAt` | `LocalDateTime` | `fecha_hora TIMESTAMP` | Sí | R10 |
+| `level` | `TrafficLevel` | `nivel VARCHAR2(20)` | Sí | — |
+| `averageSpeedKmh` | `Double` | `velocidad_promedio_kmh NUMBER(6,2)` | No | Entre 0 y 9999.99 |
+| `congestionFactor` | `double` | `factor_congestion NUMBER(5,2)` | Sí | Entre 1 y 999.99 (1 = flujo libre) |
+| `source` | `TrafficSource` | `fuente VARCHAR2(40)` | Sí | — |
+
+Es historial: no cambia después de crearla (solo `assignId`).
+
+Método `isSimulated()`: los datos con fuente `SIMULACION` nunca se muestran como reales.
+
+
+### `RoadIncident` ↔ `INCIDENTE_VIAL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_incidente NUMBER(10)` | Sí | R3 |
+| `segmentId` | `long` | `id_tramo` | Sí | Mayor que 0 |
+| `type` | `IncidentType` | `tipo_incidente VARCHAR2(60)` | Sí | — |
+| `severity` | `Severity` | `severidad VARCHAR2(20)` | Sí | — |
+| `blocksSegment` | `boolean` | `bloquea_tramo CHAR(1)` | Sí | `true` ↔ `'S'` (lo convierte el DAO) |
+| `description` | `String` | `descripcion VARCHAR2(300)` | No | Máx. 300 |
+| `startedAt` | `LocalDateTime` | `fecha_inicio TIMESTAMP` | Sí | R10 |
+| `endedAt` | `LocalDateTime` | `fecha_fin TIMESTAMP` | No | Con valor si y solo si el estado es `CERRADO` o `RECHAZADO`; no puede ser anterior a `startedAt` |
+| `status` | `IncidentStatus` | `estado VARCHAR2(20)` | Sí | Un incidente nuevo empieza en `PENDING` (RN-05) |
+| `origin` | `IncidentOrigin` | `origen VARCHAR2(20)` | Sí | — |
+
+Métodos (los cambios no permitidos lanzan `BusinessRuleException`):
+
+- `activate(blocks)`: solo desde `PENDIENTE`; pasa a `ACTIVO` y fija `blocksSegment` (CU-14).
+- `reject(at)`: solo desde `PENDIENTE`; pasa a `RECHAZADO` y fija `endedAt`.
+- `close(at)`: solo desde `ACTIVO`; pasa a `CERRADO` y fija `endedAt`.
+- `affectsRouting()`: delega en `status.affectsRouting()` (solo `ACTIVO`).
+- `blocksTraffic()`: `affectsRouting()` y `blocksSegment`; el motor trata el tramo como cerrado (sección 5 de `docs/convenciones-base-datos.md`).
+
+El trigger `trg_incidente_estado` de `04_plsql.sql` audita los cambios de estado: la entidad no llama a `AuditService`.

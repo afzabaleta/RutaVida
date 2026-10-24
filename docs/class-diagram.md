@@ -368,6 +368,7 @@ config:
 classDiagram
     direction LR
 
+
     class RoadNode {
         -id : long
         -osmId : Long
@@ -376,6 +377,8 @@ classDiagram
         -nodeType : NodeType
         -status : RecordStatus
         +getLocation() GeoPoint
+        +isActive() boolean
+        +assignId(id: long) void
     }
     class RoadSegment {
         -id : long
@@ -388,6 +391,7 @@ classDiagram
         -status : RoadSegmentStatus
         +getBaseTimeSeconds() double
         +isOpen() boolean
+        +assignId(id: long) void
     }
     class TrafficLight {
         -id : long
@@ -397,6 +401,9 @@ classDiagram
         -cycleSeconds : Integer
         -synchronizedSignal : boolean
         -status : RecordStatus
+        +isActive() boolean
+        +changeState(next: TrafficLightState) void
+        +assignId(id: long) void
     }
     class TrafficReading {
         -id : long
@@ -406,6 +413,8 @@ classDiagram
         -averageSpeedKmh : Double
         -congestionFactor : double
         -source : TrafficSource
+        +isSimulated() boolean
+        +assignId(id: long) void
     }
     class RoadIncident {
         -id : long
@@ -422,7 +431,10 @@ classDiagram
         +reject(at: LocalDateTime) void
         +close(at: LocalDateTime) void
         +affectsRouting() boolean
+        +blocksTraffic() boolean
+        +assignId(id: long) void
     }
+
     class RouteSegment
 
     RoadSegment "0..*" --> "1" RoadNode : from
@@ -1906,6 +1918,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `AccessDeniedException` | `exception` | **Programado y probado** |
 | `CreateAdminUser`, `AdminBootstrapService`, `ClientIdentifierConnectionFactory` y el inicio de sesión conectado en `AppContext` | `app`, `service`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A3) |
 | `GeoPoint`, `Locatable`, `UserSession`, `ValidationUtil`, `EmergencyType`, `VehicleType`, `Permission`, `Role`, `User`, `EmergencyStation`, `Hospital`, `EmergencyVehicle`, `Emergency` | `model`, `util` | **Programado y probado** |
+| `RoadNode`, `RoadSegment`, `TrafficLight`, `TrafficReading`, `RoadIncident` | `model` | **Programado y probado** (S4) |
 | Otras entidades de la sección 1, pendientes de implementación | `model` | Diseñado |
 | `AuditLog` | `model` | **Programado y probado** (creado por Andrés con el contrato de S1; ver `docs/contratos-entidades.md`, sección 3) |
 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces) | `dao` | **Programado** (A2) |
