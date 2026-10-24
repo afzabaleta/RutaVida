@@ -356,3 +356,91 @@ Métodos (los cambios no permitidos lanzan `BusinessRuleException`):
 - `blocksTraffic()`: `affectsRouting()` y `blocksSegment`; el motor trata el tramo como cerrado (sección 5 de `docs/convenciones-base-datos.md`).
 
 El trigger `trg_incidente_estado` de `04_plsql.sql` audita los cambios de estado: la entidad no llama a `AuditService`.
+
+
+
+---
+
+## 10. Despacho, rutas y seguimiento (S5)
+
+Agregada el 23/10/2026 para la tarea S5. Se aplican las mismas reglas R1–R14.
+
+Estas cuatro clases las usan los DAO de despacho y rutas (Andrés) y
+`DispatchService`, `RouteService`, `RouteMonitor` y `TrackingService`
+(Kendrick, Sprint 2). La aprueba Andrés en el PR de S5.
+
+### `EmergencyAssignment` ↔ `ASIGNACION_EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_asignacion NUMBER(10)` | Sí | R3 |
+| `emergencyId` | `long` | `id_emergencia` | Sí | Mayor que 0 |
+| `vehicleId` | `long` | `id_vehiculo` | Sí | Mayor que 0 |
+| `coordinatorUserId` | `long` | `id_usuario_coordinador` | Sí | Mayor que 0 |
+| `assignedAt` | `LocalDateTime` | `fecha_asignacion TIMESTAMP` | Sí | R10 |
+| `departedAt` | `LocalDateTime` | `hora_salida TIMESTAMP` | No | No anterior a `assignedAt`. Con valor desde `EN_RUTA`; nulo en `ASIGNADA` |
+| `arrivedAt` | `LocalDateTime` | `hora_llegada TIMESTAMP` | No | Necesita `departedAt` y no es anterior a ella. Con valor si y solo si el estado es `EN_SITIO`, `TRASLADANDO` o `FINALIZADA` |
+| `status` | `AssignmentStatus` | `estado VARCHAR2(30)` | Sí | Una asignación nueva empieza en `ASSIGNED` |
+
+Métodos:
+- `changeStatus(next, at)`: usa `AssignmentStatus.canChangeTo(next)`, que ya existe; si no se permite, lanza `BusinessRuleException`. Al pasar a `EN_RUTA` fija `departedAt = at`; al pasar a `EN_SITIO` fija `arrivedAt = at`. Si la hora va hacia atrás, lanza `ValidationException` y no cambia nada.
+- `isOpen()`: delega en `status.isOpen()`.
+- `getTimeToArrival()`: `Duration` desde `assignedAt` hasta `arrivedAt`; `null` si todavía no llegó.
+
+**Cambio frente al diagrama:** `getResponseTime()` pasa a llamarse `getTimeToArrival()`. Según DT-05, el tiempo de respuesta oficial va desde el **reporte** de la emergencia hasta la llegada (`fn_tiempo_respuesta`), y la asignación no conoce la hora del reporte. Con el nombre anterior, el dashboard podría mostrar dos "tiempos de respuesta" distintos.
+
+La asignación la crea `sp_asignar_unidad` y `trg_asignacion_estado` audita sus cambios de estado: la entidad no llama a `AuditService`.
+
+
+### `Route` ↔ `RUTA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_ruta NUMBER(12)` | Sí | R3 |
+| `emergencyId` | `long` | `id_emergencia` | Sí | Mayor que 0 |
+| `vehicleId` | `long` | `id_vehiculo` | Sí | Mayor que 0 |
+| `destinationHospitalId` | `Long` | `id_hospital_destino` | No | Mayor que 0. `null` = ruta hacia la emergencia; con valor = traslado |
+| `type` | `RouteType` | `tipo_ruta VARCHAR2(20)` | Sí | — |
+| `distanceKm` | `double` | `distancia_km NUMBER(8,2)` | Sí | Entre 0 y 999999.99 |
+| `estimatedMinutes` | `double` | `tiempo_estimado_min NUMBER(8,2)` | Sí | Entre 0 y 999999.99 |
+| `totalCost` | `double` | `costo_total NUMBER(12,2)` | Sí | Entre 0 y 9999999999.99 |
+| `generatedAt` | `LocalDateTime` | `fecha_generacion TIMESTAMP` | Sí | R10 |
+| `recommended` | `boolean` | `es_recomendada CHAR(1)` | Sí | `true` ↔ `'S'` (lo convierte el DAO) |
+| `status` | `RouteStatus` | `estado VARCHAR2(20)` | Sí | — |
+| `segments` | `List<RouteSegment>` | filas de `RUTA_TRAMO` | Sí | Al menos uno, con `order` 1, 2, 3… sin saltos. Se guarda una copia que no se puede modificar |
+
+Métodos:
+- `isToHospital()`: devuelve `true` cuando `destinationHospitalId != null`.
+- `usesSegment(segmentId)`: permite a `RouteMonitor` comprobar si un cambio de tráfico afecta la ruta.
+
+La ruta no cambia después de creada: `RouteDAO.updateStatus` cambia su estado en Oracle y un recálculo crea una ruta nueva.
+
+
+### `RouteSegment` (*record*) ↔ `RUTA_TRAMO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `order` | `int` | `orden_tramo NUMBER(5)` | Sí | Entre 1 y 99999 |
+| `segmentId` | `long` | `id_tramo` | Sí | Mayor que 0 |
+| `estimatedSeconds` | `Double` | `tiempo_estimado_seg NUMBER(10,2)` | No | Entre 0 y 99999999.99 |
+| `congestionFactor` | `Double` | `factor_congestion NUMBER(5,2)` | No | Entre 1 y 999.99 |
+| `trafficLightCount` | `Integer` | `semaforos_afectados NUMBER(3)` | No | Entre 0 y 999 |
+
+**Cambios frente al diagrama:**
+- Es un *record* sin `routeId`. La fila no tiene id propio (su clave es `id_ruta` + `orden_tramo`) y pertenece a su `Route`, así que el DAO escribe el id de la ruta. Si `RouteSegment` guardara `routeId`, quedaría en 0 después de `Route.assignId`.
+- Los tres valores estimados son `Double`/`Integer` porque sus columnas aceptan `NULL` (R5).
+
+
+### `VehicleLocation` ↔ `UBICACION_VEHICULO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_ubicacion NUMBER(12)` | Sí | R3 |
+| `vehicleId` | `long` | `id_vehiculo` | Sí | Mayor que 0 |
+| `recordedAt` | `LocalDateTime` | `fecha_hora TIMESTAMP` | Sí | R10 |
+| `location` | `GeoPoint` | `latitud`, `longitud NUMBER(9,6)` | Sí | No nulo (R11) |
+| `speedKmh` | `Double` | `velocidad_kmh NUMBER(7,2)` | No | Entre 0 y 99999.99 |
+| `headingDegrees` | `Double` | `direccion_grados NUMBER(6,2)` | No | Desde 0 y menor que 360 |
+| `source` | `PositionSource` | `fuente VARCHAR2(20)` | Sí | — |
+
+Es historial: no cambia después de crearla (solo `assignId`). Método `isSimulated()`: en la primera versión todas las posiciones vienen del simulador y se muestran como `SIMULACION`, nunca como GPS real.
