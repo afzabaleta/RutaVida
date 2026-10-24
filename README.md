@@ -88,6 +88,8 @@ exit
    ```
 4. Ejecutar las pruebas: clic derecho sobre `src/test/java` → *Run 'All Tests'* (o `mvn test`).
 
+5. Crear el primer administrador (una sola vez por base de datos): ejecutar `co.edu.unicesar.rutavida.app.CreateAdminUser` y responder lo que pregunta. La contraseña queda guardada como hash PBKDF2, y al final la herramienta comprueba que el administrador puede iniciar sesión.
+
 ## Trabajo en equipo
 
 - **Cómo trabajar con Git, ramas y Pull Requests:** [`CONTRIBUTING.md`](CONTRIBUTING.md).

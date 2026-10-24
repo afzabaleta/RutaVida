@@ -165,4 +165,4 @@ El simulador solo modifica la congestión y los semáforos; **no cierra tramos**
 | Justificar las prioridades de `TIPO_EMERGENCIA` y `TIPO_VEHICULO` (los valores actuales son provisionales) | Equipo |
 | Algoritmo de hash de contraseñas (necesario para crear el primer usuario) | Sherly (Util) |
 | Cargar hospitales, estaciones y red vial con datos reales de Valledupar | Andrés |
-| ~~Triggers de auditoría, vistas y procedimientos~~ Hecho en `database/04_plsql.sql` (DT-05). Pendiente: que el backend fije `CLIENT_IDENTIFIER` con el id del usuario | Andrés |
+| ~~Triggers de auditoría, vistas y procedimientos~~ Hecho en `database/04_plsql.sql` (DT-05). El backend fija `CLIENT_IDENTIFIER` con el id del usuario desde A3 (`ClientIdentifierConnectionFactory`) | Andrés |
