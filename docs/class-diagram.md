@@ -791,6 +791,8 @@ classDiagram
 
 ### 3.3 Red vial, tráfico e incidentes
 
+La red vial (nodos y tramos) la carga en Oracle el script SQL generado desde OpenStreetMap (K4). Por eso `RoadNodeDAO` y `RoadSegmentDAO` solo leen; el único cambio que hace la aplicación es el estado de un tramo.
+
 ```mermaid
 ---
 config:
@@ -802,12 +804,10 @@ classDiagram
     class RoadNodeDAO {
         <<interface>>
         +findAll() List~RoadNode~
-        +insertBatch(nodes: List~RoadNode~) void
     }
     class RoadSegmentDAO {
         <<interface>>
         +findAll() List~RoadSegment~
-        +insertBatch(segments: List~RoadSegment~) void
         +updateStatus(id: long, status: RoadSegmentStatus) void
     }
     class TrafficLightDAO {
@@ -1932,6 +1932,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `AuditLog` | `model` | **Programado y probado** (creado por Andrés con el contrato de S1; ver `docs/contratos-entidades.md`, sección 3) |
 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces) | `dao` | **Programado** (A2) |
 | `JdbcUserDAO`, `JdbcRoleDAO`, `JdbcAuditDAO` | `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (17 pruebas de integración) |
+| `RoadNodeDAO`, `RoadSegmentDAO`, `TrafficLightDAO`, `JdbcRoadNodeDAO`, `JdbcRoadSegmentDAO`, `JdbcTrafficLightDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A4) |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher`, `Pbkdf2PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
