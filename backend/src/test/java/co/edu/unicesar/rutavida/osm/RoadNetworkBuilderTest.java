@@ -2,6 +2,8 @@ package co.edu.unicesar.rutavida.osm;
 
 import co.edu.unicesar.rutavida.model.enums.NodeType;
 import org.junit.jupiter.api.Test;
+import co.edu.unicesar.rutavida.model.GeoPoint;
+import java.util.Map;
 
 import java.util.List;
 
@@ -113,6 +115,32 @@ class RoadNetworkBuilderTest {
         assertEquals(0, summary.skippedPieces());
     }
 
+    @Test
+    void aLoopThatJoinsTheSameTwoJunctionsTwiceKeepsOnlyTheShorterPath() {
+        // Way 700 is a closed two-way loop 11-12-13-14-11 that touches way 800 only at 11.
+        // It is cut in the middle (11 -> 13 and 13 -> 11), so both halves join 11 and 13.
+        OsmExtract extract = new OsmExtract(Map.of(
+                11L, new OsmExtract.Point(11, 10.0080, -72.9980),
+                12L, new OsmExtract.Point(12, 10.0085, -72.9980),
+                13L, new OsmExtract.Point(13, 10.0085, -72.9975),
+                14L, new OsmExtract.Point(14, 10.0080, -72.9965),
+                15L, new OsmExtract.Point(15, 10.0070, -72.9980)),
+                List.of(
+                        new OsmExtract.Way(700, List.of(11L, 12L, 13L, 14L, 11L),
+                                Map.of("highway", "residential", "name", "Calle Anillo")),
+                        new OsmExtract.Way(800, List.of(11L, 15L),
+                                Map.of("highway", "residential", "name", "Carrera Salida"))));
+
+        RoadNetwork loop = new RoadNetworkBuilder(OsmSamples.AREA).build(extract);
+        List<RoadNetwork.Link> ring = loop.links().stream().filter(l -> l.osmWayId() == 700).toList();
+
+        assertEquals(2, ring.size(), "one link per direction, not two");
+        double viaTwelve = new GeoPoint(10.0080, -72.9980).distanceMetersTo(new GeoPoint(10.0085, -72.9980))
+                + new GeoPoint(10.0085, -72.9980).distanceMetersTo(new GeoPoint(10.0085, -72.9975));
+        assertTrue(ring.stream().allMatch(l -> Math.abs(l.lengthMeters() - viaTwelve) < 0.01),
+                "the shorter half (through 12) is kept");
+        assertEquals(2, loop.summary().skippedPieces(), "the two repeated links are counted");
+    }
     // ------------------------------------------------------------------ helpers
 
     private RoadNetwork.Junction junction(long osmId) {

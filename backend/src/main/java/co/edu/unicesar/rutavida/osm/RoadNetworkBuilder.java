@@ -138,6 +138,7 @@ public final class RoadNetworkBuilder {
             addWay(waysAtJunction, piece.fromId(), way);
             addWay(waysAtJunction, piece.toId(), way);
         }
+        links = withoutRepeatedLinks(links, skipped);
         links.sort(Comparator.comparingLong(RoadNetwork.Link::osmWayId)
                 .thenComparingLong(RoadNetwork.Link::fromOsmId)
                 .thenComparingLong(RoadNetwork.Link::toOsmId));
@@ -181,6 +182,15 @@ public final class RoadNetworkBuilder {
             parts.add(current);
         }
         return parts;
+    }
+    private static List<RoadNetwork.Link> withoutRepeatedLinks(List<RoadNetwork.Link> links, int[] skipped) {
+        Map<List<Long>, RoadNetwork.Link> unique = new LinkedHashMap<>();
+        for (RoadNetwork.Link link : links) {
+            unique.merge(List.of(link.fromOsmId(), link.toOsmId(), link.osmWayId()), link,
+                    (kept, other) -> other.lengthMeters() < kept.lengthMeters() ? other : kept);
+        }
+        skipped[0] += links.size() - unique.size();
+        return new ArrayList<>(unique.values());
     }
 
     private static void addPiece(OsmExtract.Way way, List<Long> ids, Map<Long, OsmExtract.Point> points,

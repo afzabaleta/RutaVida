@@ -15,8 +15,8 @@
 --   * Vias sin nombre: 'Via sin nombre (OSM)'
 --   * Nombres sin tildes, igual que 03_datos_valledupar.sql
 --
--- Resumen: 4274 nodos, 12608 tramos, a partir de 1914 de 1963 vias del archivo.
---   Vias sin nombre: 687. Vias con velocidad supuesta: 1908. Pedazos descartados: 0.
+-- Resumen: 4274 nodos, 12606 tramos, a partir de 1914 de 1963 vias del archivo.
+--   Vias sin nombre: 687. Vias con velocidad supuesta: 1908. Pedazos descartados: 2.
 -- WHERE NOT EXISTS evita duplicados si el script se ejecuta dos veces.
 -- ============================================================
 
@@ -4301,7 +4301,7 @@ INSERT INTO nodo_vial (osm_id, referencia, latitud, longitud, tipo_nodo, estado)
 
 COMMIT;
 
--- 2. TRAMOS (12608)
+-- 2. TRAMOS (12606)
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 85049452, 'Via sin nombre (OSM)', 80.34, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 986878279 AND d.osm_id = 986878441 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 85049452);
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 85049452, 'Via sin nombre (OSM)', 80.34, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 986878441 AND d.osm_id = 986878279 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 85049452);
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 85049459, 'Carrera 19B 1', 114.21, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 986873270 AND d.osm_id = 986874029 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 85049459);
@@ -15820,9 +15820,7 @@ INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via,
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439327, 'Via sin nombre (OSM)', 14.48, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 9234611498 AND d.osm_id = 9234611503 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439327);
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439327, 'Via sin nombre (OSM)', 14.48, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 9234611503 AND d.osm_id = 9234611498 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439327);
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439328, 'Via sin nombre (OSM)', 100.89, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 9234611495 AND d.osm_id = 9234611498 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439328);
-INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439328, 'Via sin nombre (OSM)', 110.40, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 9234611495 AND d.osm_id = 9234611498 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439328);
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439328, 'Via sin nombre (OSM)', 100.89, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 9234611498 AND d.osm_id = 9234611495 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439328);
-INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439328, 'Via sin nombre (OSM)', 110.40, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 9234611498 AND d.osm_id = 9234611495 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439328);
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439329, 'Via sin nombre (OSM)', 7.18, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 9234611490 AND d.osm_id = 9234611491 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439329);
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439329, 'Via sin nombre (OSM)', 7.18, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 9234611491 AND d.osm_id = 9234611490 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439329);
 INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, distancia_m, velocidad_max_kmh) SELECT o.id_nodo, d.id_nodo, 1000439331, 'Via sin nombre (OSM)', 60.02, 30.00 FROM nodo_vial o, nodo_vial d WHERE o.osm_id = 7647249002 AND d.osm_id = 9234611516 AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = 1000439331);
