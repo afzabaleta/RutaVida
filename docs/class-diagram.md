@@ -715,7 +715,7 @@ classDiagram
         <<interface>>
         +insert(assignment: EmergencyAssignment) long
         +findById(id: long) Optional~EmergencyAssignment~
-        +findOpenByEmergency(emergencyId: long) Optional~EmergencyAssignment~
+        +findOpenByEmergency(emergencyId: long) List~EmergencyAssignment~
         +findOpenByVehicle(vehicleId: long) Optional~EmergencyAssignment~
         +findByEmergency(emergencyId: long) List~EmergencyAssignment~
         +update(assignment: EmergencyAssignment) void
@@ -1002,6 +1002,7 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcTrafficReadingDAO
     AbstractJdbcDAO <|-- JdbcRoadIncidentDAO
     AbstractJdbcDAO <|-- JdbcRouteDAO
+    JdbcRouteDAO ..> TransactionManager : ruta y tramos juntos
     AbstractJdbcDAO <|-- JdbcVehicleLocationDAO
     AbstractJdbcDAO <|-- JdbcAlertDAO
     AbstractJdbcDAO <|-- JdbcNotificationDAO
@@ -1933,6 +1934,8 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces) | `dao` | **Programado** (A2) |
 | `JdbcUserDAO`, `JdbcRoleDAO`, `JdbcAuditDAO` | `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (17 pruebas de integración) |
 | `RoadNodeDAO`, `RoadSegmentDAO`, `TrafficLightDAO`, `JdbcRoadNodeDAO`, `JdbcRoadSegmentDAO`, `JdbcTrafficLightDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A4) |
+| `TrafficReadingDAO`, `RoadIncidentDAO`, `JdbcTrafficReadingDAO`, `JdbcRoadIncidentDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A5) |
+| `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher`, `Pbkdf2PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
