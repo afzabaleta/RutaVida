@@ -1933,6 +1933,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `UserDAO`, `RoleDAO`, `AuditDAO` (interfaces) | `dao` | **Programado** (A2) |
 | `JdbcUserDAO`, `JdbcRoleDAO`, `JdbcAuditDAO` | `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (17 pruebas de integración) |
 | `RoadNodeDAO`, `RoadSegmentDAO`, `TrafficLightDAO`, `JdbcRoadNodeDAO`, `JdbcRoadSegmentDAO`, `JdbcTrafficLightDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A4) |
+| `TrafficReadingDAO`, `RoadIncidentDAO`, `JdbcTrafficReadingDAO`, `JdbcRoadIncidentDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A5) |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher`, `Pbkdf2PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
