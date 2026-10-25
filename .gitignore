@@ -4,6 +4,8 @@ backend/db.properties
 .env
 **/wallet/
 Wallet_*.zip
+### Descargas de OpenStreetMap (se regeneran con database/osm/*.overpassql) ###
+database/osm/*.osm
 
 ### Registros de ejecución de scripts (SPOOL) ###
 *.log

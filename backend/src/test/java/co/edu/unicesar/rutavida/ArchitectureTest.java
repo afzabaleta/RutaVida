@@ -37,6 +37,7 @@ class ArchitectureTest {
     private static final String EVENT = BASE + ".event";
     private static final String CONTROLLER = BASE + ".controller";
     private static final String VIEW = BASE + ".view";
+    private static final String OSM = BASE + ".osm";
 
     private static final String[] JDBC = {"java.sql", "javax.sql", "oracle"};
     private static final String[] UI = {"javax.swing", "java.awt"};
@@ -79,6 +80,11 @@ class ArchitectureTest {
     @Test
     void controllersDoNotTouchPersistenceNorTheUserInterface() {
         assertNoImports(inPackage(CONTROLLER), concat(JDBC, UI, DAO, VIEW, APP));
+    }
+    @Test
+    void osmImporterOnlyReadsAFileAndWritesSql() {
+        assertNoImports(inPackage(OSM),
+                concat(JDBC, UI, DAO, SERVICE, CONTROLLER, VIEW, GRAPH, TRAFFIC, SIMULATION, EVENT, APP));
     }
 
     @Test

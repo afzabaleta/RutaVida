@@ -1594,6 +1594,76 @@ classDiagram
 - **`RoadConditionService` es el único que modifica el grafo.** Combina tráfico e incidentes según la sección 5 de `docs/convenciones-base-datos.md`.
 
 ---
+### 6.4 Importador de OpenStreetMap (paquete `osm` y `app.OsmImporter`, Kendrick)
+
+Herramienta de desarrollo: lee el archivo `.osm` descargado de Overpass y escribe `database/05_red_vial_valledupar.sql`, que carga `NODO_VIAL` y `TRAMO_VIAL`. No se conecta a Oracle y no forma parte de la aplicación final.
+
+```mermaid
+---
+config:
+  markdownAutoWrap: false
+---
+classDiagram
+    direction LR
+
+    class OsmImporter {
+        <<app>>
+        +main(args: String[]) void$
+    }
+
+    class BoundingBox {
+        <<record>>
+        +south : double
+        +west : double
+        +north : double
+        +east : double
+        +VALLEDUPAR_DEMO : BoundingBox$
+        +contains(latitude: double, longitude: double) boolean
+    }
+
+    class OsmExtract {
+        <<record>>
+        +points : Map~Long,Point~
+        +ways : List~Way~
+    }
+
+    class OsmParser {
+        +parse(input: InputStream) OsmExtract
+    }
+
+    class RoadNetwork {
+        <<record>>
+        +junctions : List~Junction~
+        +links : List~Link~
+        +summary : Summary
+    }
+
+    class RoadNetworkBuilder {
+        -area : BoundingBox
+        +build(extract: OsmExtract) RoadNetwork
+    }
+
+    class RoadNetworkSqlWriter {
+        +FILE_NAME : String$
+        +write(network: RoadNetwork, area: BoundingBox, downloadedOn: LocalDate, out: Appendable) void
+    }
+
+    OsmImporter ..> OsmParser : lee el .osm
+    OsmImporter ..> RoadNetworkBuilder : arma la red
+    OsmImporter ..> RoadNetworkSqlWriter : escribe el SQL
+
+    OsmParser ..> OsmExtract : crea
+
+    RoadNetworkBuilder --> BoundingBox
+    RoadNetworkBuilder ..> OsmExtract : usa
+    RoadNetworkBuilder ..> RoadNetwork : crea
+
+    RoadNetworkSqlWriter ..> RoadNetwork : usa
+```
+
+- `OsmExtract` guarda los puntos (`Point`) y las vías (`Way`) del archivo. `RoadNetwork` guarda los nodos (`Junction`), los tramos (`Link`, uno por sentido) y un resumen (`Summary`). Los seis son records anidados.
+- Cada vía se corta en los puntos que comparte con otra vía. Una vía de doble sentido da dos tramos; una de un solo sentido, uno.
+- Supuestos escritos en la cabecera del script: 50 km/h en vías principales sin `maxspeed` y 30 km/h en las locales (Ley 2251 de 2022), y "Vía sin nombre (OSM)" cuando la vía no tiene nombre.
 
 ## 7. Eventos de tiempo real y excepciones
 
@@ -1942,6 +2012,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
+| Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | Simulación | `simulation` | Diseñado |
 | Eventos concretos (`UnitDispatched`…) | `event` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
