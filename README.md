@@ -87,6 +87,10 @@ exit
    Tablas de RutaVida encontradas: 23 de 23
    [OK] El esquema está completo.
    ```
+4. Ejecutar las pruebas: clic derecho sobre `src/test/java` → *Run 'All Tests'* (o `mvn test`).
+
+5. Crear el primer administrador (una sola vez por base de datos): ejecutar `co.edu.unicesar.rutavida.app.CreateAdminUser` y responder lo que pregunta. La contraseña queda guardada como hash PBKDF2, y al final la herramienta comprueba que el administrador puede iniciar sesión.
+
 ### 3. Red vial (OpenStreetMap)
 
 `database/05_red_vial_valledupar.sql` carga `NODO_VIAL` y `TRAMO_VIAL` con las calles de la zona de la demostración. Lo genera la herramienta `co.edu.unicesar.rutavida.app.OsmImporter` y no se edita a mano. Para volver a generarlo:
@@ -98,10 +102,6 @@ exit
 2. Ejecutar `OsmImporter` con los argumentos `../database/osm/valledupar_demo.osm ../database/05_red_vial_valledupar.sql AAAA-MM-DD` (fecha de la descarga).
 
 El archivo `.osm` no se sube al repositorio (`.gitignore`). Datos de la red vial: © OpenStreetMap contributors, licencia [ODbL](https://www.openstreetmap.org/copyright).
-
-4. Ejecutar las pruebas: clic derecho sobre `src/test/java` → *Run 'All Tests'* (o `mvn test`).
-
-5. Crear el primer administrador (una sola vez por base de datos): ejecutar `co.edu.unicesar.rutavida.app.CreateAdminUser` y responder lo que pregunta. La contraseña queda guardada como hash PBKDF2, y al final la herramienta comprueba que el administrador puede iniciar sesión.
 
 ## Trabajo en equipo
 
