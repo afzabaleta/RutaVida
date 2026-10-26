@@ -24,6 +24,7 @@ RutaVida/
 │   ├── db.properties.example   ← plantilla; la copia real (db.properties) no se sube
 │   └── src/
 ├── database/           Scripts SQL y PL/SQL de Oracle (en orden numérico)
+├── frontend/           Interfaz web: HTML, CSS, JavaScript y Leaflet (ver frontend/README.md)
 └── docs/               Documentación del proyecto (en español)
 ```
 
@@ -37,7 +38,7 @@ RutaVida/
 | Arquitectura: paquetes, reglas de dependencia, enums, transacciones, eventos, `AppContext` | Programado y probado: 37 pruebas en verde en IntelliJ ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)) |
 | Vistas, funciones, procedimientos y triggers PL/SQL (`04_plsql.sql`) | Programado; se prueba con la sección 8 de `98_verificar.sql` |
 | Entidades, DAO, Service, Controller, vista | Pendiente |
-| Vista | **Decidido: web** (HTML, CSS, JavaScript y Leaflet + API REST en Java). Pendiente de programar |
+| Vista | **Decidido: web** (HTML, CSS, JavaScript y Leaflet + API REST en Java). Maqueta en `frontend/` (D3), todavía sin conexión al backend |
 | Decisiones del equipo (vista web, Oracle local, tablas en español) | Registradas en [`docs/decisiones-tecnicas.md`](docs/decisiones-tecnicas.md) |
 
 ## Puesta en marcha (cada integrante, una sola vez)

@@ -100,4 +100,3 @@ Nada de esto está programado todavía: el estado actual es **diseñado**.
 - El backend debe fijar `CLIENT_IDENTIFIER` con el id del usuario en cada conexión (por ejemplo con `connection.setClientInfo("OCSID.CLIENTID", ...)`). Se hace en la integración del login (A3).
 - `- ~~`AbstractJdbcDAO` todavía no tiene un método para llamar procedimientos~~ Hecho (16/10/2026): `callProcedure` y `callProcedureReturningLong`. Un error `-20000` a `-20999` de un procedimiento llega a Java como `BusinessRuleException` con el mensaje del procedimiento; cualquier otro error, como `DataAccessException`. Las funciones se leen con `SELECT fn_x(?) FROM dual`.
 - `99_eliminar_esquema.sql` no borra estas vistas, funciones y procedimientos (los triggers sí se borran con sus tablas). Quedan inválidos hasta volver a ejecutar `01` y `04`. Cambiar `99` requiere autorización del líder.
-

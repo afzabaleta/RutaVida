@@ -1,8 +1,8 @@
 # Plan de trabajo — Sprint 1
 
-Responsable de la coordinación: Andrés (líder).
-Fecha de inicio: 14 de octubre de 2026.
-Objetivo del sprint: **iniciar sesión funcionando de punta a punta** (CU-01) y **motor de rutas probado** con un grafo de prueba, mientras se preparan los datos reales y el diseño de pantallas.
+**Responsable de la coordinación:** Andrés (líder).
+**Fecha de inicio:** 14 de octubre de 2026.
+**Objetivo del sprint:** **inicio de sesión funcionando de punta a punta** (CU-01) y **motor de rutas probado** con un grafo de prueba, mientras se preparan los datos reales y el diseño de pantallas.
 
 Cada tarea tiene su rama, sus archivos, de qué depende y **cómo se comprueba que está terminada**. Una tarea solo está terminada cuando su Pull Request fue revisado y entró a `develop`. Que el código exista no basta: tiene que compilar, pasar sus pruebas y estar reflejado en el diagrama de clases.
 
@@ -24,7 +24,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 | 4. Grafo, tráfico y simulación | Kendrick | Algoritmos y simulación probados con escenarios conocidos | K1, K2 (en paralelo desde el inicio) |
 | 5. Servicios de negocio | Kendrick y Sherly | Casos de uso del núcleo con servicios, validaciones y pruebas | S2 |
 | 6. Controladores y utilidades | Sherly | Controladores conectados a los servicios, errores en español | S3 |
-| 7. Vista web | Diego | Pantallas web conectadas a la API REST | D1, D2 (preparación) |
+| 7. Vista web | Diego | Pantallas web conectadas a la API REST | D1, D2 (preparación), D3 (maqueta) |
 | 8. Integración | Andrés (todo el equipo) | `AppContext` conecta todo y el flujo completo funciona | A3 |
 
 ---
@@ -55,6 +55,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 | S1 | Entidades del modelo: `GeoPoint`, `Locatable`, `User`, `Role`, `Permission`, `UserSession`, `Emergency`, `EmergencyType`, `EmergencyVehicle`, `VehicleType`, `EmergencyStation`, `Hospital`, y la excepción `AccessDeniedException` (la usa `UserSession`). Siguen `docs/contratos-entidades.md` | `feature/base-model` | A0.7 |
 
 **Terminado cuando:**
+
 - Las entidades validan sus datos en el constructor (por ejemplo, `GeoPoint` rechaza una latitud fuera de -90 a 90) y tienen pruebas JUnit.
 - No dependen de JDBC, DAO, service, controller ni vista (`ArchitectureTest` en verde).
 - Están en `docs/class-diagram.md` (`ClassDiagramSyncTest` en verde) y no duplican los enums que ya existen en `model.enums`.
@@ -86,6 +87,7 @@ El orden define **dependencias y entregas**, no obliga a nadie a esperar sin hac
 El documento consolidado (Parte IV) tiene código de referencia de K1. Hay que adaptarlo a los cambios de `docs/class-diagram.md`, sección 6: `dbId` en `Node` y `Edge`, `incidentFactor` en `EdgeState`, `EdgeUpdate` sin `closed` y el nombre `AlternativeRouteFinder`.
 
 **Terminado cuando:** hay pruebas JUnit con un grafo de 6 nodos hecho a mano, sin Oracle, que demuestran que:
+
 1. A* y Dijkstra (`useHeuristic = false`) dan el mismo costo.
 2. Un tramo cerrado se evita.
 3. Con congestión alta, la ruta más rápida no es la más corta (`EmergencyCost` contra `DistanceOnlyCost`).
@@ -128,12 +130,14 @@ La vista es **web** (HTML, CSS, JavaScript y Leaflet), decisión DT-01 en `docs/
 |---|---|---|---|
 | D1 | Mockups de 5 pantallas: inicio de sesión, pantalla principal (mapa + tarjetas de indicadores + panel de emergencias), registrar emergencia, despacho con las 3 rutas y su explicación, y control de la simulación. Interfaz oscura con detalles rojos y azules; logo arriba a la izquierda, usuario y rol arriba a la derecha | `docs/mockups` | — |
 | D2 | Datos reales de Valledupar: hospitales y clínicas con urgencias, estaciones de bomberos y bases de ambulancias, con dirección, coordenadas y **fuente de cada dato**. Entregarlos como `database/03_datos_valledupar.sql` | `feature/valledupar-data` | — |
+| D3 | Maqueta web en `frontend/`: inicio de sesión y pantalla principal con el mapa de Valledupar (Leaflet), los lugares reales de D2 y datos marcados como ejemplo | `feature/web-mockup` | D1, D2 |
 
 **Terminado cuando:**
+
 - D1: las imágenes de los mockups están en `docs/mockups/` y aparecen en `docs/mockups.md`, con una línea por pantalla que indique qué caso de uso cubre.
 - D2: el script se ejecuta sin errores en Oracle y `98_verificar.sql` sigue saliendo bien. Cada fila tiene un comentario con su fuente. Ningún dato inventado: si no se encuentra la coordenada de un lugar, ese lugar no se incluye. Andrés revisa este PR porque toca `database/`.
 
-Diego puede empezar la maqueta web con datos de ejemplo (claramente marcados como ejemplo) en `frontend/` (`feature/login-view`, `feature/map-view`). La conexión con datos reales se hace cuando exista la API REST.
+*Diego prepara la maqueta web con datos de ejemplo (claramente marcados como ejemplo) en `frontend/`, en la rama `feature/web-mockup`. La conexión con el backend se realizará cuando exista la API REST.*
 
 ---
 
@@ -164,6 +168,7 @@ Diego puede empezar la maqueta web con datos de ejemplo (claramente marcados com
 ## Decisiones
 
 **Tomadas por el equipo (15/10/2026)**, detalle en `docs/decisiones-tecnicas.md`:
+
 - DT-01: vista **web** con Leaflet y API REST en Java.
 - DT-02: **Oracle local** durante el desarrollo; Oracle Cloud se evalúa antes de la entrega final.
 - DT-03: tablas y columnas de Oracle **en español**, código Java en inglés.

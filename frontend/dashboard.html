@@ -1,0 +1,130 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+  <meta name="theme-color" content="#101923">
+  <title>RutaVida | Centro de operaciones</title>
+  <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/rutavida.css">
+  <link rel="stylesheet" href="./css/dashboard.css">
+  <link rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="">
+  <script defer
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+  <script type="module" src="./js/dashboard.js"></script>
+</head>
+<body class="dashboard-body">
+  <header class="dashboard-header">
+    <a class="dashboard-brand" href="./index.html" aria-label="RutaVida, volver al inicio">
+      <img src="./img/logo.svg" alt="" width="42" height="42">
+      <span><strong>RutaVida</strong><small>Centro de operaciones</small></span>
+    </a>
+    <div class="header-user">
+      <span class="example-badge">MODO DEMOSTRACIÓN</span>
+      <div>
+        <strong id="user-name">Usuario de ejemplo</strong>
+        <small id="user-role">OPERADOR_CENTRAL</small>
+      </div>
+      <a class="logout-link" href="./index.html">Salir</a>
+    </div>
+  </header>
+
+  <main class="dashboard-main">
+    <section class="welcome-row">
+      <div>
+        <p class="eyebrow">GESTIÓN DE EMERGENCIAS</p>
+        <h1>Panel de control</h1>
+        <p class="muted">Vista demostrativa del sistema para Valledupar, Cesar.</p>
+      </div>
+      <span class="demo-notice">Los datos operativos son ejemplos, no reportes reales.</span>
+    </section>
+
+    <section class="kpi-grid" aria-label="Indicadores del sistema">
+      <article class="kpi-card">
+        <span class="kpi-icon red-icon" aria-hidden="true">!</span>
+        <div><p>Emergencias activas</p><strong id="emergency-count">—</strong><small>Ejemplo</small></div>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-icon green-icon" aria-hidden="true">✓</span>
+        <div><p>Unidades disponibles</p><strong id="unit-count">—</strong><small>Ejemplo</small></div>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-icon blue-icon" aria-hidden="true">+</span>
+        <div><p>Hospitales registrados</p><strong id="hospital-count">—</strong><small>Datos de referencia D2</small></div>
+      </article>
+      <article class="kpi-card">
+        <span class="kpi-icon amber-icon" aria-hidden="true">◷</span>
+        <div><p>Tiempo promedio de respuesta</p><strong id="response-time">Sin datos</strong><small>No calculado</small></div>
+      </article>
+    </section>
+
+    <section class="workspace" aria-label="Mapa y recursos">
+      <aside class="side-panel emergency-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">SEGUIMIENTO</p><h2>Emergencias</h2></div>
+          <span class="count-pill" id="emergency-pill">0</span>
+        </div>
+        <div id="emergency-list" class="item-list">
+          <p class="empty-state">Cargando ejemplos…</p>
+        </div>
+        <div class="panel-divider"></div>
+        <div class="panel-heading">
+          <div><p class="eyebrow">RECURSOS</p><h2>Unidades</h2></div>
+          <span class="count-pill" id="unit-pill">0</span>
+        </div>
+        <div id="unit-list" class="item-list">
+          <p class="empty-state">Cargando ejemplos…</p>
+        </div>
+      </aside>
+
+      <section class="map-panel">
+        <div class="map-heading">
+          <div><p class="eyebrow">UBICACIÓN GEOGRÁFICA</p><h2>Mapa de Valledupar</h2></div>
+          <span class="map-status"><span></span> Mapa de referencia</span>
+        </div>
+        <div id="map" role="application" aria-label="Mapa interactivo con estaciones, hospitales y ubicaciones de ejemplo"></div>
+        <div class="map-legend" aria-label="Leyenda del mapa">
+          <span><i class="legend-dot station-dot"></i> Estación</span>
+          <span><i class="legend-dot hospital-dot"></i> Hospital</span>
+          <span><i class="legend-dot emergency-dot"></i> Emergencia (ejemplo)</span>
+          <span><i class="legend-dot unit-dot"></i> Unidad (ejemplo)</span>
+          <span><i class="legend-zone"></i> Zona vial K4</span>
+        </div>
+        <p class="map-footnote">Cartografía © OpenStreetMap contributors. Las ubicaciones son referenciales; consulta la fuente de cada sitio en su marcador.</p>
+      </section>
+
+      <aside class="side-panel hospital-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">RED DE ATENCIÓN</p><h2>Hospitales</h2></div>
+          <span class="count-pill" id="hospital-pill">0</span>
+        </div>
+        <div id="hospital-list" class="item-list">
+          <p class="empty-state">Cargando referencias…</p>
+        </div>
+        <div class="panel-divider"></div>
+        <div class="source-note">
+          <strong>Sobre estos datos</strong>
+          <p>Los hospitales y la estación provienen de la referencia de datos de D2. Verifica las fuentes y direcciones antes de usarlos en una operación real.</p>
+          <p id="source-date">Fecha de revisión de fuentes: —</p>
+        </div>
+        <div class="panel-divider"></div>
+        <div class="source-note">
+          <strong>Alcance de la maqueta</strong>
+          <p>Este panel no está conectado a Oracle ni a servicios de despacho. Emergencias, unidades, estados e indicadores operativos son datos ilustrativos.</p>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="dashboard-footer">
+      <span>RutaVida · Maqueta web D3</span>
+      <span>Datos de demostración claramente identificados</span>
+    </footer>
+  </main>
+</body>
+</html>
