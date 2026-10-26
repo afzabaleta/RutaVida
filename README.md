@@ -1,4 +1,4 @@
-﻿# RutaVida
+# RutaVida
 
 **Sistema Inteligente de Rutas de Emergencia para Valledupar**
 
@@ -119,4 +119,3 @@ El archivo `.osm` no se sube al repositorio (`.gitignore`). Datos de la red vial
 - Nadie hace commit ni push directo a `main` ni a `develop`: todo entra por Pull Request hacia `develop`, revisado por otra persona.
 - **Las ramas no se eliminan**, ni despuÃ©s del merge. Detalles en [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - Las credenciales nunca se suben al repositorio.
-

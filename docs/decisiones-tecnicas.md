@@ -1,4 +1,4 @@
-﻿# Decisiones tÃ©cnicas del equipo
+# Decisiones tÃ©cnicas del equipo
 
 Registro de las decisiones que afectan a todo el proyecto. Cada decisiÃ³n dice quÃ© se decidiÃ³, por quÃ©, quÃ© cambia y quÃ© queda pendiente. Si una decisiÃ³n cambia, se agrega una fila nueva con la fecha; no se borra la anterior.
 
@@ -100,5 +100,3 @@ Nada de esto estÃ¡ programado todavÃ­a: el estado actual es **diseÃ±ado**.
 - El backend debe fijar `CLIENT_IDENTIFIER` con el id del usuario en cada conexiÃ³n (por ejemplo con `connection.setClientInfo("OCSID.CLIENTID", ...)`). Se hace en la integraciÃ³n del login (A3).
 - `- ~~`AbstractJdbcDAO` todavÃ­a no tiene un mÃ©todo para llamar procedimientos~~ Hecho (16/10/2026): `callProcedure` y `callProcedureReturningLong`. Un error `-20000` a `-20999` de un procedimiento llega a Java como `BusinessRuleException` con el mensaje del procedimiento; cualquier otro error, como `DataAccessException`. Las funciones se leen con `SELECT fn_x(?) FROM dual`.
 - `99_eliminar_esquema.sql` no borra estas vistas, funciones y procedimientos (los triggers sÃ­ se borran con sus tablas). Quedan invÃ¡lidos hasta volver a ejecutar `01` y `04`. Cambiar `99` requiere autorizaciÃ³n del lÃ­der.
-
-
