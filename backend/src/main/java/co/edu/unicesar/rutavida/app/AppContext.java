@@ -8,7 +8,10 @@ import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.UserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.ClientIdentifierConnectionFactory;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcAuditDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadNodeDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadSegmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
 import co.edu.unicesar.rutavida.event.EventBus;
@@ -16,6 +19,7 @@ import co.edu.unicesar.rutavida.event.InMemoryEventBus;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
+import co.edu.unicesar.rutavida.service.GraphLoader;
 import co.edu.unicesar.rutavida.util.DatabaseConnection;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
 import co.edu.unicesar.rutavida.util.Pbkdf2PasswordHasher;
@@ -58,6 +62,7 @@ public final class AppContext {
     private final SessionContext session;
     private final AdminBootstrapService adminBootstrap;
     private final LoginController loginController;
+    private final GraphLoader graphLoader;
 
     private AppContext(DatabaseConnection database, Clock clock) {
         this.database = Objects.requireNonNull(database, "database");
@@ -80,6 +85,10 @@ public final class AppContext {
                 userDao, roleDao, passwordHasher, auditService, jdbc, clock);
         this.loginController = new LoginController(authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
+
+        // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
+        this.graphLoader = new GraphLoader(
+                new JdbcRoadNodeDAO(jdbc), new JdbcRoadSegmentDAO(jdbc), new JdbcTrafficLightDAO(jdbc));
     }
 
     /** Builds the application with the configuration in backend/db.properties. */
@@ -115,6 +124,11 @@ public final class AppContext {
 
     public LoginController loginController() {
         return loginController;
+    }
+
+    /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */
+    public GraphLoader graphLoader() {
+        return graphLoader;
     }
 
     /** Only for the CreateAdminUser tool: creating users normally needs a session. */
