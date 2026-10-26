@@ -11,7 +11,7 @@ import {
   EXAMPLE_USER,
 } from "./example-data.js";
 
-const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const COLORS = {
   station: "#4bd6a0",
   hospital: "#79adff",
@@ -151,6 +151,9 @@ function initializeDashboard() {
   const emergencyList = byId("emergency-list");
   const unitList = byId("unit-list");
   const hospitalList = byId("hospital-list");
+  emergencyList.replaceChildren();
+  unitList.replaceChildren();
+  hospitalList.replaceChildren();
 
   for (const station of STATIONS) {
     const marker = addMarker(
