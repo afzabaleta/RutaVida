@@ -1940,6 +1940,7 @@ classDiagram
         +database() DatabaseConnection
         +session() SessionContext
         +loginController() LoginController
+        +graphLoader() GraphLoader
         +adminBootstrap() AdminBootstrapService
     }
     class Main {
@@ -1974,6 +1975,7 @@ classDiagram
     CreateAdminUser ..> AppContext : usa
     CreateAdminUser ..> AdminBootstrapService : crea el administrador
     AppContext ..> LoginController : crea e inyecta
+    AppContext ..> GraphLoader : crea
     AppContext ..> EmergencyController : crea e inyecta
     AppContext ..> DispatchController : crea e inyecta
 ```
@@ -2008,6 +2010,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher`, `Pbkdf2PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
+| `GraphLoader` y `AppContext.graphLoader()` | `service`, `app` | **Programado y probado** (K5): pruebas sin Oracle y prueba de integración con la red real |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
