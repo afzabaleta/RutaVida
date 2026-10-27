@@ -17,6 +17,7 @@
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
+    <script defer src="./data/rutas-demo.js"></script>
   <script type="module" src="./js/dashboard.js"></script>
 </head>
 <body class="dashboard-body">
@@ -97,6 +98,26 @@
           <span><i class="legend-zone"></i> Zona vial K4</span>
         </div>
         <p class="map-footnote">Cartografía © OpenStreetMap contributors. Las ubicaciones son referenciales; consulta la fuente de cada sitio en su marcador.</p>
+
+          <section class="route-panel" aria-labelledby="route-title">
+              <div class="map-heading">
+                  <div>
+                      <p class="eyebrow">MOTOR DE RUTAS</p>
+                      <h2 id="route-title">Rutas calculadas por RutaVida</h2>
+                  </div>
+                  <span class="data-tag real-tag">CALCULADAS</span>
+              </div>
+
+              <div
+                      id="route-tabs"
+                      class="route-tabs"
+                      role="tablist"
+                      aria-label="Escenario de la demostración">
+              </div>
+
+              <div id="route-list" class="route-list"></div>
+              <p id="route-note" class="map-footnote"></p>
+          </section>
       </section>
 
       <aside class="side-panel hospital-panel">
