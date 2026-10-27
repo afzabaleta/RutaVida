@@ -2028,8 +2028,9 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher`, `Pbkdf2PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `GraphLoader` y `AppContext.graphLoader()` | `service`, `app` | **Programado y probado** (K5): pruebas sin Oracle y prueba de integración con la red real |
-| `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle || Motor de rutas | `graph` | **Programado y probado** |
-| Tráfico | `traffic` | **Programado y probado** |
+| `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
+| Demás servicios y DTO | `service`, `dto` | Diseñado |
+| Motor de rutas | `graph` | **Programado y probado** || Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | Simulación | `simulation` | Diseñado |
