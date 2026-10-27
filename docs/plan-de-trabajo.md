@@ -131,6 +131,7 @@ La vista es **web** (HTML, CSS, JavaScript y Leaflet), decisión DT-01 en `docs/
 | D1 | Mockups de 5 pantallas: inicio de sesión, pantalla principal (mapa + tarjetas de indicadores + panel de emergencias), registrar emergencia, despacho con las 3 rutas y su explicación, y control de la simulación. Interfaz oscura con detalles rojos y azules; logo arriba a la izquierda, usuario y rol arriba a la derecha | `docs/mockups` | — |
 | D2 | Datos reales de Valledupar: hospitales y clínicas con urgencias, estaciones de bomberos y bases de ambulancias, con dirección, coordenadas y **fuente de cada dato**. Entregarlos como `database/03_datos_valledupar.sql` | `feature/valledupar-data` | — |
 | D3 | Maqueta web en `frontend/`: inicio de sesión y pantalla principal con el mapa de Valledupar (Leaflet), los lugares reales de D2 y datos marcados como ejemplo | `feature/web-mockup` | D1, D2 |
+| D4 | Rutas del motor en el mapa: tres escenarios de demostración, alternativas, distancias, tiempos estimados, explicaciones y congestión simulada | `feature/route-map-layer` | D3, A-Demo |
 
 **Terminado cuando:**
 
@@ -138,6 +139,9 @@ La vista es **web** (HTML, CSS, JavaScript y Leaflet), decisión DT-01 en `docs/
 - D2: el script se ejecuta sin errores en Oracle y `98_verificar.sql` sigue saliendo bien. Cada fila tiene un comentario con su fuente. Ningún dato inventado: si no se encuentra la coordenada de un lugar, ese lugar no se incluye. Andrés revisa este PR porque toca `database/`.
 
 *Diego prepara la maqueta web con datos de ejemplo (claramente marcados como ejemplo) en `frontend/`, en la rama `feature/web-mockup`. La conexión con el backend se realizará cuando exista la API REST.*
+
+- D3: la maqueta web permite abrir el inicio de sesión y el dashboard con Leaflet, los lugares documentados en D2 y los datos de ejemplo identificados.
+- D4: el dashboard presenta las rutas generadas por RouteDemo en tres escenarios; permite cambiar de escenario, consultar alternativas y abrir una ruta en el mapa. La congestión y la unidad simuladas se identifican como demostrativas. Los cambios se prueban en el navegador antes de integrar el PR.
 
 ---
 
