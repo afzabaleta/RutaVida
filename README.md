@@ -104,6 +104,12 @@ exit
 
 El archivo `.osm` no se sube al repositorio (`.gitignore`). Datos de la red vial: © OpenStreetMap contributors, licencia [ODbL](https://www.openstreetmap.org/copyright).
 
+### 4. Demostración del motor de rutas
+
+Con la red vial cargada (paso 3) y `03_datos_valledupar.sql` ejecutado, la clase `co.edu.unicesar.rutavida.app.RouteDemo` (carpeta de trabajo `backend/`) calcula la ruta recomendada y dos alternativas desde la estación de bomberos hasta una emergencia de EJEMPLO en el Parque La Popa, compara A* con Dijkstra, aplica una congestión SIMULADA, recalcula y calcula el traslado al Hospital Rosario Pumarejo. No escribe nada en Oracle.
+
+Deja el resultado en `frontend/data/rutas-demo.geojson` y en `frontend/data/rutas-demo.js` (el mismo contenido, para abrir la página sin servidor). Los tiempos son estimados con las velocidades supuestas del importador; no son tiempos medidos.
+
 ## Trabajo en equipo
 
 - **Cómo trabajar con Git, ramas y Pull Requests:** [`CONTRIBUTING.md`](CONTRIBUTING.md).
