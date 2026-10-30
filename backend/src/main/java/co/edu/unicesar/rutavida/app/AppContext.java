@@ -14,15 +14,12 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
-import co.edu.unicesar.rutavida.event.EventBus;
-import co.edu.unicesar.rutavida.event.InMemoryEventBus;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
 import co.edu.unicesar.rutavida.util.DatabaseConnection;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
-import co.edu.unicesar.rutavida.util.Pbkdf2PasswordHasher;
 
 import java.time.Clock;
 import java.util.Objects;
@@ -39,13 +36,13 @@ import java.util.Objects;
  * // dao.jdbc implementations (only this class knows them)
  * EmergencyDAO emergencyDao = new JdbcEmergencyDAO(jdbc);
  * // services receive interfaces
- * EmergencyService emergencyService = new EmergencyService(emergencyDao, transactions, events, clock);
+ * EmergencyService emergencyService = new EmergencyService(emergencyDao, transactions, clock);
  * // controllers receive services
  * EmergencyController emergencyController = new EmergencyController(emergencyService);
  * }</pre>
  *
  * <p>SOLID Dependency Inversion: high-level classes depend on abstractions
- * ({@link TransactionManager}, {@link EventBus}, DAO interfaces, {@link Clock}) and
+ * ({@link TransactionManager}, DAO interfaces, {@link Clock}) and
  * this class decides the concrete implementation. In tests, a service can be built
  * with fakes instead of Oracle.
  *
@@ -56,7 +53,6 @@ public final class AppContext {
 
     private final DatabaseConnection database;
     private final JdbcTransactionManager jdbc;
-    private final EventBus events;
     private final Clock clock;
 
     private final SessionContext session;
@@ -71,13 +67,12 @@ public final class AppContext {
         // Every connection tells Oracle who is logged in (CLIENT_IDENTIFIER, used by the triggers).
         this.jdbc = new JdbcTransactionManager(
                 new ClientIdentifierConnectionFactory(database::open, this::currentUserId));
-        this.events = new InMemoryEventBus();
 
         // Security (A2 + S2 + S3)
         UserDAO userDao = new JdbcUserDAO(jdbc);
         RoleDAO roleDao = new JdbcRoleDAO(jdbc);
         AuditDAO auditDao = new JdbcAuditDAO(jdbc);
-        PasswordHasher passwordHasher = new Pbkdf2PasswordHasher();
+        PasswordHasher passwordHasher = new PasswordHasher();
         AuditService auditService = new AuditService(auditDao, clock);
 
         AuthService authService = new AuthService(userDao, roleDao, passwordHasher, auditService, clock);
@@ -103,10 +98,6 @@ public final class AppContext {
 
     public TransactionManager transactions() {
         return jdbc;
-    }
-
-    public EventBus events() {
-        return events;
     }
 
     /** Injected clock: tests and the simulator can control time. */

@@ -1226,12 +1226,16 @@ class ValidationUtil {
     +requirePositiveId(id: long, field: String) long$
     +requireNonNull(value: T, field: String) T$
     +requireInRange(value: double, min: double, max: double, field: String) double$
+    +requireLocation(point: GeoPoint) GeoPoint$
+}
+
+class GeoUtil {
+    +metersBetween(lat1: double, lon1: double, lat2: double, lon2: double) double$
 }
 
 
 
 class Messages {
-    +get(key: String) String$
     +userMessage(error: RuntimeException) String$
 }
 

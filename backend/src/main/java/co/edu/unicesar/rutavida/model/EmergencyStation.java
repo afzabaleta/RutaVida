@@ -1,17 +1,12 @@
-
 package co.edu.unicesar.rutavida.model;
 
-import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
-import co.edu.unicesar.rutavida.util.ValidationUtil;
 
-import java.util.regex.Pattern;
-
-/** An emergency response station with a geographic location. */
-public class EmergencyStation implements Locatable {
-
-    private static final Pattern PHONE =
-            Pattern.compile("[0-9+ -]{7,20}");
+/**
+ * A fire station or ambulance base (table ESTACION_EMERGENCIA).
+ * Only data: the business rules live in the service layer.
+ */
+public class EmergencyStation {
 
     private long id;
     private final String name;
@@ -21,52 +16,28 @@ public class EmergencyStation implements Locatable {
     private final GeoPoint location;
     private final RecordStatus status;
 
-    public EmergencyStation(long id, String name, String address,
-                            String neighborhood, String phone,
-                            GeoPoint location, RecordStatus status) {
-
-        if (id < 0) {
-            throw new ValidationException(
-                    "El identificador no puede ser negativo.");
-        }
-
+    public EmergencyStation(long id,
+            String name,
+            String address,
+            String neighborhood,
+            String phone,
+            GeoPoint location,
+            RecordStatus status) {
         this.id = id;
-        this.name = ValidationUtil.requireText(
-                name, "nombre", 100);
-        this.address = ValidationUtil.requireText(
-                address, "dirección", 180);
-        this.neighborhood = ValidationUtil.optionalText(
-                neighborhood, "barrio", 100);
-
-        String validatedPhone = ValidationUtil.optionalText(
-                phone, "teléfono", 20);
-
-        if (validatedPhone != null
-                && !PHONE.matcher(validatedPhone).matches()) {
-            throw new ValidationException(
-                    "El teléfono debe tener entre 7 y 20 caracteres válidos.");
-        }
-
-        this.phone = validatedPhone;
-        this.location = ValidationUtil.requireNonNull(
-                location, "ubicación");
-        this.status = ValidationUtil.requireNonNull(
-                status, "estado");
-    }
-
-    /** Assigns an identifier only to an unsaved station. */
-    public void assignId(long newId) {
-        if (id != 0) {
-            throw new IllegalStateException(
-                    "The entity already has id " + id);
-        }
-
-        id = ValidationUtil.requirePositiveId(
-                newId, "identificador");
+        this.name = name;
+        this.address = address;
+        this.neighborhood = neighborhood;
+        this.phone = phone;
+        this.location = location;
+        this.status = status;
     }
 
     public long getId() {
         return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
     }
 
     public String getName() {
@@ -85,35 +56,11 @@ public class EmergencyStation implements Locatable {
         return phone;
     }
 
-    @Override
     public GeoPoint getLocation() {
         return location;
     }
 
     public RecordStatus getStatus() {
         return status;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (this == other) {
-            return true;
-        }
-
-        return other instanceof EmergencyStation that
-                && id != 0
-                && id == that.id;
-    }
-
-    @Override
-    public int hashCode() {
-        return Long.hashCode(id);
-    }
-
-    @Override
-    public String toString() {
-        return "EmergencyStation{id=" + id
-                + ", name=" + name
-                + ", status=" + status + "}";
     }
 }

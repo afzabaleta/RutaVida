@@ -1,6 +1,6 @@
 package co.edu.unicesar.rutavida.osm;
 
-import co.edu.unicesar.rutavida.model.GeoPoint;
+import co.edu.unicesar.rutavida.util.GeoUtil;
 import co.edu.unicesar.rutavida.model.enums.NodeType;
 
 import java.util.ArrayList;
@@ -211,7 +211,9 @@ public final class RoadNetworkBuilder {
         }
         double length = 0;
         for (int i = 1; i < ids.size(); i++) {
-            length += pointOf(points, ids.get(i - 1)).distanceMetersTo(pointOf(points, ids.get(i)));
+            OsmExtract.Point from = points.get(ids.get(i - 1));
+            OsmExtract.Point to = points.get(ids.get(i));
+            length += GeoUtil.metersBetween(from.latitude(), from.longitude(), to.latitude(), to.longitude());
         }
         if (length < MIN_LENGTH_METERS) {
             // Two OSM points in the same place: Oracle requires distancia_m > 0.
@@ -219,11 +221,6 @@ public final class RoadNetworkBuilder {
             return;
         }
         pieces.add(new Piece(way, first, last, length));
-    }
-
-    private static GeoPoint pointOf(Map<Long, OsmExtract.Point> points, long id) {
-        OsmExtract.Point point = points.get(id);
-        return new GeoPoint(point.latitude(), point.longitude());
     }
 
     private static void addWay(Map<Long, List<OsmExtract.Way>> waysAtJunction, long id, OsmExtract.Way way) {

@@ -34,7 +34,6 @@ class ArchitectureTest {
     private static final String GRAPH = BASE + ".graph";
     private static final String TRAFFIC = BASE + ".traffic";
     private static final String SIMULATION = BASE + ".simulation";
-    private static final String EVENT = BASE + ".event";
     private static final String CONTROLLER = BASE + ".controller";
     private static final String VIEW = BASE + ".view";
     private static final String OSM = BASE + ".osm";
@@ -48,7 +47,7 @@ class ArchitectureTest {
     @Test
     void modelDependsOnNothingElseOfTheProject() {
         assertNoImports(inPackage(MODEL),
-                concat(JDBC, UI, DAO, SERVICE, CONTROLLER, VIEW, GRAPH, TRAFFIC, SIMULATION, EVENT, APP));
+                concat(JDBC, UI, DAO, SERVICE, CONTROLLER, VIEW, GRAPH, TRAFFIC, SIMULATION, APP));
     }
 
     @Test
@@ -73,18 +72,13 @@ class ArchitectureTest {
     }
 
     @Test
-    void eventsDoNotDependOnLayers() {
-        assertNoImports(inPackage(EVENT), concat(JDBC, UI, DAO, SERVICE, CONTROLLER, VIEW, APP));
-    }
-
-    @Test
     void controllersDoNotTouchPersistenceNorTheUserInterface() {
         assertNoImports(inPackage(CONTROLLER), concat(JDBC, UI, DAO, VIEW, APP));
     }
     @Test
     void osmImporterOnlyReadsAFileAndWritesSql() {
         assertNoImports(inPackage(OSM),
-                concat(JDBC, UI, DAO, SERVICE, CONTROLLER, VIEW, GRAPH, TRAFFIC, SIMULATION, EVENT, APP));
+                concat(JDBC, UI, DAO, SERVICE, CONTROLLER, VIEW, GRAPH, TRAFFIC, SIMULATION, APP));
     }
 
     @Test
