@@ -35,9 +35,10 @@ RutaVida/
 | Esquema de base de datos (23 tablas, 21 secuencias, 24 índices, restricciones) | Ejecutado y verificado en Oracle XE 18c con `98_verificar.sql` (14/10/2026) |
 | Datos maestros (roles, permisos, tipos de vehículo y de emergencia) | Cargados y verificados |
 | Conexión JDBC (`DatabaseConnection`) y verificación (`DatabaseCheck`) | Funciona: "23 de 23" con el driver ojdbc11 21.9 |
-| Arquitectura: paquetes, reglas de dependencia, enums, transacciones, eventos, `AppContext` | Programado y probado: 37 pruebas en verde en IntelliJ ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)) |
+| Arquitectura: paquetes, reglas de dependencia, enums, transacciones, `AppContext` | Programado y probado ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)). Desde el 30/10/2026 el modelo solo guarda datos y las reglas están en `service` |
 | Vistas, funciones, procedimientos y triggers PL/SQL (`04_plsql.sql`) | Programado; se prueba con la sección 8 de `98_verificar.sql` |
-| Entidades, DAO, Service, Controller, vista | Pendiente |
+| Entidades, DAO principales, motor de rutas, inicio de sesión y reglas de estado | Programado y probado (detalle en [`docs/class-diagram.md`](docs/class-diagram.md), sección 9) |
+| Casos de uso de despacho completos, simulación, catálogos, API REST | Pendiente |
 | Vista | **Decidido: web** (HTML, CSS, JavaScript y Leaflet + API REST en Java). Maqueta en `frontend/` (D3), todavía sin conexión al backend |
 | Decisiones del equipo (vista web, Oracle local, tablas en español) | Registradas en [`docs/decisiones-tecnicas.md`](docs/decisiones-tecnicas.md) |
 

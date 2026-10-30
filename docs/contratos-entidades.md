@@ -6,6 +6,22 @@ Acuerdo entre **Andrés** (base de datos y DAO) y **Sherly** (modelo) sobre las 
 - **Estado:** **acordado** el 15/10/2026. Sherly aprobó el PR #3 y eligió la propuesta en los 5 puntos de la sección 7.
 - Si al programar hace falta cambiar algo, se cambia aquí y en `docs/class-diagram.md` en el mismo PR, y se avisa al grupo.
 
+> **Actualización 30/10/2026: refactorización de capas** (rama `refactor/simplify-layers`).
+> Las entidades ya **no validan ni tienen métodos con reglas**: solo guardan datos (atributos, constructor, getters, `setId` y setters de los datos que cambian). Los atributos, tipos y columnas de este documento **no cambian**. Lo que cambia es **quién aplica** la columna *Validación*: ahora la aplica el **servicio** que crea o modifica la entidad, y Oracle la sigue garantizando con sus restricciones. Así una fila antigua de la base de datos siempre se puede leer, y cada regla está en un solo lugar.
+>
+> | Antes (en la entidad o el enum) | Ahora |
+> |---|---|
+> | `Emergency.changeStatus`, `EmergencyStatus.canChangeTo`, `isActive` | `EmergencyService.changeStatus`, `canChange`, `isActive` |
+> | `EmergencyAssignment.changeStatus`, `AssignmentStatus.canChangeTo`, `isOpen` | `DispatchService.changeStatus`, `canChange`, `isOpen` |
+> | `EmergencyVehicle.isDispatchable`, `moveTo` | `DispatchService.isDispatchable`, `moveVehicle` |
+> | `RoadIncident.activate`, `reject`, `close`, `affectsRouting`, `blocksTraffic` | Mismos nombres en `IncidentService` |
+> | `Role.hasPermission`, `UserSession.hasPermission` / `require` | `AuthService.hasPermission` / `requirePermission` |
+> | Formato de documento, email y `username` de `User` | `AdminBootstrapService` (y `UserService` cuando se programe) |
+> | `GeoPoint.distanceMetersTo` | `GeoUtil.metersBetween` |
+> | `assignId(long)` | `setId(long)` |
+> | `Locatable`, `equals`/`hashCode`/`toString` de las entidades, `getFullName`, `isOperational`, `getBaseTimeSeconds`, `isSimulated`, `isToHospital`, `usesSegment`, `getTimeToArrival`, `TrafficLight.changeState` | Eliminados: nadie los usaba fuera de las pruebas del modelo. Si un caso de uso los necesita, se agregan en su servicio |
+> | Validaciones de `EmergencyStation`, `Hospital`, `EmergencyVehicle`, `VehicleType` (teléfono, placa en mayúsculas…) | Pendientes: se agregan en `FleetService` y `HospitalService` (Sprint 3). Mientras tanto las protegen las restricciones de Oracle |
+
 ---
 
 ## 1. Reglas comunes
@@ -14,19 +30,19 @@ Estas reglas aplican a todas las entidades de S1.
 
 | # | Regla | Motivo |
 |---|---|---|
-| R1 | Las entidades van en el paquete `model` y **no importan** JDBC, DAO, service, controller, view ni Swing. Sí pueden usar `model.enums` y `exception` | `ArchitectureTest` |
-| R2 | Todos los datos se reciben en el **constructor**, que valida y lanza `ValidationException` si algo no cumple. No hay *setters* públicos: el estado solo cambia por métodos con significado (`changeStatus`, `moveTo`) | Una entidad nunca existe en un estado inválido |
-| R3 | **Identificador:** `long id`. El valor `0` significa "todavía no está guardado". El DAO, después del `INSERT`, llama a `assignId(long)`, que solo funciona si el id actual es 0 (si no, lanza `IllegalStateException`) | Las secuencias de Oracle generan el id |
+| R1 | Las entidades van en el paquete `model` y **no importan** JDBC, DAO, service, controller, view ni Swing. Sí pueden usar `model.enums` | `ArchitectureTest` |
+| R2 | Todos los datos se reciben en el **constructor**, que **no valida**. Hay *setters* solo para los datos que cambian (estado, fechas de cierre, última posición). Las validaciones de la columna *Validación* las hace el **servicio** antes de guardar y lanza `ValidationException` o `BusinessRuleException` | El modelo solo guarda datos; las reglas viven en un solo lugar (Service) |
+| R3 | **Identificador:** `long id`. El valor `0` significa "todavía no está guardado". El DAO, después del `INSERT`, llama a `setId(long)` | Las secuencias de Oracle generan el id |
 | R4 | **Otras entidades se referencian por id** (`roleId`, `emergencyTypeId`), no por el objeto completo. Excepción: `Role.permissions` y `UserSession`, que sí guardan objetos | Evita cargar media base de datos para leer una emergencia |
 | R5 | **Campos opcionales** (columnas que aceptan `NULL`): `String` → `null` (nunca `""`); números → `Integer`/`Long`/`Double`; fechas → `LocalDateTime` en `null`. Campos obligatorios: primitivos (`long`, `int`) u objetos no nulos | Igual a la base de datos |
-| R6 | **Textos:** el constructor hace `trim()`. Un texto obligatorio vacío o en blanco es inválido. Un texto opcional en blanco se guarda como `null` | Evita guardar espacios |
-| R7 | **Longitudes:** el constructor rechaza un texto más largo que su columna `VARCHAR2` | Mejor un mensaje claro que un error de Oracle |
-| R8 | **Códigos en mayúsculas:** nombres de rol, de tipo y de módulo/acción se pasan a mayúsculas en el constructor (`toUpperCase(Locale.ROOT)`) | Las restricciones `CHECK (x = UPPER(x))` |
+| R6 | **Textos:** el servicio hace `trim()` (con `ValidationUtil.requireText` / `optionalText`). Un texto obligatorio vacío o en blanco es inválido. Un texto opcional en blanco se guarda como `null` | Evita guardar espacios |
+| R7 | **Longitudes:** el servicio rechaza un texto más largo que su columna `VARCHAR2` | Mejor un mensaje claro que un error de Oracle |
+| R8 | **Códigos en mayúsculas:** nombres de rol, de tipo y de módulo/acción los pasa a mayúsculas el servicio (`toUpperCase(Locale.ROOT)`) | Las restricciones `CHECK (x = UPPER(x))` |
 | R9 | **Estados y catálogos:** se usan los enums que **ya existen** en `model.enums` (`RecordStatus`, `Severity`, `EmergencyStatus`, `VehicleOperationalStatus`, `HospitalLevel`). No se crean enums nuevos ni se duplican. La conversión al código de Oracle (`'A'`, `'REPORTADA'`) la hace el DAO con `code()` y `fromCode()` | `EnumSqlContractTest` |
 | R10 | **Fechas:** `TIMESTAMP` ↔ `LocalDateTime`. Las fechas de creación (`registeredAt`, `reportedAt`) las pone el **servicio** con el `Clock` de `AppContext` y el DAO las inserta explícitamente (no se depende del `DEFAULT SYSTIMESTAMP`) | Pruebas repetibles |
 | R11 | **Coordenadas:** siempre como `GeoPoint`, nunca como dos `double` sueltos | Información en un solo lugar |
-| R12 | `equals` y `hashCode`: por `id` si la entidad ya está guardada (id ≠ 0); por identidad si no. Los *records* (`GeoPoint`, `UserSession`) comparan por valor | Comparación coherente |
-| R13 | `toString()` **nunca** incluye `passwordHash` | Seguridad |
+| R12 | Las entidades no redefinen `equals` ni `hashCode` (se comparan por id cuando hace falta). Los *records* (`GeoPoint`, `UserSession`, `RouteSegment`) comparan por valor | Nadie necesitaba otra comparación |
+| R13 | Las entidades no redefinen `toString()`, así que `passwordHash` nunca aparece en un log. Nadie debe imprimir un `User` con sus datos | Seguridad |
 | R14 | Los mensajes de `ValidationException` van **en español** y sin detalles técnicos (por ejemplo: "La latitud debe estar entre -90 y 90") | Pueden llegar al usuario |
 
 ---
@@ -40,17 +56,9 @@ Estas reglas aplican a todas las entidades de S1.
 | `latitude` | `double` | `latitud NUMBER(9,6)` | Entre -90 y 90 |
 | `longitude` | `double` | `longitud NUMBER(9,6)` | Entre -180 y 180 |
 
-Métodos: `distanceMetersTo(GeoPoint other)` con la fórmula de Haversine (radio de la Tierra 6 371 000 m).
+La distancia se calcula con `GeoUtil.metersBetween` (fórmula de Haversine, radio de la Tierra 6 371 000 m). Los rangos de latitud y longitud los comprueba `ValidationUtil.requireLocation` en el servicio. Validar que una emergencia esté **dentro de Valledupar** también es una regla del servicio.
 
-`GeoPoint` acepta cualquier punto válido del planeta. Validar que una emergencia esté **dentro de Valledupar** es una regla del servicio, no de esta clase.
-
-### `Locatable` (interfaz)
-
-
-`GeoPoint getLocation()`. La implementan `EmergencyStation`,`EmergencyVehicle`, `Hospital`, `Emergency` y `RoadNode` (sección 9).
-
-
-`EmergencyVehicle.getLocation()` puede devolver `null` si la unidad todavía no tiene posición.
+`EmergencyVehicle.getLastLocation()` puede devolver `null` si la unidad todavía no tiene posición. (La interfaz `Locatable` se eliminó: ningún servicio la usaba.)
 
 ---
 
@@ -66,9 +74,7 @@ Métodos: `distanceMetersTo(GeoPoint other)` con la fórmula de Haversine (radio
 | `status` | `RecordStatus` | `estado CHAR(1)` | Sí | `ACTIVE` ↔ `'A'`, `INACTIVE` ↔ `'I'` |
 | `permissions` | `Set<Permission>` | Tabla `ROL_PERMISO` | Sí (puede estar vacío) | Copia inmutable |
 
-Métodos:
-- `isActive()`.
-- `hasPermission(module, action)`: `true` solo si el rol está activo **y** tiene un permiso con ese módulo y esa acción exactos. `GESTIONAR` **no** incluye `CONSULTAR`: en los datos iniciales cada rol tiene los dos cuando corresponde.
+Regla (en `AuthService.hasPermission(session, module, action)`): `true` solo si el rol está activo **y** tiene un permiso con ese módulo y esa acción exactos. `GESTIONAR` **no** incluye `CONSULTAR`: en los datos iniciales cada rol tiene los dos cuando corresponde.
 
 `ROL_PERMISO` no tiene clase propia: el DAO la usa para llenar `permissions`.
 
@@ -81,7 +87,7 @@ Métodos:
 | `action` | `String` | `accion VARCHAR2(40)` | Sí | Mayúsculas, máx. 40 (`CONSULTAR` o `GESTIONAR` en los datos actuales) |
 | `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
 
-Métodos: `matches(module, action)` compara sin importar mayúsculas o minúsculas.
+La comparación de módulo y acción la hace `AuthService.hasPermission`, sin importar mayúsculas o minúsculas.
 
 ### `User` ↔ `USUARIO`
 
@@ -98,9 +104,9 @@ Métodos: `matches(module, action)` compara sin importar mayúsculas o minúscul
 | `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
 | `registeredAt` | `LocalDateTime` | `fecha_registro TIMESTAMP` | Sí | R10 |
 
-Métodos: `getFullName()` (nombres + apellidos) e `isActive()`. `toString()` sin `passwordHash` (R13).
+Las validaciones de formato (documento, email y `username` en minúsculas) las hace `AdminBootstrapService` al crear el administrador; `AuthService.login` normaliza el `username` antes de buscarlo. Sin `toString()` propio (R13).
 
-El formato exacto del hash (algoritmo, iteraciones, sal) lo define Sherly en S2 con `Pbkdf2PasswordHasher`. La entidad solo guarda el texto resultante.
+El formato del hash (PBKDF2 con sal) lo define la clase `PasswordHasher` de `util`. La entidad solo guarda el texto resultante.
 
 ### `AuditLog` ↔ `AUDITORIA`
 
@@ -117,7 +123,7 @@ Agregada el 16/10/2026: no estaba en S1, pero la necesitan `AuditDAO` (A2) y `Au
 | `result` | `AuditResult` | `resultado VARCHAR2(20)` | Sí | `SUCCESS` ↔ `EXITO`, `FAILURE` ↔ `FALLO` |
 | `detail` | `String` | `detalle VARCHAR2(500)` | No | Máx. 500 |
 
-Es historial: no tiene métodos que la cambien después de crearla (solo `assignId`). Los cambios de estado de emergencias, asignaciones e incidentes los escriben los triggers de `04_plsql.sql` (DT-05); `AuditService` registra el resto.
+Es historial: no tiene setters (solo `setId`). `AuditService.record` valida módulo, operación y resultado. Los cambios de estado de emergencias, asignaciones e incidentes los escriben los triggers de `04_plsql.sql` (DT-05); `AuditService` registra el resto.
 
 ### `UserSession` (*record*, no es tabla)
 
@@ -127,9 +133,7 @@ Es historial: no tiene métodos que la cambien después de crearla (solo `assign
 | `role` | `Role` (con sus permisos) |
 | `startedAt` | `LocalDateTime` |
 
-Métodos:
-- `hasPermission(module, action)` delega en `role`.
-- `require(module, action)` lanza `AccessDeniedException` si no tiene el permiso.
+Es un *record* sin métodos. Los permisos se consultan con `AuthService.hasPermission(session, module, action)`; `AuthService.requirePermission(...)` lanza `AccessDeniedException` si no lo tiene.
 
 ---
 
@@ -159,12 +163,12 @@ Métodos:
 | `status` | `EmergencyStatus` | `estado VARCHAR2(30)` | Sí | Una emergencia nueva empieza en `REPORTED` |
 | `closedAt` | `LocalDateTime` | `fecha_hora_cierre TIMESTAMP` | No | Con valor **si y solo si** `status` es `CLOSED`; no puede ser anterior a `reportedAt` |
 
-Métodos:
-- `changeStatus(next, at)`:
-  - Usa `EmergencyStatus.canChangeTo(next)`, que ya existe. Si la transición no está permitida, lanza `BusinessRuleException`.
-  - Al pasar a `CLOSED`, asigna `closedAt = at`.
-- `isActive()` delega en `status.isActive()`.
-- `getLocation()`.
+Reglas (en `EmergencyService`):
+- `validateNew(emergency)`: comprueba los datos de la tabla anterior antes de guardar.
+- `changeStatus(emergency, next, at)`:
+  - Usa `canChange(from, to)`, que tiene el mapa de transiciones permitidas. Si la transición no está permitida, lanza `BusinessRuleException`.
+  - Al pasar a `CLOSED`, asigna `closedAt = at`; rechaza una hora de cierre anterior al reporte.
+- `isActive(emergency)`: cualquier estado menos `CLOSED`.
 
 Estas reglas repiten en Java las restricciones `ck_emergencia_cierre` y `ck_emergencia_fechas` de Oracle, para que el error se detecte antes de llegar a la base de datos.
 
@@ -206,11 +210,12 @@ Estas reglas repiten en Java las restricciones `ck_emergencia_cierre` y `ck_emer
 | `lastLocation` | `GeoPoint` | `latitud`, `longitud` | No | Las dos columnas juntas o ninguna (`ck_vehiculo_posicion`) |
 | `lastLocationAt` | `LocalDateTime` | `fecha_actualizacion TIMESTAMP` | No | Si hay `lastLocation`, debe tener fecha |
 
-Métodos:
-- `getLocation()` devuelve `lastLocation` (puede ser `null`).
-- `isDispatchable()` delega en `operationalStatus.isDispatchable()`.
-- `moveTo(point, at)`: actualiza `lastLocation` y `lastLocationAt`. Rechaza `null` y una fecha anterior a la última conocida.
-- `changeStatus(next)`: cualquier cambio entre los cuatro estados es válido (el enum no define transiciones). No cambia si `next` es igual al actual.
+Reglas (en `DispatchService`):
+- `isDispatchable(vehicle)`: solo si el estado operativo es `AVAILABLE`.
+- `moveVehicle(vehicle, point, at)`: actualiza `lastLocation` y `lastLocationAt`. Rechaza `null` y una fecha anterior a la última conocida.
+- El estado operativo se cambia con `setOperationalStatus`; cualquier cambio entre los cuatro estados es válido.
+
+Las validaciones de código de unidad y placa (mayúsculas) se agregan en `FleetService` (Sprint 3).
 
 La **fase de la misión** (despachada, en ruta, en sitio) no está aquí: está en `ASIGNACION_EMERGENCIA` y es de la Fase 5.
 
@@ -231,7 +236,7 @@ La **fase de la misión** (despachada, en ruta, en sitio) no está aquí: está 
 | `emergencyCapacity` | `Integer` | `capacidad_urgencias NUMBER(5)` | No | Mayor o igual a 0 |
 | `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
 
-Métodos: `getLocation()` e `isOperational()` (`status` activo).
+Sin métodos. Las validaciones (teléfono, capacidad) se agregan en `HospitalService` (Sprint 3); "operativo" es `status == ACTIVE`.
 
 `HospitalServiceOffering` (`SERVICIO_HOSPITAL`) **no** es parte de S1; se programa con el módulo de hospitales.
 
@@ -243,18 +248,18 @@ Sherly eligió la propuesta en los cinco puntos (comentario en el PR #3, 15/10/2
 
 | # | Tema | Decisión | Alternativa descartada |
 |---|---|---|---|
-| P1 | **`AccessDeniedException`** la necesita `UserSession.require()` (S1), pero en el plan está en la tarea A1 de Andrés **Sherly la crea en S1** (es una clase de 5 líneas en `exception`); se quitó de A1 | Andrés la sube antes, en un PR aparte |
-| P2 | Identificador de una entidad sin guardar | `long id = 0` + `assignId()` (R3) | `Long id = null` |
+| P1 | **`AccessDeniedException`** la necesitaba `UserSession.require()` (S1; hoy la lanza `AuthService.requirePermission`), pero en el plan está en la tarea A1 de Andrés **Sherly la crea en S1** (es una clase de 5 líneas en `exception`); se quitó de A1 | Andrés la sube antes, en un PR aparte |
+| P2 | Identificador de una entidad sin guardar | `long id = 0` + `setId()` (R3; antes `assignId()`) | `Long id = null` |
 | P3 | Formato del documento de identidad | Letras y números, de 5 a 20 | Solo dígitos (excluye pasaportes) |
 | P4 | Email y `username` | Se guardan en minúsculas | Se guardan como se escriben |
-| P5 | Clases de prueba | Una por entidad (`EmergencyTest`, `GeoPointTest`…), con al menos un caso válido y uno inválido por regla | — |
+| P5 | Clases de prueba | Una por entidad (`EmergencyTest`, `GeoPointTest`…), con al menos un caso válido y uno inválido por regla. **Reemplazado el 30/10/2026:** las reglas se prueban en los servicios (`EmergencyServiceTest`, `DispatchServiceTest`, `IncidentServiceTest`, `AuthServiceTest`) | — |
 
 ---
 
 ## 8. Cómo se comprueba que S1 cumple este contrato
 
-1. Cada entidad tiene sus pruebas JUnit: datos válidos, cada validación que falla, y los métodos con reglas (`changeStatus`, `moveTo`, `hasPermission`, `distanceMetersTo`).
-2. `ArchitectureTest` y `ClassDiagramSyncTest` en verde. El método `assignId(long)` (R3) todavía no aparece en `docs/class-diagram.md`: se agrega a las entidades del diagrama en el mismo PR de S1.
+1. Las reglas tienen sus pruebas JUnit en el servicio que las aplica: datos válidos, cada validación que falla y cada transición de estado (`EmergencyServiceTest`, `DispatchServiceTest`, `IncidentServiceTest`, `AuthServiceTest`). Las entidades no tienen pruebas propias porque no tienen lógica.
+2. `ArchitectureTest` y `ClassDiagramSyncTest` en verde.
 3. Revisión de Andrés en el PR de S1: los nombres de atributos y tipos de este documento son los que va a usar el `RowMapper` de cada DAO en la Fase 3.
 
 
@@ -266,7 +271,7 @@ Agregada el 22/10/2026 para la tarea S4. Se aplican las mismas reglas R1–R14.
 
 Estas cinco clases las usan los DAO de la red vial (A4) y `GraphLoader` y `RoadConditionService` (Kendrick, Sprint 2). La aprueba Andrés en el PR de S4.
 
-### `RoadNode` ↔ `NODO_VIAL` (implementa `Locatable`)
+### `RoadNode` ↔ `NODO_VIAL`
 
 | Atributo | Tipo | Columna | Obligatorio | Validación |
 |---|---|---|---|---|
@@ -277,7 +282,7 @@ Estas cinco clases las usan los DAO de la red vial (A4) y `GraphLoader` y `RoadC
 | `nodeType` | `NodeType` | `tipo_nodo VARCHAR2(30)` | Sí | — |
 | `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
 
-Métodos: `getLocation()` e `isActive()`.
+Sin métodos. `GraphLoader` solo carga los nodos con `status == ACTIVE`.
 
 
 ### `RoadSegment` ↔ `TRAMO_VIAL`
@@ -295,9 +300,7 @@ Métodos: `getLocation()` e `isActive()`.
 
 `tiempo_base_seg` no es un atributo: es una columna virtual que Oracle calcula.
 
-Métodos:
-- `getBaseTimeSeconds()`: distancia / (velocidad / 3.6), la misma fórmula de la columna virtual.
-- `isOpen()`: falso solo si el estado es `CERRADO`; `RESTRINGIDO` deja pasar.
+Sin métodos. `GraphLoader` trata el tramo como cerrado solo si el estado es `CERRADO`; `RESTRINGIDO` deja pasar. El tiempo base lo calcula el motor de rutas con la misma fórmula de la columna virtual.
 
 
 ### `TrafficLight` ↔ `SEMAFORO`
@@ -312,7 +315,7 @@ Métodos:
 | `synchronizedSignal` | `boolean` | `sincronizado CHAR(1)` | Sí | `true` ↔ `'S'`, `false` ↔ `'N'` (lo convierte el DAO) |
 | `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
 
-Métodos: `isActive()` y `changeState(next)` (el simulador cambia la luz; RutaVida nunca controla un semáforo real).
+El estado de la luz se cambia con `setCurrentState` (lo hará el simulador; RutaVida nunca controla un semáforo real).
 
 
 ### `TrafficReading` ↔ `TRAFICO`
@@ -327,9 +330,7 @@ Métodos: `isActive()` y `changeState(next)` (el simulador cambia la luz; RutaVi
 | `congestionFactor` | `double` | `factor_congestion NUMBER(5,2)` | Sí | Entre 1 y 999.99 (1 = flujo libre) |
 | `source` | `TrafficSource` | `fuente VARCHAR2(40)` | Sí | — |
 
-Es historial: no cambia después de crearla (solo `assignId`).
-
-Método `isSimulated()`: los datos con fuente `SIMULACION` nunca se muestran como reales.
+Es historial: no cambia después de crearla (solo `setId`). Los datos con fuente `SIMULACION` (`getSource()`) nunca se muestran como reales.
 
 
 ### `RoadIncident` ↔ `INCIDENTE_VIAL`
@@ -347,17 +348,16 @@ Método `isSimulated()`: los datos con fuente `SIMULACION` nunca se muestran com
 | `status` | `IncidentStatus` | `estado VARCHAR2(20)` | Sí | Un incidente nuevo empieza en `PENDING` (RN-05) |
 | `origin` | `IncidentOrigin` | `origen VARCHAR2(20)` | Sí | — |
 
-Métodos (los cambios no permitidos lanzan `BusinessRuleException`):
+Reglas (en `IncidentService`; los cambios no permitidos lanzan `BusinessRuleException`):
 
-- `activate(blocks)`: solo desde `PENDIENTE`; pasa a `ACTIVO` y fija `blocksSegment` (CU-14).
-- `reject(at)`: solo desde `PENDIENTE`; pasa a `RECHAZADO` y fija `endedAt`.
-- `close(at)`: solo desde `ACTIVO`; pasa a `CERRADO` y fija `endedAt`.
-- `affectsRouting()`: delega en `status.affectsRouting()` (solo `ACTIVO`).
-- `blocksTraffic()`: `affectsRouting()` y `blocksSegment`; el motor trata el tramo como cerrado (sección 5 de `docs/convenciones-base-datos.md`).
+- `validateNew(incident)`: comprueba los datos antes de guardar.
+- `activate(incident, blocks)`: solo desde `PENDIENTE`; pasa a `ACTIVO` y fija `blocksSegment` (CU-14).
+- `reject(incident, at)`: solo desde `PENDIENTE`; pasa a `RECHAZADO` y fija `endedAt`.
+- `close(incident, at)`: solo desde `ACTIVO`; pasa a `CERRADO` y fija `endedAt`.
+- `affectsRouting(incident)`: solo `ACTIVO`.
+- `blocksTraffic(incident)`: `affectsRouting` y `blocksSegment`; el motor trata el tramo como cerrado (sección 5 de `docs/convenciones-base-datos.md`).
 
-El trigger `trg_incidente_estado` de `04_plsql.sql` audita los cambios de estado: la entidad no llama a `AuditService`.
-
-
+El trigger `trg_incidente_estado` de `04_plsql.sql` audita los cambios de estado: ni la entidad ni `IncidentService` llaman a `AuditService` para eso.
 
 ---
 
@@ -382,12 +382,12 @@ Estas cuatro clases las usan los DAO de despacho y rutas (Andrés) y
 | `arrivedAt` | `LocalDateTime` | `hora_llegada TIMESTAMP` | No | Necesita `departedAt` y no es anterior a ella. Con valor si y solo si el estado es `EN_SITIO`, `TRASLADANDO` o `FINALIZADA` |
 | `status` | `AssignmentStatus` | `estado VARCHAR2(30)` | Sí | Una asignación nueva empieza en `ASSIGNED` |
 
-Métodos:
-- `changeStatus(next, at)`: usa `AssignmentStatus.canChangeTo(next)`, que ya existe; si no se permite, lanza `BusinessRuleException`. Al pasar a `EN_RUTA` fija `departedAt = at`; al pasar a `EN_SITIO` fija `arrivedAt = at`. Si la hora va hacia atrás, lanza `ValidationException` y no cambia nada.
-- `isOpen()`: delega en `status.isOpen()`.
-- `getTimeToArrival()`: `Duration` desde `assignedAt` hasta `arrivedAt`; `null` si todavía no llegó.
+Reglas (en `DispatchService`):
+- `validateNew(assignment)`: comprueba los datos antes de guardar.
+- `changeStatus(assignment, next, at)`: usa `canChange(from, to)`; si no se permite, lanza `BusinessRuleException`. Al pasar a `EN_RUTA` fija `departedAt = at`; al pasar a `EN_SITIO` fija `arrivedAt = at`. Si la hora es anterior a `assignedAt`, lanza `ValidationException` y no cambia nada.
+- `isOpen(assignment)`: todos los estados menos `FINALIZADA` y `CANCELADA`.
 
-**Cambio frente al diagrama:** `getResponseTime()` pasa a llamarse `getTimeToArrival()`. Según DT-05, el tiempo de respuesta oficial va desde el **reporte** de la emergencia hasta la llegada (`fn_tiempo_respuesta`), y la asignación no conoce la hora del reporte. Con el nombre anterior, el dashboard podría mostrar dos "tiempos de respuesta" distintos.
+El tiempo de respuesta oficial va desde el **reporte** de la emergencia hasta la llegada y lo calcula Oracle (`fn_tiempo_respuesta`, DT-05). La entidad ya no tiene `getTimeToArrival()`, para que el dashboard no muestre dos "tiempos de respuesta" distintos.
 
 La asignación la crea `sp_asignar_unidad` y `trg_asignacion_estado` audita sus cambios de estado: la entidad no llama a `AuditService`.
 
@@ -409,9 +409,7 @@ La asignación la crea `sp_asignar_unidad` y `trg_asignacion_estado` audita sus 
 | `status` | `RouteStatus` | `estado VARCHAR2(20)` | Sí | — |
 | `segments` | `List<RouteSegment>` | filas de `RUTA_TRAMO` | Sí | Al menos uno, con `order` 1, 2, 3… sin saltos. Se guarda una copia que no se puede modificar |
 
-Métodos:
-- `isToHospital()`: devuelve `true` cuando `destinationHospitalId != null`.
-- `usesSegment(segmentId)`: permite a `RouteMonitor` comprobar si un cambio de tráfico afecta la ruta.
+Sin métodos con reglas. Una ruta va a un hospital cuando `getDestinationHospitalId() != null`. Para saber si un cambio de tráfico afecta una ruta, `RouteDAO.findActiveUsingSegments` busca en `getSegments()`.
 
 La ruta no cambia después de creada: `RouteDAO.updateStatus` cambia su estado en Oracle y un recálculo crea una ruta nueva.
 
@@ -427,7 +425,7 @@ La ruta no cambia después de creada: `RouteDAO.updateStatus` cambia su estado e
 | `trafficLightCount` | `Integer` | `semaforos_afectados NUMBER(3)` | No | Entre 0 y 999 |
 
 **Cambios frente al diagrama:**
-- Es un *record* sin `routeId`. La fila no tiene id propio (su clave es `id_ruta` + `orden_tramo`) y pertenece a su `Route`, así que el DAO escribe el id de la ruta. Si `RouteSegment` guardara `routeId`, quedaría en 0 después de `Route.assignId`.
+- Es un *record* sin `routeId`. La fila no tiene id propio (su clave es `id_ruta` + `orden_tramo`) y pertenece a su `Route`, así que el DAO escribe el id de la ruta. Si `RouteSegment` guardara `routeId`, quedaría en 0 después de `Route.setId`.
 - Los tres valores estimados son `Double`/`Integer` porque sus columnas aceptan `NULL` (R5).
 
 
@@ -443,4 +441,4 @@ La ruta no cambia después de creada: `RouteDAO.updateStatus` cambia su estado e
 | `headingDegrees` | `Double` | `direccion_grados NUMBER(6,2)` | No | Desde 0 y menor que 360 |
 | `source` | `PositionSource` | `fuente VARCHAR2(20)` | Sí | — |
 
-Es historial: no cambia después de crearla (solo `assignId`). Método `isSimulated()`: en la primera versión todas las posiciones vienen del simulador y se muestran como `SIMULACION`, nunca como GPS real.
+Es historial: no cambia después de crearla (solo `setId`). En la primera versión todas las posiciones vienen del simulador (`getSource()` = `SIMULATION`) y se muestran como `SIMULACION`, nunca como GPS real.

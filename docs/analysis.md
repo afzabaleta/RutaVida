@@ -202,14 +202,14 @@ flowchart LR
 3. Elige la severidad (`BAJA`, `MEDIA`, `ALTA`, `CRITICA`) y escribe una descripción opcional.
 4. El sistema valida los datos (RN-03).
 5. En una sola transacción: inserta la emergencia con estado `REPORTADA` y registra la auditoría.
-6. El sistema publica el evento `EmergencyRegistered`; el mapa y la lista de emergencias activas se actualizan.
+6. El mapa y la lista de emergencias activas se actualizan.
 7. El sistema ofrece continuar con CU-09 (despachar unidad).
 
 **Flujos alternos**
 - 4a. Datos incompletos o coordenadas fuera del área cubierta por la red vial cargada → mensaje con el campo que falla; no se guarda nada.
 - 5a. Falla la base de datos → se deshace la transacción y se informa el error.
 
-**Clases:** `EmergencyController` → `EmergencyService` → `EmergencyDAO`, `EmergencyTypeDAO`, `TransactionManager`, `AuditService`, `EventPublisher`.
+**Clases:** `EmergencyController` → `EmergencyService` → `EmergencyDAO`, `EmergencyTypeDAO`, `TransactionManager`, `AuditService`.
 
 ---
 
@@ -252,7 +252,7 @@ flowchart LR
 4. El sistema muestra las 3 rutas de esa unidad hasta la emergencia.
 5. El coordinador confirma el despacho.
 6. En **una sola transacción**: crea la asignación, cambia la emergencia a `ASIGNADA`, cambia la unidad a `OCUPADO`, guarda las rutas en `RUTA` / `RUTA_TRAMO` y registra la auditoría.
-7. El sistema publica `UnitDispatched`; la unidad empieza a moverse en el mapa (simulación, CU-18).
+7. `DispatchService` avisa a `AlertService` y al simulador; la unidad empieza a moverse en el mapa (simulación, CU-18).
 
 **Flujos alternos**
 - 2a. No hay unidades disponibles → "No hay unidades disponibles" y la emergencia sigue `REPORTADA`.
@@ -261,7 +261,7 @@ flowchart LR
 
 **Varias emergencias a la vez (extensión):** con N emergencias pendientes y M unidades, `DispatchService` arma la matriz de ETA y la resuelve con el algoritmo húngaro (asignación óptima, Investigación de Operaciones).
 
-**Clases:** `DispatchController` → `DispatchService` → `EmergencyDAO`, `EmergencyVehicleDAO`, `EmergencyAssignmentDAO`, `RouteService`, `RouteDAO`, `HungarianAlgorithm`, `TransactionManager`, `AuditService`, `EventPublisher`.
+**Clases:** `DispatchController` → `DispatchService` → `EmergencyDAO`, `EmergencyVehicleDAO`, `EmergencyAssignmentDAO`, `RouteService`, `RouteDAO`, `HungarianAlgorithm`, `TransactionManager`, `AuditService`, `AlertService`.
 
 ---
 
@@ -277,7 +277,7 @@ flowchart LR
 1. El coordinador elige la siguiente fase: `EN_RUTA` → `EN_SITIO` → `TRASLADANDO` → `FINALIZADA`.
 2. El sistema valida la transición (RN-01, RN-02).
 3. En una transacción: actualiza la asignación (`hora_salida` al pasar a `EN_RUTA`, `hora_llegada` al pasar a `EN_SITIO`), la emergencia y la auditoría.
-4. Publica `EmergencyStatusChanged`.
+4. El mapa y los paneles muestran el nuevo estado.
 
 **Extensión CU-11 · Seleccionar hospital** (al pasar a `TRASLADANDO`)
 1. El sistema lista los hospitales operativos que tienen el servicio requerido.
@@ -305,9 +305,9 @@ flowchart LR
 2. El sistema valida la transición.
 3. En una transacción: cierra la emergencia, finaliza la asignación y las rutas activas, libera la unidad y audita.
 4. El sistema calcula los tiempos de respuesta (asignación → salida → llegada → cierre) para el dashboard.
-5. Publica `EmergencyStatusChanged`.
+5. El mapa y los paneles muestran la emergencia cerrada.
 
-**Clases:** `DispatchController` → `DispatchService` → `EmergencyDAO`, `EmergencyAssignmentDAO`, `EmergencyVehicleDAO`, `RouteDAO`, `TransactionManager`, `AuditService`, `EventPublisher`.
+**Clases:** `DispatchController` → `DispatchService` → `EmergencyDAO`, `EmergencyAssignmentDAO`, `EmergencyVehicleDAO`, `RouteDAO`, `TransactionManager`, `AuditService`.
 
 ---
 
@@ -323,12 +323,12 @@ flowchart LR
 1. El operador revisa el incidente pendiente en el mapa.
 2. Lo activa e indica si bloquea el tramo (`bloquea_tramo = S`) o solo lo penaliza.
 3. El sistema actualiza el estado del tramo en el grafo en memoria (RN-05).
-4. Publica `IncidentActivated` → se dispara CU-17 para las rutas activas que pasan por ese tramo.
+4. `IncidentService` llama a `RouteMonitor.checkActiveRoutes` → se dispara CU-17 para las rutas activas que pasan por ese tramo.
 
 **Flujo alterno**
 - 2a. El operador lo rechaza → estado `RECHAZADO`; el grafo no cambia.
 
-**Clases:** `IncidentController` → `IncidentService` → `RoadIncidentDAO`, `RoadConditionService`, `EventPublisher`.
+**Clases:** `IncidentController` → `IncidentService` → `RoadIncidentDAO`, `RoadConditionService`, `RouteMonitor`.
 
 ---
 
@@ -341,18 +341,18 @@ flowchart LR
 | Postcondición | Si hubo una mejora suficiente, la nueva ruta queda `ACTIVA`, la anterior `DESCARTADA`, y el coordinador recibe una alerta |
 
 **Flujo principal**
-1. Llega un evento de cambio en la vía (`TrafficChanged` o `IncidentActivated`).
+1. `SimulationEngine` (después de actualizar el tráfico) o `IncidentService` (al activar un incidente) llama a `RouteMonitor.checkActiveRoutes` con los tramos que cambiaron.
 2. El sistema busca las rutas activas que pasan por los tramos afectados.
 3. Para cada una, calcula la mejor ruta desde la **posición actual** de la unidad hasta su destino.
 4. Si la nueva ruta mejora el tiempo restante por encima del umbral (RN-09) o la ruta actual quedó bloqueada:
    - en una transacción, guarda la nueva ruta como `ACTIVA` y marca la anterior `DESCARTADA`;
    - crea una alerta `RECALCULO_RUTA` para el coordinador;
-   - publica `RouteRecalculated`; el mapa dibuja la nueva ruta y muestra el tiempo ganado.
+   - el mapa dibuja la nueva ruta y muestra el tiempo ganado.
 
 **Flujo alterno**
 - 4a. La mejora no supera el umbral → no se cambia nada (evita que la ruta "parpadee").
 
-**Clases:** `RouteMonitor` → `RouteService`, `RouteDAO`, `AlertService`, `EventBus`.
+**Clases:** `RouteMonitor` → `RouteService`, `RouteDAO`, `AlertService`.
 
 ---
 
@@ -368,7 +368,7 @@ flowchart LR
 1. El proveedor de tráfico simulado genera cambios de congestión y de semáforos (nunca cierra tramos: RN-06).
 2. `RoadConditionService` combina tráfico + incidentes y actualiza el grafo.
 3. El simulador de movimiento avanza cada unidad en misión a lo largo de su ruta activa.
-4. Se publican `TrafficChanged` y `VehiclePositionUpdated`; el mapa se actualiza.
+4. El mapa muestra el tráfico y las posiciones nuevas.
 5. Cada N ticks se guardan `TRAFICO` y `UBICACION_VEHICULO` con fuente `SIMULACION` (RN-11).
 6. Si una unidad llega a su destino, el sistema pasa la misión a `EN_SITIO` (CU-10).
 
@@ -382,11 +382,11 @@ flowchart LR
 
 | ID | Regla | Dónde se garantiza |
 |---|---|---|
-| RN-01 | Una emergencia solo cambia de estado siguiendo el flujo `REPORTADA → ASIGNADA → EN_RUTA → EN_SITIO → (TRASLADANDO) → CERRADA` (más el regreso a `REPORTADA` si se cancela la asignación y el cierre directo por falsa alarma) | `EmergencyStatus.canChangeTo()` (programado) |
-| RN-02 | Solo se despachan unidades `DISPONIBLE`, y una unidad tiene como máximo una asignación abierta | `VehicleOperationalStatus.isDispatchable()` + índice único `ux_asignacion_vehiculo_abierta` |
+| RN-01 | Una emergencia solo cambia de estado siguiendo el flujo `REPORTADA → ASIGNADA → EN_RUTA → EN_SITIO → (TRASLADANDO) → CERRADA` (más el regreso a `REPORTADA` si se cancela la asignación y el cierre directo por falsa alarma) | `EmergencyService.canChange()` / `changeStatus()` (programado) |
+| RN-02 | Solo se despachan unidades `DISPONIBLE`, y una unidad tiene como máximo una asignación abierta | `DispatchService.isDispatchable()` + índice único `ux_asignacion_vehiculo_abierta` |
 | RN-03 | Una emergencia exige tipo, coordenadas válidas dentro de la red vial cargada, dirección de referencia y severidad | `EmergencyService` + CHECK de Oracle |
 | RN-04 | Las contraseñas se guardan con hash PBKDF2 y sal; nunca en texto plano | `PasswordHasher` |
-| RN-05 | Un incidente nuevo queda `PENDIENTE` y solo los `ACTIVO` afectan las rutas | `IncidentStatus.affectsRouting()` + DEFAULT en Oracle |
+| RN-05 | Un incidente nuevo queda `PENDIENTE` y solo los `ACTIVO` afectan las rutas | `IncidentService.affectsRouting()` + DEFAULT en Oracle |
 | RN-06 | El simulador de tráfico cambia la congestión y los semáforos, pero no cierra tramos; los cierres vienen solo de incidentes | `TrafficProvider` / `RoadConditionService` |
 | RN-07 | El costo de un tramo se mide en segundos e incluye congestión, semáforos e incidentes, ajustado al tipo de vehículo | `EmergencyCost` |
 | RN-08 | Las alternativas se descartan si comparten más del 80 % de los tramos con otra ruta o tardan más de 1,5 veces la mejor | `AlternativeRouteFinder` |

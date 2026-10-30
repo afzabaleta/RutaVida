@@ -37,6 +37,8 @@ class ArchitectureTest {
     private static final String CONTROLLER = BASE + ".controller";
     private static final String VIEW = BASE + ".view";
     private static final String OSM = BASE + ".osm";
+    private static final String EXCEPTION = BASE + ".exception";
+    private static final String UTIL = BASE + ".util";
 
     private static final String[] JDBC = {"java.sql", "javax.sql", "oracle"};
     private static final String[] UI = {"javax.swing", "java.awt"};
@@ -44,10 +46,14 @@ class ArchitectureTest {
     private record SourceFile(Path path, String packageName, List<String> imports) {
     }
 
+    /**
+     * The model only holds data: it cannot validate (no exception, no util) nor reach other
+     * layers. Business rules live in the service layer.
+     */
     @Test
     void modelDependsOnNothingElseOfTheProject() {
         assertNoImports(inPackage(MODEL),
-                concat(JDBC, UI, DAO, SERVICE, CONTROLLER, VIEW, GRAPH, TRAFFIC, SIMULATION, APP));
+                concat(JDBC, UI, DAO, SERVICE, CONTROLLER, VIEW, GRAPH, TRAFFIC, SIMULATION, APP, EXCEPTION, UTIL));
     }
 
     @Test
