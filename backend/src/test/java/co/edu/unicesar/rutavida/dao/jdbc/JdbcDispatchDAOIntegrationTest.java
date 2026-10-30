@@ -3,6 +3,7 @@ package co.edu.unicesar.rutavida.dao.jdbc;
 import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.exception.DataAccessException;
 import co.edu.unicesar.rutavida.exception.NotFoundException;
+import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.model.EmergencyAssignment;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.Route;
@@ -37,6 +38,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  */
 class JdbcDispatchDAOIntegrationTest {
 
+    private static final DispatchService DISPATCH = new DispatchService();
+
     /** Whole seconds: Oracle TIMESTAMP keeps them exactly. */
     private static final LocalDateTime T = LocalDateTime.of(2026, 10, 24, 8, 0);
 
@@ -55,7 +58,7 @@ class JdbcDispatchDAOIntegrationTest {
         assumeTrue(number(jdbc, "SELECT COUNT(*) FROM user_objects WHERE object_name = 'SP_ASIGNAR_UNIDAD'"
                 + " AND status = 'VALID'") == 1, "Run database/04_plsql.sql first: dispatch tests skipped");
         assignmentDao = new JdbcEmergencyAssignmentDAO(jdbc);
-        routeDao = new JdbcRouteDAO(jdbc, jdbc);
+        routeDao = new JdbcRouteDAO(jdbc);
         locationDao = new JdbcVehicleLocationDAO(jdbc);
     }
 
@@ -150,9 +153,9 @@ class JdbcDispatchDAOIntegrationTest {
             EmergencyAssignment assignment = newAssignment(f);
             long id = assignmentDao.insert(assignment);
 
-            assignment.changeStatus(AssignmentStatus.EN_ROUTE, T.plusMinutes(2));
+            DISPATCH.changeStatus(assignment, AssignmentStatus.EN_ROUTE, T.plusMinutes(2));
             assignmentDao.update(assignment);
-            assignment.changeStatus(AssignmentStatus.ON_SCENE, T.plusMinutes(9));
+            DISPATCH.changeStatus(assignment, AssignmentStatus.ON_SCENE, T.plusMinutes(9));
             assignmentDao.update(assignment);
 
             EmergencyAssignment read = assignmentDao.findById(id).orElseThrow();
@@ -164,7 +167,7 @@ class JdbcDispatchDAOIntegrationTest {
             assertEquals(1, number(jdbc, "SELECT COUNT(*) FROM auditoria WHERE modulo = 'DESPACHO'"
                     + " AND registro_id = ? AND detalle = 'EN_RUTA -> EN_SITIO'", id));
 
-            assignment.changeStatus(AssignmentStatus.FINISHED, T.plusMinutes(30));
+            DISPATCH.changeStatus(assignment, AssignmentStatus.FINISHED, T.plusMinutes(30));
             assignmentDao.update(assignment);
             assertTrue(assignmentDao.findOpenByVehicle(f.vehicle()).isEmpty(), "a finished mission is not open");
             assertTrue(assignmentDao.findOpenByEmergency(f.emergency()).isEmpty());
@@ -218,7 +221,7 @@ class JdbcDispatchDAOIntegrationTest {
             assertEquals(80.5, read.getTotalCost(), 1e-9);
             assertEquals(T, read.getGeneratedAt());
             assertTrue(read.isRecommended());
-            assertFalse(read.isToHospital());
+            assertNull(read.getDestinationHospitalId());
             assertEquals(RouteStatus.PROPOSED, read.getStatus());
             assertEquals(route.getSegments(), read.getSegments(), "same steps, same order, nulls kept");
         });
@@ -233,7 +236,7 @@ class JdbcDispatchDAOIntegrationTest {
             long id = routeDao.insert(newRoute(f, hospital, RouteType.ALTERNATIVE));
 
             Route read = routeDao.findById(id).orElseThrow();
-            assertTrue(read.isToHospital());
+            assertTrue(read.getDestinationHospitalId() != null);
             assertEquals(hospital, read.getDestinationHospitalId());
             assertFalse(read.isRecommended());
         });
@@ -289,7 +292,7 @@ class JdbcDispatchDAOIntegrationTest {
             assertEquals(38.5, track.get(1).getSpeedKmh(), 1e-9);
             assertNull(track.get(1).getHeadingDegrees(), "a NULL heading stays null, not 0");
             assertNull(track.get(2).getSpeedKmh());
-            assertTrue(track.stream().allMatch(VehicleLocation::isSimulated));
+            assertTrue(track.stream().allMatch(p -> p.getSource() == PositionSource.SIMULATION));
         });
     }
 
@@ -300,7 +303,7 @@ class JdbcDispatchDAOIntegrationTest {
 
         VehicleLocation saved = new VehicleLocation(0, 1, T, new GeoPoint(10.46, -73.26), null, null,
                 PositionSource.SIMULATION);
-        saved.assignId(3);
+        saved.setId(3);
         assertThrows(IllegalArgumentException.class, () -> locationDao.insertBatch(List.of(saved)));
     }
 }

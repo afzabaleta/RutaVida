@@ -12,7 +12,7 @@ import java.util.List;
  */
 public interface AuditDAO {
 
-    /** Saves a new entry (id 0) and assigns the generated id to it with {@code assignId}. */
+    /** Saves a new entry (id 0) and assigns the generated id to it with {@code setId}. */
     void insert(AuditLog log);
 
     /** History of one record, oldest first (e.g. module EMERGENCIAS, id of the emergency). */

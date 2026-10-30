@@ -17,7 +17,6 @@ import co.edu.unicesar.rutavida.service.InMemoryAuditDAO;
 import co.edu.unicesar.rutavida.service.InMemoryRoleDAO;
 import co.edu.unicesar.rutavida.service.InMemoryUserDAO;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
-import co.edu.unicesar.rutavida.util.Pbkdf2PasswordHasher;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +47,7 @@ class LoginControllerTest {
     @BeforeEach
     void setUp() {
 
-        hasher = new Pbkdf2PasswordHasher(1_000);
+        hasher = new PasswordHasher(1_000);
 
         userDao = new InMemoryUserDAO();
         roleDao = new InMemoryRoleDAO();
