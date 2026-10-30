@@ -10,11 +10,11 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class Pbkdf2PasswordHasherTest {
+class PasswordHasherTest {
 
     // Use fewer iterations so the tests run quickly.
     private final PasswordHasher hasher =
-            new Pbkdf2PasswordHasher(1_000);
+            new PasswordHasher(1_000);
 
     @Test
     void theRightPasswordMatchesAndAWrongOneDoesNot() {
@@ -51,7 +51,7 @@ class Pbkdf2PasswordHasherTest {
 
     @Test
     void aHashMadeWithOtherIterationsIsStillChecked() {
-        String stored = new Pbkdf2PasswordHasher(2_000)
+        String stored = new PasswordHasher(2_000)
                 .hash("Clave-Segura1".toCharArray());
 
         assertTrue(hasher.matches("Clave-Segura1".toCharArray(), stored));
@@ -82,6 +82,6 @@ class Pbkdf2PasswordHasherTest {
                 () -> hasher.hash(null));
 
         assertThrows(IllegalArgumentException.class,
-                () -> new Pbkdf2PasswordHasher(999));
+                () -> new PasswordHasher(999));
     }
 }

@@ -31,7 +31,7 @@ public final class SessionContext {
     public synchronized UserSession current() {
         if (current == null) {
             throw new AccessDeniedException(
-                    Messages.get(Messages.SESSION_REQUIRED));
+                    Messages.SESSION_REQUIRED);
         }
 
         return current;

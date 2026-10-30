@@ -1,7 +1,6 @@
 package co.edu.unicesar.rutavida.dao.jdbc;
 
 import co.edu.unicesar.rutavida.dao.RouteDAO;
-import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.model.RouteSegment;
@@ -81,11 +80,9 @@ public class JdbcRouteDAO extends AbstractJdbcDAO implements RouteDAO {
                     getNullableDouble(row, "factor_congestion"),
                     getNullableInt(row, "semaforos_afectados")));
 
-    private final TransactionManager transactions;
 
-    public JdbcRouteDAO(ConnectionProvider connections, TransactionManager transactions) {
+    public JdbcRouteDAO(JdbcTransactionManager connections) {
         super(connections);
-        this.transactions = Objects.requireNonNull(transactions, "transactions");
     }
 
     @Override
@@ -94,7 +91,7 @@ public class JdbcRouteDAO extends AbstractJdbcDAO implements RouteDAO {
         if (route.getId() != 0) {
             throw new IllegalArgumentException("The route is already saved with id " + route.getId());
         }
-        long id = transactions.callInTransaction(() -> {
+        long id = connections.callInTransaction(() -> {
             long routeId = insertReturningId(INSERT_ROUTE, "id_ruta",
                     route.getEmergencyId(), route.getVehicleId(), route.getDestinationHospitalId(),
                     route.getType(), route.getDistanceKm(), route.getEstimatedMinutes(), route.getTotalCost(),
@@ -102,7 +99,7 @@ public class JdbcRouteDAO extends AbstractJdbcDAO implements RouteDAO {
             insertSegments(routeId, route.getSegments());
             return routeId;
         });
-        route.assignId(id);
+        route.setId(id);
         return id;
     }
 
@@ -152,7 +149,7 @@ public class JdbcRouteDAO extends AbstractJdbcDAO implements RouteDAO {
             return List.of();
         }
         return findActive().stream()
-                .filter(route -> segmentIds.stream().anyMatch(route::usesSegment))
+                .filter(route -> route.getSegments().stream().anyMatch(step -> segmentIds.contains(step.segmentId())))
                 .toList();
     }
 

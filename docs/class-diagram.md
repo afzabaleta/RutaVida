@@ -4,7 +4,7 @@ Diagrama de clases completo del sistema, organizado por capas de la arquitectura
 
 - Los nombres de clases, atributos y métodos están en inglés (convención del código). Las tablas de Oracle conservan sus nombres en español; la equivalencia está en `docs/convenciones-base-datos.md`.
 - Para que se pueda leer, el sistema se divide en 8 diagramas, uno por capa o módulo. La sección 0 muestra cómo se conectan.
-- **Getters y setters:** cada atributo tiene su getter. Los setters existen solo donde el dato puede cambiar, y por eso no se repiten en el diagrama. Sí se muestran los métodos con comportamiento.
+- **El modelo solo guarda datos.** Las entidades tienen atributos, constructor, getters, `setId` (lo usa el DAO después de insertar) y setters solo para los datos que cambian. No validan ni tienen reglas: las reglas de negocio (transiciones de estado, fechas válidas, qué unidad se puede despachar) están en la capa Service. Por eso las clases del modelo se dibujan sin métodos.
 - **Referencias entre entidades:** una entidad guarda el **id** de otra (`emergencyTypeId : long`), no el objeto completo. Así cada DAO mapea una sola tabla y no se cargan cadenas de objetos desde Oracle. Los servicios combinan los datos cuando hace falta. La multiplicidad de cada relación sigue las llaves foráneas de la base de datos.
 - La sección 9 indica qué clases ya están **programadas** y cuáles están **diseñadas** pero pendientes.
 
@@ -28,6 +28,7 @@ classDiagram
     }
     class EmergencyService {
         +register(request: EmergencyRequest, session: UserSession) Emergency
+        +changeStatus(emergency: Emergency, next: EmergencyStatus, at: LocalDateTime) void
     }
     class EmergencyDAO {
         <<interface>>
@@ -38,15 +39,10 @@ classDiagram
     }
     class Emergency {
         -status : EmergencyStatus
-        +changeStatus(next: EmergencyStatus, at: LocalDateTime) void
     }
     class TransactionManager {
         <<interface>>
         +runInTransaction(work: Runnable) void
-    }
-    class EventBus {
-        <<interface>>
-        +publish(event: DomainEvent) void
     }
     class AppContext {
         +create() AppContext$
@@ -60,11 +56,9 @@ classDiagram
     EmergencyController ..> EmergencyService : delega
     EmergencyService ..> EmergencyDAO : interfaz
     EmergencyService ..> TransactionManager
-    EmergencyService ..> EventBus : publica eventos
     EmergencyDAO <|.. JdbcEmergencyDAO : implementa
     JdbcEmergencyDAO ..> OracleXE : SQL / JDBC
-    EmergencyService ..> Emergency
-    MainView ..> EventBus : se suscribe
+    EmergencyService ..> Emergency : aplica las reglas
     AppContext ..> JdbcEmergencyDAO : crea
     AppContext ..> EmergencyService : crea e inyecta
     AppContext ..> EmergencyController : crea e inyecta
@@ -78,7 +72,7 @@ Las 23 tablas se reparten en cuatro diagramas. Una clase sin atributos (por ejem
 
 ### 1.1 Tipos compartidos
 
-`GeoPoint` reemplaza los pares latitud/longitud y sabe calcular distancias (*Information Expert*). Las cinco entidades con ubicación implementan `Locatable`, así que un servicio puede buscar "la más cercana" de cualquiera de ellas con el mismo código (*Polymorphism*).
+`GeoPoint` reemplaza los pares latitud/longitud. Es un *record* sin lógica: la distancia entre dos puntos la calcula `GeoUtil.metersBetween` (sección 5.2), y comprobar que la latitud y la longitud sean válidas le corresponde a `ValidationUtil.requireLocation`, que usan los servicios.
 
 ```mermaid
 ---
@@ -88,15 +82,10 @@ config:
 classDiagram
     direction LR
 
-    class Locatable {
-        <<interface>>
-        +getLocation() GeoPoint
-    }
     class GeoPoint {
         <<record>>
         +latitude : double
         +longitude : double
-        +distanceMetersTo(other: GeoPoint) double
     }
     class EmergencyStation
     class EmergencyVehicle
@@ -104,12 +93,11 @@ classDiagram
     class Emergency
     class RoadNode
 
-    Locatable <|.. EmergencyStation
-    Locatable <|.. EmergencyVehicle
-    Locatable <|.. Hospital
-    Locatable <|.. Emergency
-    Locatable <|.. RoadNode
-    Locatable ..> GeoPoint
+    EmergencyStation --> GeoPoint : location
+    EmergencyVehicle --> GeoPoint : lastLocation
+    Hospital --> GeoPoint : location
+    Emergency --> GeoPoint : location
+    RoadNode --> GeoPoint : location
 ```
 
 ### 1.2 Seguridad, alertas y auditoría
@@ -127,8 +115,6 @@ classDiagram
         +user : User
         +role : Role
         +startedAt : LocalDateTime
-        +hasPermission(module: String, action: String) boolean
-        +require(module: String, action: String) void
     }
     class Role {
         -id : long
@@ -136,17 +122,12 @@ classDiagram
         -description : String
         -status : RecordStatus
         -permissions : Set~Permission~
-        +hasPermission(module: String, action: String) boolean
-        +isActive() boolean
-        +assignId(id: long) void
     }
     class Permission {
         -id : long
         -module : String
         -action : String
         -description : String
-        +matches(module: String, action: String) boolean
-        +assignId(id: long) void
     }
     class User {
         -id : long
@@ -159,9 +140,6 @@ classDiagram
         -passwordHash : String
         -status : RecordStatus
         -registeredAt : LocalDateTime
-        +getFullName() String
-        +isActive() boolean
-        +assignId(id: long) void
     }
     class Alert {
         -id : long
@@ -171,7 +149,6 @@ classDiagram
         -message : String
         -createdAt : LocalDateTime
         -read : boolean
-        +markAsRead() void
     }
     class Notification {
         -id : long
@@ -181,7 +158,6 @@ classDiagram
         -message : String
         -createdAt : LocalDateTime
         -read : boolean
-        +markAsRead() void
     }
     class AuditLog {
         -id : long
@@ -192,7 +168,6 @@ classDiagram
         -occurredAt : LocalDateTime
         -result : AuditResult
         -detail : String
-        +assignId(id: long) void
     }
     class Emergency
 
@@ -221,7 +196,6 @@ classDiagram
         -name : String
         -priority : int
         -description : String
-        +assignId(id: long) void
     }
     class Emergency {
         -id : long
@@ -234,10 +208,6 @@ classDiagram
         -description : String
         -status : EmergencyStatus
         -closedAt : LocalDateTime
-        +getLocation() GeoPoint
-        +changeStatus(next: EmergencyStatus, at: LocalDateTime) void
-        +isActive() boolean
-        +assignId(id: long) void
     }
     class EmergencyAssignment {
         -id : long
@@ -248,11 +218,6 @@ classDiagram
         -departedAt : LocalDateTime
         -arrivedAt : LocalDateTime
         -status : AssignmentStatus
-        +changeStatus(next: AssignmentStatus, at: LocalDateTime) void
-        +isOpen() boolean
-        +getTimeToArrival() Duration
-        +assignId(id: long) void
-
     }
     class EmergencyVehicle {
         -id : long
@@ -263,18 +228,12 @@ classDiagram
         -operationalStatus : VehicleOperationalStatus
         -lastLocation : GeoPoint
         -lastLocationAt : LocalDateTime
-        +getLocation() GeoPoint
-        +isDispatchable() boolean
-        +moveTo(point: GeoPoint, at: LocalDateTime) void
-        +changeStatus(next: VehicleOperationalStatus) void
-        +assignId(id: long) void
     }
     class VehicleType {
         -id : long
         -name : String
         -priority : int
         -description : String
-        +assignId(id: long) void
     }
     class EmergencyStation {
         -id : long
@@ -284,8 +243,6 @@ classDiagram
         -phone : String
         -location : GeoPoint
         -status : RecordStatus
-        +getLocation() GeoPoint
-        +assignId(id: long) void
     }
     class Hospital {
         -id : long
@@ -296,9 +253,6 @@ classDiagram
         -location : GeoPoint
         -emergencyCapacity : Integer
         -status : RecordStatus
-        +getLocation() GeoPoint
-        +isOperational() boolean
-        +assignId(id: long) void
     }
     class HospitalServiceOffering {
         -id : long
@@ -321,10 +275,6 @@ classDiagram
         -recommended : boolean
         -status : RouteStatus
         -segments : List~RouteSegment~
-        +isToHospital() boolean
-        +usesSegment(segmentId: long) boolean
-        +assignId(id: long) void
-
     }
         class RouteSegment {
             <<record>>
@@ -343,9 +293,6 @@ classDiagram
         -speedKmh : Double
         -headingDegrees : Double
         -source : PositionSource
-        +isSimulated() boolean
-        +assignId(id: long) void
-
     }
     class User
     class RoadSegment
@@ -384,9 +331,6 @@ classDiagram
         -location : GeoPoint
         -nodeType : NodeType
         -status : RecordStatus
-        +getLocation() GeoPoint
-        +isActive() boolean
-        +assignId(id: long) void
     }
     class RoadSegment {
         -id : long
@@ -397,9 +341,6 @@ classDiagram
         -lengthMeters : double
         -maxSpeedKmh : double
         -status : RoadSegmentStatus
-        +getBaseTimeSeconds() double
-        +isOpen() boolean
-        +assignId(id: long) void
     }
     class TrafficLight {
         -id : long
@@ -409,9 +350,6 @@ classDiagram
         -cycleSeconds : Integer
         -synchronizedSignal : boolean
         -status : RecordStatus
-        +isActive() boolean
-        +changeState(next: TrafficLightState) void
-        +assignId(id: long) void
     }
     class TrafficReading {
         -id : long
@@ -421,8 +359,6 @@ classDiagram
         -averageSpeedKmh : Double
         -congestionFactor : double
         -source : TrafficSource
-        +isSimulated() boolean
-        +assignId(id: long) void
     }
     class RoadIncident {
         -id : long
@@ -435,12 +371,6 @@ classDiagram
         -endedAt : LocalDateTime
         -status : IncidentStatus
         -origin : IncidentOrigin
-        +activate(blocksSegment: boolean) void
-        +reject(at: LocalDateTime) void
-        +close(at: LocalDateTime) void
-        +affectsRouting() boolean
-        +blocksTraffic() boolean
-        +assignId(id: long) void
     }
 
     class RouteSegment
@@ -456,7 +386,7 @@ classDiagram
 **Correspondencia con las tablas:** cada entidad equivale a una tabla (`Emergency` ↔ `EMERGENCIA`, `RoadSegment` ↔ `TRAMO_VIAL`…). Hay dos excepciones:
 
 - `ROL_PERMISO` no es una clase: se representa con `Role.permissions`.
-- `UserSession` no es una tabla: guarda en memoria quién inició sesión.
+- `UserSession` no es una tabla: guarda en memoria quién inició sesión. Si el usuario tiene un permiso lo decide `AuthService.hasPermission` (sección 5.1).
 
 ---
 
@@ -464,7 +394,16 @@ classDiagram
 
 Las 19 enumeraciones implementan `CodedEnum`: la constante va en inglés y `code()` devuelve el valor que guarda Oracle (por ejemplo, `EN_ROUTE` → `"EN_RUTA"`). `EnumSqlContractTest` comprueba que coincidan con los CHECK de la base de datos.
 
-### 2.1 Estados con reglas de transición
+Las enumeraciones solo nombran valores. Las reglas sobre ellos están en los servicios:
+
+| Regla | Dónde está |
+|---|---|
+| A qué estado puede pasar una emergencia | `EmergencyService.canChange` / `changeStatus` |
+| A qué estado puede pasar una asignación | `DispatchService.canChange` / `changeStatus` |
+| Si una unidad se puede despachar | `DispatchService.isDispatchable` |
+| Si un incidente afecta el cálculo de rutas | `IncidentService.affectsRouting` |
+
+### 2.1 Estados
 
 ```mermaid
 ---
@@ -487,9 +426,6 @@ classDiagram
         ON_SCENE
         TRANSPORTING
         CLOSED
-        +nextStatuses() Set~EmergencyStatus~
-        +canChangeTo(next: EmergencyStatus) boolean
-        +isActive() boolean
     }
     class AssignmentStatus {
         <<enumeration>>
@@ -499,9 +435,6 @@ classDiagram
         TRANSPORTING
         FINISHED
         CANCELLED
-        +nextStatuses() Set~AssignmentStatus~
-        +canChangeTo(next: AssignmentStatus) boolean
-        +isOpen() boolean
     }
     class IncidentStatus {
         <<enumeration>>
@@ -509,7 +442,6 @@ classDiagram
         ACTIVE
         CLOSED
         REJECTED
-        +affectsRouting() boolean
     }
     class VehicleOperationalStatus {
         <<enumeration>>
@@ -517,7 +449,6 @@ classDiagram
         BUSY
         MAINTENANCE
         OUT_OF_SERVICE
-        +isDispatchable() boolean
     }
     CodedEnum <|.. EmergencyStatus
     CodedEnum <|.. AssignmentStatus
@@ -891,6 +822,8 @@ classDiagram
 
 Toda implementación hereda de `AbstractJdbcDAO`, que reúne el manejo repetido de JDBC: obtener la conexión, ejecutar con parámetros y convertir `SQLException`. Cada `JdbcXxxDAO` solo escribe su SQL y su mapeo fila → objeto (patrón *Template Method*).
 
+Los DAO reciben directamente el `JdbcTransactionManager`: si hay una transacción abierta usan su conexión y, si no, abren una propia. El DAO solo mapea filas; no valida reglas de negocio, así que una fila antigua de Oracle siempre se puede leer.
+
 ```mermaid
 ---
 config:
@@ -903,10 +836,6 @@ classDiagram
         <<interface>>
         +callInTransaction(work: Supplier~T~) T
         +runInTransaction(work: Runnable) void
-    }
-    class ConnectionProvider {
-        <<interface>>
-        +withConnection(work: SqlWork~T~) T
     }
     class SqlWork~T~ {
         <<interface>>
@@ -936,7 +865,7 @@ classDiagram
     }
     class AbstractJdbcDAO {
         <<abstract>>
-        #connections : ConnectionProvider
+        #connections : JdbcTransactionManager
         #queryList(sql: String, mapper: RowMapper~T~, params: Object[]) List~T~
         #queryOne(sql: String, mapper: RowMapper~T~, params: Object[]) Optional~T~
         #execute(sql: String, params: Object[]) int
@@ -957,13 +886,12 @@ classDiagram
     }
 
     TransactionManager <|.. JdbcTransactionManager
-    ConnectionProvider <|.. JdbcTransactionManager
-    ConnectionProvider ..> SqlWork~T~
+    JdbcTransactionManager *-- SqlWork~T~ : interfaz anidada
     JdbcTransactionManager --> ConnectionFactory
     ConnectionFactory <|.. ClientIdentifierConnectionFactory
     ClientIdentifierConnectionFactory --> ConnectionFactory : decora
     ConnectionFactory <.. DatabaseConnection : open() cumple el contrato
-    AbstractJdbcDAO --> ConnectionProvider
+    AbstractJdbcDAO --> JdbcTransactionManager
     AbstractJdbcDAO ..> RowMapper~T~
 
     class JdbcUserDAO
@@ -1016,7 +944,9 @@ Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la secció
 
 ### 5.1 Servicios
 
-Cada servicio agrupa las reglas de un área del negocio (*High Cohesion*) y recibe sus dependencias por constructor.
+Cada servicio agrupa las reglas de un área del negocio (*High Cohesion*) y recibe sus dependencias por constructor. Es el único lugar donde viven las reglas: el modelo solo guarda datos y el DAO solo los lee y escribe.
+
+En `EmergencyService`, `DispatchService` e `IncidentService` ya están **programadas** las reglas de estado (los métodos `validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`, `reject`, `close`…). Los métodos de caso de uso que usan DAO (`register`, `dispatch`, `report`…) y sus dependencias siguen **diseñados** para el Sprint 3 (ver sección 9).
 
 ```mermaid
 ---
@@ -1034,6 +964,8 @@ classDiagram
         -clock : Clock
         +login(username: String, password: char[]) UserSession
         +logout(session: UserSession) void
+        +hasPermission(session: UserSession, module: String, action: String) boolean
+        +requirePermission(session: UserSession, module: String, action: String) void
     }
     class UserService {
         -userDao : UserDAO
@@ -1070,8 +1002,11 @@ classDiagram
         -routeService : RouteService
         -transactions : TransactionManager
         -auditService : AuditService
-        -events : EventPublisher
         -clock : Clock
+        +validateNew(emergency: Emergency) void
+        +canChange(from: EmergencyStatus, to: EmergencyStatus) boolean
+        +changeStatus(emergency: Emergency, next: EmergencyStatus, at: LocalDateTime) void
+        +isActive(emergency: Emergency) boolean
         +register(request: EmergencyRequest, session: UserSession) Emergency
         +listActive() List~Emergency~
         +findById(id: long) Emergency
@@ -1085,8 +1020,14 @@ classDiagram
         -hospitalService : HospitalService
         -transactions : TransactionManager
         -auditService : AuditService
-        -events : EventPublisher
+        -alertService : AlertService
         -clock : Clock
+        +isDispatchable(vehicle: EmergencyVehicle) boolean
+        +validateNew(assignment: EmergencyAssignment) void
+        +canChange(from: AssignmentStatus, to: AssignmentStatus) boolean
+        +changeStatus(assignment: EmergencyAssignment, next: AssignmentStatus, at: LocalDateTime) void
+        +isOpen(assignment: EmergencyAssignment) boolean
+        +moveVehicle(vehicle: EmergencyVehicle, point: GeoPoint, at: LocalDateTime) void
         +suggestUnits(emergencyId: long) List~UnitSuggestion~
         +dispatch(emergencyId: long, vehicleId: long, session: UserSession) EmergencyAssignment
         +dispatchOptimal(emergencyIds: List~Long~, session: UserSession) List~EmergencyAssignment~
@@ -1128,24 +1069,18 @@ classDiagram
         -alertDao : AlertDAO
         -notificationDao : NotificationDAO
         -userDao : UserDAO
-        +onRouteRecalculated(event: RouteRecalculated) void
-        +onUnitDispatched(event: UnitDispatched) void
+        +routeRecalculated(route: Route, secondsSaved: double) void
+        +unitDispatched(assignment: EmergencyAssignment) void
         +listUnread(session: UserSession) List~Alert~
         +markAsRead(alertId: long, session: UserSession) void
     }
     class PasswordHasher {
-        <<interface>>
-        +hash(raw: char[]) String
-        +matches(raw: char[], stored: String) boolean
-    }
-    class Pbkdf2PasswordHasher {
         -iterations : int
         +hash(raw: char[]) String
         +matches(raw: char[], stored: String) boolean
     }
     class RouteService
 
-    PasswordHasher <|.. Pbkdf2PasswordHasher
     AuthService ..> PasswordHasher
     UserService ..> PasswordHasher
     AdminBootstrapService ..> PasswordHasher
@@ -1159,8 +1094,11 @@ classDiagram
     DispatchService ..> RouteService
     DispatchService ..> HospitalService
     DispatchService ..> HungarianAlgorithm
+    DispatchService ..> AlertService : avisa
     HospitalService ..> RouteService
 ```
+
+`PasswordHasher` (paquete `util`) es una clase concreta con PBKDF2: no tiene interfaz porque hay una sola forma de proteger contraseñas en el sistema.
 
 ### 5.2 DTO y utilidades
 
@@ -1226,12 +1164,16 @@ class ValidationUtil {
     +requirePositiveId(id: long, field: String) long$
     +requireNonNull(value: T, field: String) T$
     +requireInRange(value: double, min: double, max: double, field: String) double$
+    +requireLocation(point: GeoPoint) GeoPoint$
+}
+
+class GeoUtil {
+    +metersBetween(lat1: double, lon1: double, lat2: double, lon2: double) double$
 }
 
 
 
 class Messages {
-    +get(key: String) String$
     +userMessage(error: RuntimeException) String$
 }
 
@@ -1419,10 +1361,9 @@ classDiagram
         -trafficProvider : TrafficProvider
         -incidentDao : RoadIncidentDAO
         -readingDao : TrafficReadingDAO
-        -events : EventPublisher
         -clock : Clock
         +loadActiveIncidents() void
-        +refreshTraffic() void
+        +refreshTraffic() Set~Long~
         +applyIncident(incident: RoadIncident) void
         +removeIncident(incident: RoadIncident) void
     }
@@ -1455,10 +1396,16 @@ classDiagram
     class IncidentService {
         -incidentDao : RoadIncidentDAO
         -roadConditions : RoadConditionService
+        -routeMonitor : RouteMonitor
         -transactions : TransactionManager
         -auditService : AuditService
-        -events : EventPublisher
         -clock : Clock
+        +validateNew(incident: RoadIncident) void
+        +activate(incident: RoadIncident, blocksSegment: boolean) void
+        +reject(incident: RoadIncident, at: LocalDateTime) void
+        +close(incident: RoadIncident, at: LocalDateTime) void
+        +affectsRouting(incident: RoadIncident) boolean
+        +blocksTraffic(incident: RoadIncident) boolean
         +report(request: IncidentRequest, origin: IncidentOrigin, session: UserSession) RoadIncident
         +activate(id: long, blocksSegment: boolean, session: UserSession) void
         +reject(id: long, session: UserSession) void
@@ -1478,10 +1425,9 @@ classDiagram
         -routeService : RouteService
         -trackingService : TrackingService
         -alertService : AlertService
-        -events : EventPublisher
         -improvementThreshold : double
         -minimumSecondsSaved : double
-        +onRoadConditionsChanged(event: DomainEvent) void
+        +checkActiveRoutes(changedSegmentIds: Set~Long~) List~Route~
         +recalculate(route: Route) Optional~Route~
     }
     class RoadGraph
@@ -1499,10 +1445,20 @@ classDiagram
     RouteService --> RouteExplanationBuilder
     RouteService ..> RouteOption
     IncidentService --> RoadConditionService
+    IncidentService --> RouteMonitor : revisa rutas activas
     IncidentService ..> IncidentRequest
     RouteMonitor --> RouteService
     RouteMonitor --> TrackingService
 ```
+
+**Cómo se detecta que una ruta se afectó (sin eventos).** Las llamadas son directas y se pueden seguir con el depurador:
+
+1. `SimulationEngine.tick()` llama a `RoadConditionService.refreshTraffic()`, que devuelve los ids de los tramos cuyo tráfico cambió.
+2. `SimulationEngine` le pasa esos ids a `RouteMonitor.checkActiveRoutes(...)`, que busca las rutas activas que los usan (`RouteDAO.findActiveUsingSegments`) y las recalcula.
+3. Si la ruta nueva ahorra suficiente tiempo, `RouteMonitor` la guarda y llama a `AlertService.routeRecalculated(...)`.
+4. Cuando se activa un incidente, `IncidentService` hace lo mismo con el tramo afectado.
+
+La página web recibe el estado nuevo a través de la API REST (consultas periódicas o *Server-Sent Events*: decisión pendiente en `docs/decisiones-tecnicas.md`). Si más adelante varias partes necesitan reaccionar al mismo cambio, se puede volver a introducir un bus de eventos; hoy no hace falta.
 
 ### 6.3 Simulación y seguimiento (paquetes `simulation` y `service`)
 
@@ -1521,6 +1477,7 @@ classDiagram
         -tickMillis : long
         -roadConditions : RoadConditionService
         -tracking : TrackingService
+        -routeMonitor : RouteMonitor
         -running : boolean
         +start() void
         +stop() void
@@ -1531,7 +1488,7 @@ classDiagram
         -positionSource : VehiclePositionSource
         -vehicleDao : EmergencyVehicleDAO
         -locationDao : VehicleLocationDAO
-        -events : EventPublisher
+        -dispatchService : DispatchService
         -clock : Clock
         +refreshPositions() void
         +currentPosition(vehicleId: long) GeoPoint
@@ -1571,6 +1528,8 @@ classDiagram
     class RoadConditionService
     class IncidentService
     class SimulatedTrafficProvider
+    class RouteMonitor
+    class DispatchService
 
     VehiclePositionSource <|.. VehicleMovementSimulator
     VehiclePositionSource <|.. GpsPositionSource
@@ -1580,6 +1539,8 @@ classDiagram
     TrackingService --> VehiclePositionSource
     SimulationEngine --> RoadConditionService
     SimulationEngine --> TrackingService
+    SimulationEngine --> RouteMonitor
+    TrackingService ..> DispatchService : moveVehicle
     RoadClosureScenario --> IncidentService
     RushHourScenario --> SimulatedTrafficProvider
 ```
@@ -1665,7 +1626,9 @@ classDiagram
 - Cada vía se corta en los puntos que comparte con otra vía. Una vía de doble sentido da dos tramos; una de un solo sentido, uno.
 - Supuestos escritos en la cabecera del script: 50 km/h en vías principales sin `maxspeed` y 30 km/h en las locales (Ley 2251 de 2022), y "Vía sin nombre (OSM)" cuando la vía no tiene nombre.
 
-## 7. Eventos de tiempo real y excepciones
+## 7. Excepciones
+
+Todas heredan de `RutaVidaException`. Los servicios lanzan `ValidationException` (dato inválido), `BusinessRuleException` (regla del negocio, por ejemplo un cambio de estado no permitido), `NotFoundException` o `AccessDeniedException`; los DAO convierten `SQLException` en `DataAccessException`. Los controladores las atrapan y muestran el mensaje en español de `Messages`.
 
 ```mermaid
 ---
@@ -1675,87 +1638,6 @@ config:
 classDiagram
     direction LR
 
-    %% ===== EVENTS (package event) =====
-    class DomainEvent {
-        <<interface>>
-        +occurredAt() Instant
-    }
-    class EventPublisher {
-        <<interface>>
-        +publish(event: DomainEvent) void
-    }
-    class EventBus {
-        <<interface>>
-        +subscribe(type: Class~E~, listener: Consumer~E~) Subscription
-    }
-    class Subscription {
-        <<interface>>
-        +cancel() void
-    }
-    class InMemoryEventBus {
-        -registrations : List~Registration~
-        +publish(event: DomainEvent) void
-        +subscribe(type: Class~E~, listener: Consumer~E~) Subscription
-        +subscriberCount() int
-    }
-    class EmergencyRegistered {
-        <<record>>
-        +emergencyId : long
-        +occurredAt : Instant
-    }
-    class EmergencyStatusChanged {
-        <<record>>
-        +emergencyId : long
-        +status : EmergencyStatus
-        +occurredAt : Instant
-    }
-    class UnitDispatched {
-        <<record>>
-        +emergencyId : long
-        +vehicleId : long
-        +assignmentId : long
-        +occurredAt : Instant
-    }
-    class TrafficChanged {
-        <<record>>
-        +changedEdges : Set~Integer~
-        +graphVersion : long
-        +occurredAt : Instant
-    }
-    class IncidentActivated {
-        <<record>>
-        +incidentId : long
-        +segmentId : long
-        +occurredAt : Instant
-    }
-    class VehiclePositionUpdated {
-        <<record>>
-        +vehicleId : long
-        +location : GeoPoint
-        +source : PositionSource
-        +occurredAt : Instant
-    }
-    class RouteRecalculated {
-        <<record>>
-        +emergencyId : long
-        +oldRouteId : long
-        +newRouteId : long
-        +secondsSaved : double
-        +occurredAt : Instant
-    }
-
-    EventPublisher <|-- EventBus
-    EventBus <|.. InMemoryEventBus
-    EventBus ..> Subscription
-    DomainEvent <|.. EmergencyRegistered
-    DomainEvent <|.. EmergencyStatusChanged
-    DomainEvent <|.. UnitDispatched
-    DomainEvent <|.. TrafficChanged
-    DomainEvent <|.. IncidentActivated
-    DomainEvent <|.. VehiclePositionUpdated
-    DomainEvent <|.. RouteRecalculated
-
-    %% ===== EXCEPTIONS (package exception) =====
     class RuntimeException
     class RutaVidaException
     class ValidationException
@@ -1772,15 +1654,7 @@ classDiagram
     RutaVidaException <|-- AccessDeniedException
 ```
 
-| Evento | Lo publica | Lo escuchan |
-|---|---|---|
-| `EmergencyRegistered` | `EmergencyService` | Vista (mapa y lista) |
-| `UnitDispatched` | `DispatchService` | Vista, `AlertService`, `VehicleMovementSimulator` |
-| `EmergencyStatusChanged` | `DispatchService` | Vista |
-| `TrafficChanged` | `RoadConditionService` | `RouteMonitor`, vista (tramos congestionados) |
-| `IncidentActivated` | `IncidentService` | `RouteMonitor`, vista |
-| `VehiclePositionUpdated` | `TrackingService` | Vista (mueve el ícono de la unidad) |
-| `RouteRecalculated` | `RouteMonitor` | Vista (nueva ruta), `AlertService` |
+El paquete `event` (bus de eventos en memoria) se eliminó en la refactorización de capas: estaba programado, pero ninguna clase publicaba eventos. Los avisos de tiempo real se hacen con llamadas directas entre servicios (sección 6.2).
 
 ---
 
@@ -1928,14 +1802,12 @@ classDiagram
     class AppContext {
         -database : DatabaseConnection
         -jdbc : JdbcTransactionManager
-        -events : EventBus
         -clock : Clock
         -session : SessionContext
         -adminBootstrap : AdminBootstrapService
         -loginController : LoginController
         +create() AppContext$
         +transactions() TransactionManager
-        +events() EventBus
         +clock() Clock
         +database() DatabaseConnection
         +session() SessionContext
@@ -1999,7 +1871,7 @@ classDiagram
 
 Los controladores atrapan las `RutaVidaException` y devuelven un `OperationResult` con el mensaje en español de `Messages`. La vista no maneja excepciones técnicas.
 
-La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases de esta sección son provisionales: en el backend se reemplazarán por los adaptadores REST del paquete `api`, que solo pueden usar controladores, DTO, modelo y eventos (`ArchitectureTest`). La página web (HTML, CSS, JavaScript y Leaflet) no forma parte de este diagrama de clases Java.
+La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases de esta sección son provisionales: en el backend se reemplazarán por los adaptadores REST del paquete `api`, que solo pueden usar controladores, DTO y modelo (`ArchitectureTest`). La página web (HTML, CSS, JavaScript y Leaflet) no forma parte de este diagrama de clases Java.
 
 ---
 
@@ -2008,14 +1880,13 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | Clase o grupo | Paquete | Estado |
 |---|---|---|
 | `CodedEnum` y las 19 enumeraciones | `model.enums` | **Programado y probado** |
-| `TransactionManager`, `ConnectionProvider`, `ConnectionFactory`, `JdbcTransactionManager` | `dao`, `dao.jdbc` | **Programado y probado** |
-| `DomainEvent`, `EventPublisher`, `EventBus`, `InMemoryEventBus` | `event` | **Programado y probado** |
+| `TransactionManager`, `ConnectionFactory`, `JdbcTransactionManager` | `dao`, `dao.jdbc` | **Programado y probado** |
 | `RutaVidaException`, `ValidationException`, `NotFoundException`, `BusinessRuleException`, `DataAccessException` | `exception` | **Programado** |
 | `DatabaseConnection`, `AppContext`, `DatabaseCheck` | `util`, `app` | **Programado y probado** contra Oracle XE 18c |
 | `RowMapper`, `AbstractJdbcDAO` | `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (8 pruebas de integración) |
 | `AccessDeniedException` | `exception` | **Programado y probado** |
 | `CreateAdminUser`, `AdminBootstrapService`, `ClientIdentifierConnectionFactory` y el inicio de sesión conectado en `AppContext` | `app`, `service`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A3) |
-| `GeoPoint`, `Locatable`, `UserSession`, `ValidationUtil`, `EmergencyType`, `VehicleType`, `Permission`, `Role`, `User`, `EmergencyStation`, `Hospital`, `EmergencyVehicle`, `Emergency` | `model`, `util` | **Programado y probado** |
+| `GeoPoint`, `UserSession`, `ValidationUtil`, `GeoUtil`, `EmergencyType`, `VehicleType`, `Permission`, `Role`, `User`, `EmergencyStation`, `Hospital`, `EmergencyVehicle`, `Emergency` | `model`, `util` | **Programado y probado** |
 | `RoadNode`, `RoadSegment`, `TrafficLight`, `TrafficReading`, `RoadIncident` | `model` | **Programado y probado** (S4) |
 | `EmergencyAssignment`, `Route`, `RouteSegment`, `VehicleLocation` | `model` | **Programado y probado** (S5) |
 | Otras entidades de la sección 1, pendientes de implementación | `model` | Diseñado |
@@ -2026,15 +1897,16 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `TrafficReadingDAO`, `RoadIncidentDAO`, `JdbcTrafficReadingDAO`, `JdbcRoadIncidentDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A5) |
 | `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
-| `AuthService`, `AuditService`, `PasswordHasher`, `Pbkdf2PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
+| `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
+| `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
 | `GraphLoader` y `AppContext.graphLoader()` | `service`, `app` | **Programado y probado** (K5): pruebas sin Oracle y prueba de integración con la red real |
 | `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
-| Motor de rutas | `graph` | **Programado y probado** || Tráfico | `traffic` | **Programado y probado** |
+| Motor de rutas | `graph` | **Programado y probado** |
+| Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | Simulación | `simulation` | Diseñado |
-| Eventos concretos (`UnitDispatched`…) | `event` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
 | Demás controladores | `controller` | Diseñado |
 | Vista web y adaptadores REST | `view` → `api`, `frontend/` | Decidido (web); pendiente de programar |

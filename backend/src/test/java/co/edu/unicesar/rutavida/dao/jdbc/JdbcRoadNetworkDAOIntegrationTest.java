@@ -91,13 +91,12 @@ class JdbcRoadNetworkDAOIntegrationTest {
             assertEquals(10.467172, a.getLocation().latitude(), 1e-6);
             assertEquals(-73.265099, a.getLocation().longitude(), 1e-6);
             assertEquals(NodeType.ROUNDABOUT, a.getNodeType());
-            assertTrue(a.isActive());
+            assertEquals(RecordStatus.ACTIVE, a.getStatus());
 
             RoadNode b = withId(nodes, RoadNode::getId, ids[1]);
             assertNull(b.getOsmId(), "a NULL osm_id must stay null, not 0");
             assertEquals(NodeType.INTERSECTION, b.getNodeType(), "default of tipo_nodo");
             assertEquals(RecordStatus.INACTIVE, b.getStatus());
-            assertFalse(b.isActive());
 
             assertOrderedById(nodes, RoadNode::getId);
         });
@@ -118,12 +117,11 @@ class JdbcRoadNetworkDAOIntegrationTest {
             assertEquals(250.5, segment.getLengthMeters(), 1e-9);
             assertEquals(30, segment.getMaxSpeedKmh(), 1e-9);
             assertEquals(RoadSegmentStatus.OPEN, segment.getStatus(), "default of estado");
-            assertTrue(segment.isOpen());
 
             // Oracle rounds the virtual column to 2 decimals; Java keeps every decimal.
             long oracleCentiseconds = number(jdbc,
                     "SELECT tiempo_base_seg * 100 FROM tramo_vial WHERE id_tramo = ?", id);
-            assertEquals(oracleCentiseconds / 100.0, segment.getBaseTimeSeconds(), 0.01);
+            assertEquals(oracleCentiseconds / 100.0, segment.getLengthMeters() / (segment.getMaxSpeedKmh() / 3.6), 0.01);
 
             assertOrderedById(segments, RoadSegment::getId);
         });
@@ -140,7 +138,7 @@ class JdbcRoadNetworkDAOIntegrationTest {
 
             List<RoadSegment> segments = segmentDao.findAll();
             assertEquals(RoadSegmentStatus.CLOSED, withId(segments, RoadSegment::getId, goes).getStatus());
-            assertFalse(withId(segments, RoadSegment::getId, goes).isOpen());
+            assertEquals(RoadSegmentStatus.CLOSED, withId(segments, RoadSegment::getId, goes).getStatus());
             assertEquals(RoadSegmentStatus.OPEN, withId(segments, RoadSegment::getId, comesBack).getStatus());
 
             segmentDao.updateStatus(goes, RoadSegmentStatus.RESTRICTED);
@@ -172,7 +170,7 @@ class JdbcRoadNetworkDAOIntegrationTest {
             assertEquals(TrafficLightState.RED, red.getCurrentState());
             assertEquals(90, red.getCycleSeconds());
             assertTrue(red.isSynchronizedSignal());
-            assertTrue(red.isActive());
+            assertEquals(RecordStatus.ACTIVE, red.getStatus());
 
             TrafficLight defaults = withId(lights, TrafficLight::getId, second);
             assertEquals(TrafficLightState.GREEN, defaults.getCurrentState(), "default of estado_actual");

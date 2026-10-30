@@ -6,7 +6,6 @@ import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -40,7 +39,7 @@ public class JdbcUserDAO extends AbstractJdbcDAO implements UserDAO {
             RecordStatus.fromCode(row.getString("estado")),
             getLocalDateTime(row, "fecha_registro"));
 
-    public JdbcUserDAO(ConnectionProvider connections) {
+    public JdbcUserDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 
@@ -51,11 +50,7 @@ public class JdbcUserDAO extends AbstractJdbcDAO implements UserDAO {
 
     @Override
     public Optional<User> findByUsername(String username) {
-        if (username == null || username.isBlank()) {
-            return Optional.empty();
-        }
-        return queryOne(SELECT + " WHERE username = ?", MAPPER,
-                username.trim().toLowerCase(Locale.ROOT));
+        return queryOne(SELECT + " WHERE username = ?", MAPPER, username);
     }
 
     @Override
@@ -73,7 +68,7 @@ public class JdbcUserDAO extends AbstractJdbcDAO implements UserDAO {
                 user.getRoleId(), user.getDocument(), user.getFirstNames(), user.getLastNames(),
                 user.getEmail(), user.getUsername(), user.getPasswordHash(), user.getStatus(),
                 user.getRegisteredAt());
-        user.assignId(id);
+        user.setId(id);
         return id;
     }
 

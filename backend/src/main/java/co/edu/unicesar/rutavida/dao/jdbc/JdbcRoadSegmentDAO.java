@@ -32,7 +32,7 @@ public class JdbcRoadSegmentDAO extends AbstractJdbcDAO implements RoadSegmentDA
             row.getDouble("velocidad_max_kmh"),
             RoadSegmentStatus.fromCode(row.getString("estado")));
 
-    public JdbcRoadSegmentDAO(ConnectionProvider connections) {
+    public JdbcRoadSegmentDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 

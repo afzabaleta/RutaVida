@@ -32,7 +32,7 @@ class AbstractJdbcDAOIntegrationTest {
 
     /** Minimal DAO used only to reach the protected methods. */
     private static final class ProbeDao extends AbstractJdbcDAO {
-        ProbeDao(ConnectionProvider connections) {
+        ProbeDao(JdbcTransactionManager connections) {
             super(connections);
         }
     }
