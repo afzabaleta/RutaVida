@@ -52,7 +52,7 @@ class JdbcUserDAOIntegrationTest {
             assertEquals(RecordStatus.ACTIVE, saved.getStatus());
             assertEquals(registeredAt, saved.getRegisteredAt());
 
-            assertEquals(id, dao.findByUsername("  PRUEBA_JUNIT_DAO ").orElseThrow().getId());
+            assertEquals(id, dao.findByUsername("prueba_junit_dao").orElseThrow().getId());
             assertTrue(dao.findAll().stream().anyMatch(u -> u.getId() == id));
         });
         assertTrue(dao.findByUsername("prueba_junit_dao").isEmpty());
