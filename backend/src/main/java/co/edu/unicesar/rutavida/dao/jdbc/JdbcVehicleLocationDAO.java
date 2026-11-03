@@ -42,7 +42,7 @@ public class JdbcVehicleLocationDAO extends AbstractJdbcDAO implements VehicleLo
             getNullableDouble(row, "direccion_grados"),
             PositionSource.fromCode(row.getString("fuente")));
 
-    public JdbcVehicleLocationDAO(ConnectionProvider connections) {
+    public JdbcVehicleLocationDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 

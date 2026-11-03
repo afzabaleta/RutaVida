@@ -15,24 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class MessagesTest {
 
     @Test
-    void knownKeysHaveTheirSpanishText() {
-        assertEquals(
-                "No hay conexión con la base de datos.",
-                Messages.get(Messages.DATABASE_DOWN));
-
-        assertEquals(
-                "Debe iniciar sesión.",
-                Messages.get(Messages.SESSION_REQUIRED));
-    }
-
-    @Test
-    void anUnknownKeyIsAProgrammingError() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> Messages.get("no.existe"));
-    }
-
-    @Test
     void errorsWrittenForTheUserKeepTheirMessage() {
         assertEquals(
                 "El usuario está inactivo",

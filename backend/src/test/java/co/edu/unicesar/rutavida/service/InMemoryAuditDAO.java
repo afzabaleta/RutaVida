@@ -21,7 +21,7 @@ public class InMemoryAuditDAO implements AuditDAO {
 
     @Override
     public void insert(AuditLog log) {
-        log.assignId(saved.size() + 1L);
+        log.setId(saved.size() + 1L);
         saved.add(log);
     }
 

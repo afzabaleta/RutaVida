@@ -1,6 +1,7 @@
 package co.edu.unicesar.rutavida.dao.jdbc;
 
 import co.edu.unicesar.rutavida.exception.NotFoundException;
+import co.edu.unicesar.rutavida.service.IncidentService;
 import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.TrafficReading;
 import co.edu.unicesar.rutavida.model.enums.IncidentOrigin;
@@ -31,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * that is rolled back. Skipped without Oracle.
  */
 class JdbcTrafficAndIncidentDAOIntegrationTest {
+
+    private static final IncidentService INCIDENTS = new IncidentService();
 
     private static final LocalDateTime START = LocalDateTime.of(2026, 10, 24, 7, 30);
 
@@ -108,7 +111,7 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
         trafficDao.insertBatch(List.of());
 
         TrafficReading saved = new TrafficReading(0, 1, START, TrafficLevel.FLUID, null, 1.0, TrafficSource.MANUAL);
-        saved.assignId(5);
+        saved.setId(5);
         assertThrows(IllegalArgumentException.class, () -> trafficDao.insertBatch(List.of(saved)));
         assertThrows(NullPointerException.class, () -> trafficDao.insertBatch(null));
     }
@@ -133,7 +136,7 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
             assertNull(read.getEndedAt());
             assertEquals(IncidentStatus.PENDING, read.getStatus());
             assertEquals(IncidentOrigin.OPERATOR, read.getOrigin());
-            assertFalse(read.affectsRouting(), "a pending incident does not change routes (RN-05)");
+            assertFalse(INCIDENTS.affectsRouting(read), "a pending incident does not change routes (RN-05)");
         });
     }
 
@@ -144,19 +147,19 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
             RoadIncident incident = newIncident(segment, null);
             long id = incidentDao.insert(incident);
 
-            incident.activate(true);
+            INCIDENTS.activate(incident, true);
             incidentDao.update(incident);
             RoadIncident active = incidentDao.findById(id).orElseThrow();
             assertEquals(IncidentStatus.ACTIVE, active.getStatus());
-            assertTrue(active.blocksTraffic());
+            assertTrue(INCIDENTS.blocksTraffic(active));
             assertEquals(1, auditRows(id, "PENDIENTE -> ACTIVO"));
 
-            incident.close(START.plusHours(2));
+            INCIDENTS.close(incident, START.plusHours(2));
             incidentDao.update(incident);
             RoadIncident closed = incidentDao.findById(id).orElseThrow();
             assertEquals(IncidentStatus.CLOSED, closed.getStatus());
             assertEquals(START.plusHours(2), closed.getEndedAt());
-            assertFalse(closed.affectsRouting());
+            assertFalse(INCIDENTS.affectsRouting(closed));
             assertEquals(1, auditRows(id, "ACTIVO -> CERRADO"));
         });
     }
@@ -169,7 +172,7 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
             RoadIncident active = newIncident(segment, "PRUEBA_A5 activo");
             incidentDao.insert(pending);
             incidentDao.insert(active);
-            active.activate(false);
+            INCIDENTS.activate(active, false);
             incidentDao.update(active);
 
             List<RoadIncident> actives = incidentDao.findByStatus(IncidentStatus.ACTIVE);

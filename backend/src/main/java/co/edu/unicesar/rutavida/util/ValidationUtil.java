@@ -1,12 +1,13 @@
 
 package co.edu.unicesar.rutavida.util;
 
+import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.exception.ValidationException;
 
 import java.math.BigDecimal;
 
 /**
- * Input checks shared by the entities and services.
+ * Input checks shared by the services (the model classes only hold data).
  * Every method throws ValidationException with a Spanish message.
  */
 public final class ValidationUtil {
@@ -59,6 +60,14 @@ public final class ValidationUtil {
         }
 
         return id;
+    }
+
+    /** Requires a point with a valid latitude and longitude. */
+    public static GeoPoint requireLocation(GeoPoint point) {
+        requireNonNull(point, "ubicación");
+        requireInRange(point.latitude(), -90, 90, "latitud");
+        requireInRange(point.longitude(), -180, 180, "longitud");
+        return point;
     }
 
     /** Rejects null required values. */

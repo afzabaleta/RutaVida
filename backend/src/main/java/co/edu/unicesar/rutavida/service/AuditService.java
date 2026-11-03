@@ -5,7 +5,9 @@ import co.edu.unicesar.rutavida.dao.AuditDAO;
 import co.edu.unicesar.rutavida.model.AuditLog;
 import co.edu.unicesar.rutavida.model.enums.AuditResult;
 
+import co.edu.unicesar.rutavida.util.ValidationUtil;
 import java.time.Clock;
+import java.util.Locale;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -39,24 +41,21 @@ public class AuditService {
             String detail) {
 
         String safeDetail = detail;
-
         if (safeDetail != null
                 && safeDetail.length() > MAX_DETAIL_LENGTH) {
             safeDetail = safeDetail.substring(
                     0, MAX_DETAIL_LENGTH);
         }
-
         AuditLog auditLog = new AuditLog(
                 0,
                 userId,
-                module,
-                operation,
+                ValidationUtil.requireText(module, "módulo", 60).toUpperCase(Locale.ROOT),
+                ValidationUtil.requireText(operation, "operación", 40).toUpperCase(Locale.ROOT),
                 recordId,
                 LocalDateTime.now(clock),
-                result,
+                ValidationUtil.requireNonNull(result, "resultado"),
                 safeDetail
         );
-
         auditDao.insert(auditLog);
     }
 

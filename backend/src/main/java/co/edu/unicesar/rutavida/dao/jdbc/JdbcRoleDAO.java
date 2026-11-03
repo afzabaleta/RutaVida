@@ -48,7 +48,7 @@ public class JdbcRoleDAO extends AbstractJdbcDAO implements RoleDAO {
                     row.getString("accion"),
                     row.getString("descripcion")));
 
-    public JdbcRoleDAO(ConnectionProvider connections) {
+    public JdbcRoleDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 

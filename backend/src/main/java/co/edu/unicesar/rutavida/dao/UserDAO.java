@@ -10,14 +10,14 @@ public interface UserDAO {
 
     Optional<User> findById(long id);
 
-    /** Search for the login: the username is compared in lower case, as User stores it. */
+    /** Exact search; AuthService normalizes the username (trimmed, lower case) before calling it. */
     Optional<User> findByUsername(String username);
 
     /** All users, ordered by username. */
     List<User> findAll();
 
     /**
-     * Saves a new user (id 0), assigns the generated id to it with {@code assignId} and
+     * Saves a new user (id 0), assigns the generated id to it with {@code setId} and
      * returns that id. A repeated document, email or username is rejected by Oracle.
      */
     long insert(User user);

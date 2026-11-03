@@ -21,11 +21,6 @@ public enum IncidentStatus implements CodedEnum {
         return code;
     }
 
-    /** Only validated, still-open incidents change the cost of a road segment. */
-    public boolean affectsRouting() {
-        return this == ACTIVE;
-    }
-
     public static IncidentStatus fromCode(String code) {
         return CodedEnum.fromCode(IncidentStatus.class, code);
     }

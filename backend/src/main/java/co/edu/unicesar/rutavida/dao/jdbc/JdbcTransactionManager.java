@@ -11,7 +11,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * JDBC implementation of {@link TransactionManager} and {@link ConnectionProvider}.
+ * JDBC implementation of {@link TransactionManager}. It also gives the DAOs their connection
+ * ({@link #withConnection}): inside a transaction, the transaction's connection; outside, a new one.
  *
  * <p>The open transaction is kept in a {@link ThreadLocal}: every DAO called from the
  * same thread inside {@code callInTransaction} uses the same connection, so the
@@ -20,7 +21,13 @@ import java.util.logging.Logger;
  * <p>GRASP Pure Fabrication: this class does not represent any domain concept; it
  * exists to keep transaction handling out of services and DAOs.
  */
-public final class JdbcTransactionManager implements TransactionManager, ConnectionProvider {
+public final class JdbcTransactionManager implements TransactionManager {
+
+    /** Database work that may throw SQLException. */
+    @FunctionalInterface
+    public interface SqlWork<T> {
+        T apply(Connection connection) throws SQLException;
+    }
 
     private static final Logger LOG = Logger.getLogger(JdbcTransactionManager.class.getName());
 
@@ -56,7 +63,7 @@ public final class JdbcTransactionManager implements TransactionManager, Connect
         }
     }
 
-    @Override
+    /** Runs {@code work} with a connection; DAOs never call close() or commit(). */
     public <T> T withConnection(SqlWork<T> work) {
         Objects.requireNonNull(work, "work");
         Connection transactional = current.get();

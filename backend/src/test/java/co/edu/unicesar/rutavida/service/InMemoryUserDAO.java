@@ -7,7 +7,6 @@ import co.edu.unicesar.rutavida.model.User;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,8 +31,7 @@ public class InMemoryUserDAO implements UserDAO {
             return Optional.empty();
         }
 
-        String wanted = username.trim()
-                .toLowerCase(Locale.ROOT);
+        String wanted = username;
 
         return users.values().stream()
                 .filter(u -> u.getUsername().equals(wanted))
@@ -49,7 +47,7 @@ public class InMemoryUserDAO implements UserDAO {
     public long insert(User user) {
         long id = users.size() + 1L;
 
-        user.assignId(id);
+        user.setId(id);
         users.put(id, user);
 
         return id;

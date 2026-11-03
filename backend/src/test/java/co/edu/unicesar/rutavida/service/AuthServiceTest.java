@@ -1,6 +1,7 @@
 
 package co.edu.unicesar.rutavida.service;
 
+import co.edu.unicesar.rutavida.exception.AccessDeniedException;
 import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.model.AuditLog;
@@ -11,7 +12,6 @@ import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.enums.AuditResult;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
-import co.edu.unicesar.rutavida.util.Pbkdf2PasswordHasher;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        hasher = new Pbkdf2PasswordHasher(1_000);
+        hasher = new PasswordHasher(1_000);
 
         userDao = new InMemoryUserDAO();
         roleDao = new InMemoryRoleDAO();
@@ -111,8 +111,8 @@ class AuthServiceTest {
         assertEquals(user.getId(), session.user().getId());
         assertEquals("COORDINADOR", session.role().getName());
 
-        assertTrue(session.hasPermission(
-                "DESPACHO", "GESTIONAR"));
+        assertTrue(authService.hasPermission(
+                session, "DESPACHO", "GESTIONAR"));
 
         assertEquals(
                 LocalDateTime.of(2026, 10, 17, 10, 0),
@@ -291,4 +291,32 @@ class AuthServiceTest {
         assertEquals(AuditResult.SUCCESS, log.getResult());
     }
 
+    @Test
+    void theUsernameIsNormalizedBeforeSearching() {
+        createUser(RecordStatus.ACTIVE);
+        UserSession session = authService.login("  ANA.Perez ", "Clave-Segura1".toCharArray());
+        assertEquals("ana.perez", session.user().getUsername());
+    }
+
+    @Test
+    void permissionsComeFromAnActiveRoleOfAnActiveUser() {
+        User user = createUser(RecordStatus.ACTIVE);
+        Role role = roleDao.findById(3).orElseThrow();
+        UserSession session = new UserSession(user, role, LocalDateTime.now(CLOCK));
+
+        assertTrue(authService.hasPermission(session, "DESPACHO", "GESTIONAR"));
+        assertTrue(authService.hasPermission(session, "despacho", "gestionar"));
+        assertFalse(authService.hasPermission(session, "USUARIOS", "GESTIONAR"));
+        assertThrows(AccessDeniedException.class,
+                () -> authService.requirePermission(session, "USUARIOS", "GESTIONAR"));
+
+        User inactive = new User(9, 3, "1234567899", "Inés", "Activa", "ines@example.com", "ines",
+                "HASH", RecordStatus.INACTIVE, LocalDateTime.now(CLOCK));
+        assertFalse(authService.hasPermission(new UserSession(inactive, role, LocalDateTime.now(CLOCK)),
+                "DESPACHO", "GESTIONAR"));
+
+        Role inactiveRole = new Role(3, "COORDINADOR", null, RecordStatus.INACTIVE, role.getPermissions());
+        assertFalse(authService.hasPermission(new UserSession(user, inactiveRole, LocalDateTime.now(CLOCK)),
+                "DESPACHO", "GESTIONAR"));
+    }
 }

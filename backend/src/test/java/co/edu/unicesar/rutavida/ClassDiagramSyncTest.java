@@ -50,7 +50,7 @@ class ClassDiagramSyncTest {
     void diagramDeclaresTheKnownInfrastructure() throws IOException {
         Matcher matcher = DIAGRAM_CLASS.matcher(Files.readString(DIAGRAM, StandardCharsets.UTF_8));
         Set<String> inDiagram = matcher.results().map(m -> m.group(1)).collect(Collectors.toSet());
-        assertTrue(inDiagram.containsAll(Set.of("TransactionManager", "InMemoryEventBus", "EmergencyStatus")),
+        assertTrue(inDiagram.containsAll(Set.of("TransactionManager", "JdbcTransactionManager", "EmergencyStatus")),
                 "The class diagram format changed; update this test");
     }
 }

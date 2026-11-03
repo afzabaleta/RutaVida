@@ -11,7 +11,9 @@ import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.enums.AuditResult;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
+import co.edu.unicesar.rutavida.util.ValidationUtil;
 
+import java.util.Locale;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -65,17 +67,20 @@ public class AdminBootstrapService {
                             String email, String username, char[] password) {
         validatePassword(password);
         Role role = adminRole();
-        if (!role.isActive()) {
+        if (role.getStatus() != RecordStatus.ACTIVE) {
             throw new BusinessRuleException("El rol ADMINISTRADOR está inactivo.");
         }
-        if (username != null && userDao.findByUsername(username).isPresent()) {
+        User admin = new User(0, role.getId(),
+                ValidationUtil.requireText(document, "documento", 20),
+                ValidationUtil.requireText(firstNames, "nombres", 80),
+                ValidationUtil.requireText(lastNames, "apellidos", 80),
+                ValidationUtil.requireText(email, "correo", 120).toLowerCase(Locale.ROOT),
+                AuthService.normalizeUsername(ValidationUtil.requireText(username, "usuario", 40)),
+                passwordHasher.hash(password), RecordStatus.ACTIVE, LocalDateTime.now(clock));
+        validateFormats(admin);
+        if (userDao.findByUsername(admin.getUsername()).isPresent()) {
             throw new BusinessRuleException("Ya existe un usuario con ese nombre de usuario.");
         }
-
-        User admin = new User(0, role.getId(), document, firstNames, lastNames, email,
-                username, passwordHasher.hash(password), RecordStatus.ACTIVE,
-                LocalDateTime.now(clock));
-
         transactions.runInTransaction(() -> {
             long id = userDao.insert(admin);
             auditService.record(id, "SEGURIDAD", "CREAR_ADMIN", id, AuditResult.SUCCESS,
@@ -84,7 +89,19 @@ public class AdminBootstrapService {
         return admin;
     }
 
-    /** At least 10 characters, with letters and numbers. */
+    /** Format rules of a user (the same ones the USUARIO table expects). */
+    static void validateFormats(User user) {
+        if (!user.getDocument().matches("[a-zA-Z0-9]{5,20}")) {
+            throw new ValidationException("El documento debe tener entre 5 y 20 letras o números.");
+        }
+        if (!user.getEmail().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) {
+            throw new ValidationException("El correo electrónico no tiene un formato válido.");
+        }
+        if (!user.getUsername().matches("[a-z0-9._]{4,40}")) {
+            throw new ValidationException("El usuario debe tener entre 4 y 40 caracteres válidos.");
+        }
+    }
+
     static void validatePassword(char[] password) {
         if (password == null || password.length < MIN_PASSWORD_LENGTH) {
             throw new ValidationException(

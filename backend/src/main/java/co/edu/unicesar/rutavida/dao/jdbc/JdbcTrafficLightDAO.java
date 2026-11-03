@@ -23,7 +23,7 @@ public class JdbcTrafficLightDAO extends AbstractJdbcDAO implements TrafficLight
             getFlag(row, "sincronizado"),
             RecordStatus.fromCode(row.getString("estado")));
 
-    public JdbcTrafficLightDAO(ConnectionProvider connections) {
+    public JdbcTrafficLightDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 

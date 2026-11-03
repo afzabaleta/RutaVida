@@ -2,7 +2,7 @@ package co.edu.unicesar.rutavida.osm;
 
 import co.edu.unicesar.rutavida.model.enums.NodeType;
 import org.junit.jupiter.api.Test;
-import co.edu.unicesar.rutavida.model.GeoPoint;
+import co.edu.unicesar.rutavida.util.GeoUtil;
 import java.util.Map;
 
 import java.util.List;
@@ -135,8 +135,8 @@ class RoadNetworkBuilderTest {
         List<RoadNetwork.Link> ring = loop.links().stream().filter(l -> l.osmWayId() == 700).toList();
 
         assertEquals(2, ring.size(), "one link per direction, not two");
-        double viaTwelve = new GeoPoint(10.0080, -72.9980).distanceMetersTo(new GeoPoint(10.0085, -72.9980))
-                + new GeoPoint(10.0085, -72.9980).distanceMetersTo(new GeoPoint(10.0085, -72.9975));
+        double viaTwelve = GeoUtil.metersBetween(10.0080, -72.9980, 10.0085, -72.9980)
+                + GeoUtil.metersBetween(10.0085, -72.9980, 10.0085, -72.9975);
         assertTrue(ring.stream().allMatch(l -> Math.abs(l.lengthMeters() - viaTwelve) < 0.01),
                 "the shorter half (through 12) is kept");
         assertEquals(2, loop.summary().skippedPieces(), "the two repeated links are counted");

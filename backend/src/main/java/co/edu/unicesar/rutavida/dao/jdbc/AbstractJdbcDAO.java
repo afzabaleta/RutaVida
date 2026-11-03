@@ -40,9 +40,9 @@ public abstract class AbstractJdbcDAO {
     private static final int FIRST_APPLICATION_ERROR = 20000;
     private static final int LAST_APPLICATION_ERROR = 20999;
 
-    protected final ConnectionProvider connections;
+    protected final JdbcTransactionManager connections;
 
-    protected AbstractJdbcDAO(ConnectionProvider connections) {
+    protected AbstractJdbcDAO(JdbcTransactionManager connections) {
         this.connections = Objects.requireNonNull(connections, "connections");
     }
 

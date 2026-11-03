@@ -21,11 +21,6 @@ public enum VehicleOperationalStatus implements CodedEnum {
         return code;
     }
 
-    /** Only available units can be dispatched to a new emergency. */
-    public boolean isDispatchable() {
-        return this == AVAILABLE;
-    }
-
     public static VehicleOperationalStatus fromCode(String code) {
         return CodedEnum.fromCode(VehicleOperationalStatus.class, code);
     }

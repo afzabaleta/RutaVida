@@ -32,7 +32,7 @@ public class JdbcAuditDAO extends AbstractJdbcDAO implements AuditDAO {
             AuditResult.fromCode(row.getString("resultado")),
             row.getString("detalle"));
 
-    public JdbcAuditDAO(ConnectionProvider connections) {
+    public JdbcAuditDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 
@@ -45,7 +45,7 @@ public class JdbcAuditDAO extends AbstractJdbcDAO implements AuditDAO {
         long id = insertReturningId(INSERT, "id_auditoria",
                 log.getUserId(), log.getModule(), log.getOperation(), log.getRecordId(),
                 log.getOccurredAt(), log.getResult(), log.getDetail());
-        log.assignId(id);
+        log.setId(id);
     }
 
     @Override

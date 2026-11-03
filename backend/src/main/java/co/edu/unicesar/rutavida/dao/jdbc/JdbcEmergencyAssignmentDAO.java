@@ -37,7 +37,7 @@ public class JdbcEmergencyAssignmentDAO extends AbstractJdbcDAO implements Emerg
             getLocalDateTime(row, "hora_llegada"),
             AssignmentStatus.fromCode(row.getString("estado")));
 
-    public JdbcEmergencyAssignmentDAO(ConnectionProvider connections) {
+    public JdbcEmergencyAssignmentDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 
@@ -53,7 +53,7 @@ public class JdbcEmergencyAssignmentDAO extends AbstractJdbcDAO implements Emerg
         long id = callProcedureReturningLong(ASSIGN,
                 assignment.getEmergencyId(), assignment.getVehicleId(),
                 assignment.getCoordinatorUserId(), assignment.getAssignedAt());
-        assignment.assignId(id);
+        assignment.setId(id);
         return id;
     }
 

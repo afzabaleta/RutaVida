@@ -10,7 +10,6 @@ import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.enums.AuditResult;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
-import co.edu.unicesar.rutavida.util.Pbkdf2PasswordHasher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +43,7 @@ class AdminBootstrapServiceTest {
 
     @BeforeEach
     void setUp() {
-        hasher = new Pbkdf2PasswordHasher(1_000);
+        hasher = new PasswordHasher(1_000);
         userDao = new InMemoryUserDAO();
         roleDao = new InMemoryRoleDAO();
         auditDao = new InMemoryAuditDAO();
@@ -66,6 +65,7 @@ class AdminBootstrapServiceTest {
         assertTrue(admin.getId() > 0);
         assertEquals(1, admin.getRoleId());
         assertEquals("admin.rutavida", admin.getUsername());
+        assertEquals("admin@ejemplo.com", admin.getEmail());
         assertEquals(RecordStatus.ACTIVE, admin.getStatus());
         assertEquals(LocalDateTime.of(2026, 10, 22, 9, 0), admin.getRegisteredAt());
         assertNotEquals("Clave-Segura1", admin.getPasswordHash());
@@ -106,11 +106,15 @@ class AdminBootstrapServiceTest {
     }
 
     @Test
-    void invalidPersonalDataIsRejectedByTheEntity() {
+    void invalidPersonalDataIsRejectedByTheService() {
         assertThrows(ValidationException.class, () -> service.createAdmin("12", "Andrés", "Prueba",
                 "admin@ejemplo.com", "admin.rutavida", "Clave-Segura1".toCharArray()));
         assertThrows(ValidationException.class, () -> service.createAdmin("1065000001", "Andrés", "Prueba",
                 "no-es-un-correo", "admin.rutavida", "Clave-Segura1".toCharArray()));
+        assertThrows(ValidationException.class, () -> service.createAdmin("1065000001", "Andrés", "Prueba",
+                "admin@ejemplo.com", "ab", "Clave-Segura1".toCharArray()));
+        assertThrows(ValidationException.class, () -> service.createAdmin("1065000001", " ", "Prueba",
+                "admin@ejemplo.com", "admin.rutavida", "Clave-Segura1".toCharArray()));
 
         assertTrue(userDao.findAll().isEmpty());
     }

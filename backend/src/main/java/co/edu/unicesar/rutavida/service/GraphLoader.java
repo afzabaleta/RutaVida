@@ -10,6 +10,8 @@ import co.edu.unicesar.rutavida.graph.RoadGraph;
 import co.edu.unicesar.rutavida.model.RoadNode;
 import co.edu.unicesar.rutavida.model.RoadSegment;
 import co.edu.unicesar.rutavida.model.TrafficLight;
+import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.model.enums.RoadSegmentStatus;
 import co.edu.unicesar.rutavida.model.enums.TrafficLightState;
 
 import java.util.ArrayDeque;
@@ -63,7 +65,7 @@ public class GraphLoader {
     public RoadGraph load() {
         Map<Long, RoadNode> activeNodes = new HashMap<>();
         for (RoadNode node : nodeDao.findAll()) {
-            if (node.isActive()) {
+            if (node.getStatus() == RecordStatus.ACTIVE) {
                 activeNodes.put(node.getId(), node);
             }
         }
@@ -108,7 +110,7 @@ public class GraphLoader {
         Map<Integer, Double> waitAtNode = signalWaits(indexOf);
         int closed = 0;
         for (Edge edge : edges) {
-            boolean isClosed = !edgeSegments.get(edge.index()).isOpen();
+            boolean isClosed = edgeSegments.get(edge.index()).getStatus() == RoadSegmentStatus.CLOSED;
             double wait = waitAtNode.getOrDefault(edge.to(), 0.0);
             if (isClosed || wait > 0) {
                 graph.update(edge.index(), new EdgeState(1.0, isClosed, wait, 1.0, 0L));
@@ -140,7 +142,7 @@ public class GraphLoader {
         Map<Integer, Double> waits = new HashMap<>();
         for (TrafficLight light : trafficLightDao.findAll()) {
             Integer node = indexOf.get(light.getNodeId());
-            if (node == null || !light.isActive() || light.getCurrentState() == TrafficLightState.OUT_OF_SERVICE) {
+            if (node == null || light.getStatus() != RecordStatus.ACTIVE || light.getCurrentState() == TrafficLightState.OUT_OF_SERVICE) {
                 continue;
             }
             waits.merge(node, expectedWaitSeconds(light.getCycleSeconds()), Math::max);

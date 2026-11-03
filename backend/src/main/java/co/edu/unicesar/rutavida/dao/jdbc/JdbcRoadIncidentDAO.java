@@ -41,7 +41,7 @@ public class JdbcRoadIncidentDAO extends AbstractJdbcDAO implements RoadIncident
             IncidentStatus.fromCode(row.getString("estado")),
             IncidentOrigin.fromCode(row.getString("origen")));
 
-    public JdbcRoadIncidentDAO(ConnectionProvider connections) {
+    public JdbcRoadIncidentDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 
@@ -55,7 +55,7 @@ public class JdbcRoadIncidentDAO extends AbstractJdbcDAO implements RoadIncident
                 incident.getSegmentId(), incident.getType(), incident.getSeverity(),
                 incident.isBlocksSegment(), incident.getDescription(), incident.getStartedAt(),
                 incident.getEndedAt(), incident.getStatus(), incident.getOrigin());
-        incident.assignId(id);
+        incident.setId(id);
         return id;
     }
 

@@ -49,8 +49,8 @@ class JdbcRoleDAOIntegrationTest {
         Role admin = role("ADMINISTRADOR");
         assertEquals(number(jdbc, "SELECT COUNT(*) FROM permiso"), admin.getPermissions().size());
         assertEquals(RecordStatus.ACTIVE, admin.getStatus());
-        assertTrue(admin.hasPermission("AUDITORIA", "CONSULTAR"));
-        assertTrue(admin.hasPermission("USUARIOS", "GESTIONAR"));
+        assertTrue(has(admin, "AUDITORIA", "CONSULTAR"));
+        assertTrue(has(admin, "USUARIOS", "GESTIONAR"));
     }
 
     @Test
@@ -58,10 +58,10 @@ class JdbcRoleDAOIntegrationTest {
         Role operator = role("OPERADOR_CENTRAL");
         assertEquals(number(jdbc, "SELECT COUNT(*) FROM rol_permiso WHERE id_rol = ?", operator.getId()),
                 operator.getPermissions().size());
-        assertTrue(operator.hasPermission("EMERGENCIAS", "GESTIONAR"));
-        assertTrue(operator.hasPermission("RUTAS", "GESTIONAR"));
-        assertFalse(operator.hasPermission("USUARIOS", "GESTIONAR"));
-        assertFalse(operator.hasPermission("AUDITORIA", "CONSULTAR"));
+        assertTrue(has(operator, "EMERGENCIAS", "GESTIONAR"));
+        assertTrue(has(operator, "RUTAS", "GESTIONAR"));
+        assertFalse(has(operator, "USUARIOS", "GESTIONAR"));
+        assertFalse(has(operator, "AUDITORIA", "CONSULTAR"));
     }
 
     @Test
@@ -70,7 +70,7 @@ class JdbcRoleDAOIntegrationTest {
             Role found = dao.findById(listed.getId()).orElseThrow();
             assertEquals(listed.getName(), found.getName());
             assertEquals(listed.getStatus(), found.getStatus());
-            assertEquals(listed.getPermissions(), found.getPermissions());
+            assertEquals(ids(listed), ids(found));
         }
     }
 
@@ -82,12 +82,21 @@ class JdbcRoleDAOIntegrationTest {
             long id = number(jdbc, "SELECT id_rol FROM rol WHERE nombre_rol = ?", "PRUEBA_JUNIT");
             Role role = dao.findById(id).orElseThrow();
             assertTrue(role.getPermissions().isEmpty());
-            assertFalse(role.hasPermission("EMERGENCIAS", "CONSULTAR"));
+            assertFalse(has(role, "EMERGENCIAS", "CONSULTAR"));
         });
     }
 
     @Test
     void missingRoleIsEmpty() {
         assertTrue(dao.findById(-1).isEmpty());
+    }
+
+    private static boolean has(Role role, String module, String action) {
+        return role.getPermissions().stream()
+                .anyMatch(p -> p.getModule().equals(module) && p.getAction().equals(action));
+    }
+
+    private static java.util.Set<Long> ids(Role role) {
+        return role.getPermissions().stream().map(p -> p.getId()).collect(java.util.stream.Collectors.toSet());
     }
 }

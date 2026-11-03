@@ -27,7 +27,7 @@ public class JdbcTrafficReadingDAO extends AbstractJdbcDAO implements TrafficRea
             "INSERT INTO trafico (id_tramo, fecha_hora, nivel, velocidad_promedio_kmh,"
                     + " factor_congestion, fuente) VALUES (?, ?, ?, ?, ?, ?)";
 
-    public JdbcTrafficReadingDAO(ConnectionProvider connections) {
+    public JdbcTrafficReadingDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 

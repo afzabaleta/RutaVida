@@ -23,7 +23,7 @@ public class JdbcRoadNodeDAO extends AbstractJdbcDAO implements RoadNodeDAO {
             NodeType.fromCode(row.getString("tipo_nodo")),
             RecordStatus.fromCode(row.getString("estado")));
 
-    public JdbcRoadNodeDAO(ConnectionProvider connections) {
+    public JdbcRoadNodeDAO(JdbcTransactionManager connections) {
         super(connections);
     }
 
