@@ -720,6 +720,8 @@ classDiagram
     HospitalDAO ..> HospitalServiceOffering
 ```
 
+`HospitalDAO.findServices` y `updateService` todavía no están programados: se agregan cuando exista la entidad `HospitalServiceOffering`. `EmergencyVehicleDAO.update` cambia solo los datos de registro (tipo, estación, código y placa); el estado y la posición tienen sus propios métodos para que el simulador y el despacho no se sobrescriban.
+
 ### 3.3 Red vial, tráfico e incidentes
 
 La red vial (nodos y tramos) la carga en Oracle el script SQL generado desde OpenStreetMap (K4). Por eso `RoadNodeDAO` y `RoadSegmentDAO` solo leen; el único cambio que hace la aplicación es el estado de un tramo.
