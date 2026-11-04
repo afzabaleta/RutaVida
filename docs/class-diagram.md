@@ -1898,8 +1898,9 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `RoadNodeDAO`, `RoadSegmentDAO`, `TrafficLightDAO`, `JdbcRoadNodeDAO`, `JdbcRoadSegmentDAO`, `JdbcTrafficLightDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A4) |
 | `TrafficReadingDAO`, `RoadIncidentDAO`, `JdbcTrafficReadingDAO`, `JdbcRoadIncidentDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A5) |
 | `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
-| `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) || Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
-| `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
+| `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) |
+| `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y `updateService` siguen diseñados |
+| Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado || `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
 | `GraphLoader` y `AppContext.graphLoader()` | `service`, `app` | **Programado y probado** (K5): pruebas sin Oracle y prueba de integración con la red real |
 | `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
