@@ -1896,6 +1896,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `RoadNodeDAO`, `RoadSegmentDAO`, `TrafficLightDAO`, `JdbcRoadNodeDAO`, `JdbcRoadSegmentDAO`, `JdbcTrafficLightDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A4) |
 | `TrafficReadingDAO`, `RoadIncidentDAO`, `JdbcTrafficReadingDAO`, `JdbcRoadIncidentDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A5) |
 | `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
+| `EmergencyDAO`, `EmergencyTypeDAO` (interfaces) | `dao` | **Programado** (A7a). Las implementaciones JDBC son de A7b |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
