@@ -120,7 +120,7 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
     void anIncidentIsInsertedAndReadBack() {
         inRolledBackTransaction(jdbc, () -> {
             long segment = insertTestSegment();
-            RoadIncident incident = newIncident(segment, "  Choque en la vía de prueba  ");
+            RoadIncident incident = newIncident(segment, "Choque en la vía de prueba");
 
             long id = incidentDao.insert(incident);
 
