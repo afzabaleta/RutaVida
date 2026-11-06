@@ -9,6 +9,12 @@ Registro de las decisiones que afectan a todo el proyecto. Cada decisión dice q
 | DT-03 | Tablas y columnas de Oracle **en español**; código Java en inglés | 15/10/2026 | Decidida por el equipo |
 | DT-04 | Nombres de **ramas en inglés** (`feature/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`) | 15/10/2026 | Decidida por el líder; cambia la regla anterior de ramas en español |
 | DT-05 | PL/SQL: Java decide y PL/SQL ejecuta; triggers solo para cambios de estado; tiempo de respuesta = reporte → llegada | 15/10/2026 | Decidida por el líder |
+| DT-06 | Servidor HTTP con **Javalin + Jackson**; el mismo servidor entrega `frontend/` y la API (sin CORS) | 05/11/2026 | **Propuesta** (A10); se confirma en la reunión del equipo |
+| DT-07 | Tiempo real en la web con **consultas cada 2 segundos** a `GET /api/tracking` | 05/11/2026 | **Propuesta** (A10); se confirma en la reunión del equipo |
+| DT-08 | Sesión web con **token aleatorio** de 32 bytes en memoria, 8 horas, enviado en `Authorization: Bearer` | 05/11/2026 | **Propuesta** (A10); se confirma en la reunión del equipo |
+| DT-09 | Base de datos en la nube: migrar cuando el núcleo esté estable, después de confirmar costo y requisitos | 05/11/2026 | **Propuesta**; se confirma en la reunión del equipo |
+| DT-10 | Alcance final: núcleo, botón de pánico y rol Policía; nada nuevo después del 26/11/2026 | 05/11/2026 | **Propuesta**; se confirma en la reunión del equipo |
+| DT-11 | Umbrales y parámetros en un archivo `rutavida.properties` | 05/11/2026 | **Propuesta**; se confirma en la reunión del equipo |
 
 ---
 
@@ -100,3 +106,18 @@ Nada de esto está programado todavía: el estado actual es **diseñado**.
 - El backend debe fijar `CLIENT_IDENTIFIER` con el id del usuario en cada conexión (por ejemplo con `connection.setClientInfo("OCSID.CLIENTID", ...)`). Se hace en la integración del login (A3).
 - `- ~~`AbstractJdbcDAO` todavía no tiene un método para llamar procedimientos~~ Hecho (16/10/2026): `callProcedure` y `callProcedureReturningLong`. Un error `-20000` a `-20999` de un procedimiento llega a Java como `BusinessRuleException` con el mensaje del procedimiento; cualquier otro error, como `DataAccessException`. Las funciones se leen con `SELECT fn_x(?) FROM dual`.
 - `99_eliminar_esquema.sql` no borra estas vistas, funciones y procedimientos (los triggers sí se borran con sus tablas). Quedan inválidos hasta volver a ejecutar `01` y `04`. Cambiar `99` requiere autorización del líder.
+
+---
+
+## DT-06 a DT-11 · Propuestas para la API y el cierre del proyecto
+
+Estas seis decisiones son **propuestas**: se discuten en la reunión del equipo y, cuando se aprueben, se cambia su estado en la tabla (sin borrar la fila). El contrato de la API (`docs/api.md`) ya está escrito con DT-06, DT-07 y DT-08.
+
+| # | Opciones evaluadas | Por qué se propone |
+|---|---|---|
+| DT-06 | Servidor del JDK (`com.sun.net.httpserver`) + Gson, o Javalin + Jackson | Javalin define una ruta en una línea y sirve también `frontend/`, así la web y la API quedan en el mismo origen y no hace falta CORS. El servidor del JDK no agrega dependencias, pero obliga a escribir a mano el ruteo y los encabezados. La versión se verifica en Maven Central antes de agregarla |
+| DT-07 | Consultas periódicas o *Server-Sent Events* | Las consultas cada 2 segundos son lo más simple de programar, explicar y depurar. SSE solo si las consultas no alcanzan |
+| DT-08 | Token aleatorio en memoria, cookie de sesión o JWT | Con un solo servidor, JWT agrega complejidad sin aportar nada. Si el servidor se reinicia, los usuarios vuelven a iniciar sesión |
+| DT-09 | Migrar a Oracle en la nube o justificar Oracle local | El profesor pidió la base en la nube. Se migra cuando el núcleo esté estable; si no es viable por costo, se acuerda con el profesor por escrito |
+| DT-10 | Qué entra y desde qué fecha no se agrega nada | Congelar el alcance protege el tiempo de pruebas y ensayos |
+| DT-11 | Umbrales en el código, en un archivo o en una tabla | Un archivo se cambia sin recompilar y se explica fácil en la sustentación |
