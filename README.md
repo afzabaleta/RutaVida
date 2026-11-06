@@ -122,6 +122,7 @@ Deja el resultado en `frontend/data/rutas-demo.geojson` y en `frontend/data/ruta
 - **Casos de uso:** [`docs/analysis.md`](docs/analysis.md). **Diagrama de clases (Mermaid):** [`docs/class-diagram.md`](docs/class-diagram.md). `ClassDiagramSyncTest` falla si una clase del código no aparece en el diagrama.
 - **Arquitectura, paquetes, GRASP y SOLID:** ver [`docs/arquitectura-software.md`](docs/arquitectura-software.md). `ArchitectureTest` falla si una capa importa algo que no le corresponde.
 - **Base de datos:** ver [`docs/convenciones-base-datos.md`](docs/convenciones-base-datos.md) (estados, catálogos y cambios al diccionario de datos).
+- **Contrato de la API REST:** [`docs/api.md`](docs/api.md) (rutas, permisos, JSON y errores). La web y el servidor programan contra este documento.
 - **Ramas (en inglés):** `main` (estable, rama por defecto), `develop` (integración), `feature/<name>`, `fix/<name>`, `docs/<name>`, `test/<name>`, `refactor/<name>`, `chore/<name>`.
 - **Commits:** `type: short-description` en inglés, por ejemplo `feature: dao-emergencies`. Tipos: `feature`, `fix`, `docs`, `test`, `refactor`, `chore`.
 - Nadie hace commit ni push directo a `main` ni a `develop`: todo entra por Pull Request hacia `develop`, revisado por otra persona.
