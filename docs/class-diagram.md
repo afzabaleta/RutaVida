@@ -996,13 +996,14 @@ classDiagram
         +createAdmin(document: String, firstNames: String, lastNames: String, email: String, username: String, password: char[]) User
     }
 
-    class EmergencyService {
-        -emergencyDao : EmergencyDAO
-        -emergencyTypeDao : EmergencyTypeDAO
-        -routeService : RouteService
-        -transactions : TransactionManager
-        -auditService : AuditService
-        -clock : Clock
+   class EmergencyService {
+    -emergencyDao : EmergencyDAO
+    -emergencyTypeDao : EmergencyTypeDAO
+    -assignmentDao : EmergencyAssignmentDAO
+    -routeDao : RouteDAO
+    -auditService : AuditService
+    -transactions : TransactionManager
+    -clock : Clock
         +validateNew(emergency: Emergency) void
         +canChange(from: EmergencyStatus, to: EmergencyStatus) boolean
         +changeStatus(emergency: Emergency, next: EmergencyStatus, at: LocalDateTime) void
@@ -1090,7 +1091,6 @@ classDiagram
     EmergencyService ..> AuditService
     DispatchService ..> AuditService
     FleetService ..> AuditService
-    EmergencyService ..> RouteService
     DispatchService ..> RouteService
     DispatchService ..> HospitalService
     DispatchService ..> HungarianAlgorithm
@@ -1908,6 +1908,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | Simulación | `simulation` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
+| `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos |
 | Demás controladores | `controller` | Diseñado |
 | Vista web y adaptadores REST | `view` → `api`, `frontend/` | Decidido (web); pendiente de programar |
 
