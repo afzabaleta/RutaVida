@@ -1694,12 +1694,13 @@ classDiagram
         +logout() void
     }
     class EmergencyController {
-        -emergencyService : EmergencyService
-        -session : SessionContext
-        +register(request: EmergencyRequest) OperationResult~Emergency~
-        +listActive() List~Emergency~
-        +history(emergencyId: long) OperationResult~EmergencyHistory~
-    }
+    -emergencyService : EmergencyService
+    -authService : AuthService
+    -session : SessionContext
+    +register(request: EmergencyRequest) OperationResult~Emergency~
+    +listActive() OperationResult~List~Emergency~~
+    +history(emergencyId: long) OperationResult~EmergencyHistory~
+}
     class DispatchController {
         -dispatchService : DispatchService
         -hospitalService : HospitalService
@@ -1901,6 +1902,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
 | `GraphLoader` y `AppContext.graphLoader()` | `service`, `app` | **Programado y probado** (K5): pruebas sin Oracle y prueba de integración con la red real |
 | `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
+| `EmergencyService` (registro, activas, historial), `EmergencyRequest`, `EmergencyHistory` | `service`, `dto` | **Programado y probado** (S6) con DAO falsos. Se conecta en `AppContext` en A7d |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
