@@ -9,12 +9,12 @@ Registro de las decisiones que afectan a todo el proyecto. Cada decisión dice q
 | DT-03 | Tablas y columnas de Oracle **en español**; código Java en inglés | 15/10/2026 | Decidida por el equipo |
 | DT-04 | Nombres de **ramas en inglés** (`feature/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`) | 15/10/2026 | Decidida por el líder; cambia la regla anterior de ramas en español |
 | DT-05 | PL/SQL: Java decide y PL/SQL ejecuta; triggers solo para cambios de estado; tiempo de respuesta = reporte → llegada | 15/10/2026 | Decidida por el líder |
-| DT-06 | Servidor HTTP con **Javalin + Jackson**; el mismo servidor entrega `frontend/` y la API (sin CORS) | 05/11/2026 | **Propuesta** (A10); se confirma en la reunión del equipo |
-| DT-07 | Tiempo real en la web con **consultas cada 2 segundos** a `GET /api/tracking` | 05/11/2026 | **Propuesta** (A10); se confirma en la reunión del equipo |
-| DT-08 | Sesión web con **token aleatorio** de 32 bytes en memoria, 8 horas, enviado en `Authorization: Bearer` | 05/11/2026 | **Propuesta** (A10); se confirma en la reunión del equipo |
-| DT-09 | Base de datos en la nube: migrar cuando el núcleo esté estable, después de confirmar costo y requisitos | 05/11/2026 | **Propuesta**; se confirma en la reunión del equipo |
-| DT-10 | Alcance final: núcleo, botón de pánico y rol Policía; nada nuevo después del 26/11/2026 | 05/11/2026 | **Propuesta**; se confirma en la reunión del equipo |
-| DT-11 | Umbrales y parámetros en un archivo `rutavida.properties` | 05/11/2026 | **Propuesta**; se confirma en la reunión del equipo |
+| DT-06 | Servidor HTTP con **Javalin + Jackson**; el mismo servidor entrega `frontend/` y la API (sin CORS) | 05/11/2026 | Decidida por el equipo |
+| DT-07 | Tiempo real en la web con consultas periódicas: **cada 5 segundos** las posiciones (`GET /api/tracking`) y **cada 15 segundos** el tráfico | 05/11/2026 | Decidida por el equipo; cambia la propuesta inicial de 2 segundos |
+| DT-08 | Sesión web con **token aleatorio** de 32 bytes en memoria, enviado en `Authorization: Bearer`; vence a los **30 minutos sin uso** o a las **8 horas** | 05/11/2026 | Decidida por el equipo; cambia la propuesta inicial de 8 horas fijas |
+| DT-09 | Oracle **local** para desarrollar y probar; **Oracle Cloud** (Always Free) como base compartida del equipo y de la sustentación, cuando el núcleo funcione | 05/11/2026 | Decidida por el equipo |
+| DT-10 | Alcance final: núcleo, botón de pánico, rol Policía y **patrullas de policía simuladas** en el mapa. Fecha de congelamiento por definir | 05/11/2026 | Decidida por el equipo; falta la fecha |
+| DT-11 | Umbrales y parámetros en un archivo `rutavida.properties` | 05/11/2026 | **Propuesta**; falta la opinión de Kendrick |
 
 ---
 
@@ -109,15 +109,15 @@ Nada de esto está programado todavía: el estado actual es **diseñado**.
 
 ---
 
-## DT-06 a DT-11 · Propuestas para la API y el cierre del proyecto
+## DT-06 a DT-11 · API, sesión, nube y alcance final
 
-Estas seis decisiones son **propuestas**: se discuten en la reunión del equipo y, cuando se aprueben, se cambia su estado en la tabla (sin borrar la fila). El contrato de la API (`docs/api.md`) ya está escrito con DT-06, DT-07 y DT-08.
+**Reunión del equipo del 05/11/2026.** Se aprobaron DT-06 a DT-10. DT-11 sigue como propuesta hasta que Kendrick, que la usa en la simulación, dé su opinión. El contrato de la API (`docs/api.md`) aplica DT-06, DT-07 y DT-08.
 
-| # | Opciones evaluadas | Por qué se propone |
+| # | Opciones evaluadas | Qué se decidió y por qué |
 |---|---|---|
-| DT-06 | Servidor del JDK (`com.sun.net.httpserver`) + Gson, o Javalin + Jackson | Javalin define una ruta en una línea y sirve también `frontend/`, así la web y la API quedan en el mismo origen y no hace falta CORS. El servidor del JDK no agrega dependencias, pero obliga a escribir a mano el ruteo y los encabezados. La versión se verifica en Maven Central antes de agregarla |
-| DT-07 | Consultas periódicas o *Server-Sent Events* | Las consultas cada 2 segundos son lo más simple de programar, explicar y depurar. SSE solo si las consultas no alcanzan |
-| DT-08 | Token aleatorio en memoria, cookie de sesión o JWT | Con un solo servidor, JWT agrega complejidad sin aportar nada. Si el servidor se reinicia, los usuarios vuelven a iniciar sesión |
-| DT-09 | Migrar a Oracle en la nube o justificar Oracle local | El profesor pidió la base en la nube. Se migra cuando el núcleo esté estable; si no es viable por costo, se acuerda con el profesor por escrito |
-| DT-10 | Qué entra y desde qué fecha no se agrega nada | Congelar el alcance protege el tiempo de pruebas y ensayos |
-| DT-11 | Umbrales en el código, en un archivo o en una tabla | Un archivo se cambia sin recompilar y se explica fácil en la sustentación |
+| DT-06 | Servidor del JDK (`com.sun.net.httpserver`) + Gson, o Javalin + Jackson | Javalin. Define una ruta en una línea y sirve también `frontend/`, así la web y la API quedan en el mismo origen y no hace falta CORS. El servidor del JDK no agrega dependencias, pero obliga a escribir a mano el ruteo y los encabezados. La versión se verifica en Maven Central antes de agregarla |
+| DT-07 | Consultas periódicas (cada 2, 5 o 10 segundos) o *Server-Sent Events* | Consultas: son lo más simple de programar, explicar y depurar. 5 segundos para las posiciones: con 10, una unidad simulada a 50 km/h salta unos 140 m entre consultas y el recálculo se ve tarde en la demostración; la web anima el marcador entre posiciones. 15 segundos para el tráfico, que cambia menos |
+| DT-08 | Token aleatorio en memoria, cookie de sesión o JWT; vencimiento fijo o por inactividad | Token aleatorio: con un solo servidor, JWT agrega complejidad sin aportar nada. El equipo consideró que 8 horas fijas era demasiado: la sesión vence a los 30 minutos sin uso (las consultas automáticas del mapa no cuentan como uso) y como máximo a las 8 horas, un turno. Si el servidor se reinicia, los usuarios vuelven a iniciar sesión |
+| DT-09 | Solo local, solo nube, o local para desarrollar y nube compartida | Las dos: el código no cambia, solo `db.properties` (y el *wallet* de la nube, que nunca se sube al repositorio). Local para desarrollar y correr las pruebas; nube como la base del equipo y de la sustentación, como pidió el profesor. Límites del plan Always Free a tener en cuenta: 2 bases de 20 GB, 30 sesiones simultáneas, se detiene sola después de 7 días sin uso y puede borrarse si queda detenida 90 días, y no permite copias manuales (los scripts `01` a `06` son la copia) |
+| DT-10 | Solo el núcleo, o el núcleo con el botón de pánico, la Policía y las patrullas | Todo es obligatorio para el proyecto final. Las patrullas de policía son unidades simuladas (rotuladas `SIMULACION`), con su propio tipo de vehículo y rol. Se programan después de que el núcleo funcione de punta a punta. La fecha desde la que no se agrega nada nuevo la define el líder |
+| DT-11 | Umbrales en el código, en un archivo o en una tabla | Propuesta: un archivo `rutavida.properties` se cambia sin recompilar y se explica fácil en la sustentación. Pendiente de Kendrick |

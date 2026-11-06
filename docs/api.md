@@ -4,7 +4,7 @@ Este documento define cada ruta de la API del núcleo de RutaVida: método, URL,
 
 | Dato | Valor |
 |---|---|
-| Estado | **Propuesta** (A10, 04/11/2026). Depende de las decisiones DT-06, DT-07 y DT-08, que todavía son propuestas (ver `docs/decisiones-tecnicas.md`) |
+| Estado | **Aprobado por el equipo** el 05/11/2026 (A10), con las decisiones DT-06, DT-07 y DT-08 de `docs/decisiones-tecnicas.md` |
 | Revisan | Diego (consume la API) y Sherly (controladores) |
 | Casos de uso | `docs/analysis.md`, sección 3 |
 | Permisos | Tabla `PERMISO` (`database/02_datos_iniciales.sql`) |
@@ -66,7 +66,12 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
    Authorization: Bearer 3f9c2a…
    ```
 
-3. El token es un valor aleatorio de 32 bytes que el servidor guarda en memoria junto con la sesión (`UserSession`). Vence a las **8 horas** o con `POST /api/auth/logout`. Si el servidor se reinicia, todos tienen que volver a iniciar sesión.
+3. El token es un valor aleatorio de 32 bytes (`SecureRandom`) que el servidor guarda en memoria junto con la sesión (`UserSession`). Deja de servir en el primero de estos casos:
+   - **30 minutos sin uso.** Cada petición del usuario reinicia el contador, **excepto** las consultas automáticas del mapa (`GET /api/tracking`, `GET /api/traffic/segments` y `GET /api/alerts`): si las contara, una pestaña abierta nunca vencería.
+   - **8 horas** desde el inicio de sesión (un turno), aunque el usuario siga activo.
+   - `POST /api/auth/logout`.
+
+   Si el servidor se reinicia, todos tienen que volver a iniciar sesión.
 4. Cada ruta exige el permiso de la columna **Permiso** (módulo y acción de la tabla `PERMISO`). El servidor lo revisa con `AuthService.requirePermission` antes de llamar al controlador. Que la web oculte un botón no reemplaza esta revisión.
 5. Las únicas rutas sin token son `POST /api/auth/login` y las páginas de `frontend/`.
 
@@ -127,6 +132,7 @@ Salida `200`:
   "value": {
     "token": "3f9c2a7e0b5d4c18a6e2f9d1b7c4a0e53f9c2a7e0b5d4c18a6e2f9d1b7c4a0e5",
     "expiresAt": "2026-11-04T17:30:00",
+    "idleTimeoutMinutes": 30,
     "user": { "id": 3, "username": "operador1", "firstNames": "Ana", "lastNames": "Pérez" },
     "role": "OPERADOR_CENTRAL",
     "permissions": ["EMERGENCIAS:CONSULTAR", "EMERGENCIAS:GESTIONAR", "RUTAS:GESTIONAR"]
@@ -136,7 +142,7 @@ Salida `200`:
 
 Errores (mensajes de `AuthService`): `400` con `"Escriba el usuario y la contraseña."`; `401` con `"Usuario o contraseña incorrectos"`, el mismo para un usuario que no existe y para una contraseña errada, para no revelar cuál falló; `401` con `"El usuario está inactivo"`. En esta ruta, los errores de credenciales son `401` aunque `AuthService` los lance como `BusinessRuleException`.
 
-La web usa `permissions` solo para mostrar u ocultar botones.
+`expiresAt` es el límite de 8 horas; `idleTimeoutMinutes` es el límite por inactividad. La web usa `permissions` solo para mostrar u ocultar botones.
 
 ### 4.2 `POST /api/auth/logout`
 
@@ -411,7 +417,7 @@ Los hospitales activos (`HospitalDAO.findOperational`). Con `?all=true` también
 
 ### 8.1 `GET /api/tracking`
 
-La web lo consulta **cada 2 segundos** mientras la página del mapa está abierta. Devuelve una foto completa del estado, no solo los cambios, para que la web no tenga que acumular nada:
+La web lo consulta **cada 5 segundos** (DT-07) mientras la página del mapa está abierta, y anima el marcador de cada unidad entre la posición anterior y la nueva para que no salte. Devuelve una foto completa del estado, no solo los cambios, para que la web no tenga que acumular nada:
 
 ```json
 { "success": true, "message": null, "value": {
@@ -432,7 +438,7 @@ La web lo consulta **cada 2 segundos** mientras la página del mapa está abiert
 ```
 
 - `routesVersion` sube cada vez que el sistema recalcula las rutas de esa misión (CU-17). Si la web ve un número distinto al que tenía, pide `GET /api/dispatches/{id}/routes` y redibuja.
-- `unreadAlerts` permite mostrar el contador sin pedir la lista cada 2 segundos.
+- `unreadAlerts` permite mostrar el contador sin pedir la lista cada 5 segundos.
 - `source` es `"SIMULACION"` mientras no exista GPS real (`PositionSource`).
 
 ### 8.2 `GET /api/traffic/segments`
@@ -448,7 +454,7 @@ Los tramos con tráfico `MODERADO` o `CONGESTIONADO` (la última medición de ca
 ] }
 ```
 
-La web los consulta cada 10 segundos (cambian menos que las posiciones).
+La web los consulta **cada 15 segundos** (DT-07): cambian menos que las posiciones.
 
 ## 9. Incidentes viales
 
@@ -572,7 +578,7 @@ sequenceDiagram
     Dao->>Db: asignación, unidad OCUPADO, rutas, auditoría
     Api-->>Web: 201 asignación + rutas
 
-    loop Cada 2 segundos
+    loop Cada 5 segundos
         Web->>Api: GET /api/tracking
         Api-->>Web: posiciones (SIMULACION) y estado de las misiones
     end
@@ -580,7 +586,7 @@ sequenceDiagram
 
 ## 13. Fuera de este contrato
 
-- **Botón de pánico y rol Policía** (DT-10): tienen sus propias rutas, que se agregan a este documento en su tarea. La ruta del botón será la única sin sesión.
+- **Botón de pánico, rol Policía y patrullas de policía simuladas** (DT-10): tienen sus propias rutas, que se agregan a este documento en su tarea. La ruta del botón será la única sin sesión.
 - **Administración** (CU-03, CU-04, CU-05, CU-21): crear y editar usuarios, unidades, estaciones y hospitales, y consultar la auditoría. Los DAO ya tienen `insert` y `update`; las rutas se agregan cuando se programen esas pantallas.
 - **Reporte ciudadano por QR** (CU-22): fuera del alcance de la primera versión.
 
