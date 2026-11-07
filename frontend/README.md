@@ -1,54 +1,84 @@
-﻿
-# Frontend de RutaVida (maqueta D3, rutas D4 y pantallas de operación D5a)
+﻿# RutaVida
 
-Interfaz web de RutaVida (decisión DT-01): HTML, CSS, JavaScript y Leaflet.
+**Sistema Inteligente de Rutas de Emergencia para Valledupar**
 
-**Todavía no está conectada al backend:** la API REST se desarrolla en la fase 7.
+RutaVida es un sistema orientado a apoyar la gestión de emergencias en Valledupar mediante el registro de incidentes, la consulta de recursos de atención y la visualización de información geográfica para facilitar la coordinación de la respuesta.
 
-| Archivo | Qué es |
+## Estado del proyecto
+
+El proyecto se desarrolla por etapas académicas. Los módulos implementados y pendientes se identifican en la documentación correspondiente.
+
+| Componente | Estado |
 |---|---|
-| `index.html`, `js/login.js` | Inicio de sesión de ejemplo. No envía ni guarda contraseñas. |
-| `dashboard.html`, `js/dashboard.js`, `css/dashboard.css` | Panel principal, mapa, indicadores, emergencias, unidades, hospitales y rutas. |
-| `js/route-layer.js` | Capa visual de rutas D4: escenarios, alternativas, distancias, tiempos y explicaciones. |
-| `data/rutas-demo.js` | Datos de rutas generados para la demostración por el motor RouteDemo. |
-| `css/rutavida.css` | Colores, tipografía y componentes comunes. |
-| `js/valledupar-data.js` | Estación y hospitales documentados en D2, con sus fuentes. |
-| `js/example-data.js` | Usuario, emergencias y unidades de ejemplo; no son datos reales. |
-| `img/logo.svg` | Logo de RutaVida. |
-| `emergencia.html`, `js/emergencia.js` | Registrar emergencia (CU-06): formulario y punto en el mapa. Datos de EJEMPLO, no se guardan en Oracle. |
-| `despacho.html`, `js/despacho.js` | Despacho (CU-08 y CU-09): emergencia, unidades disponibles, rutas y confirmación. Datos de EJEMPLO. |
-| `js/api-client.js` | Único lugar donde las páginas piden y envían datos. Hoy responde con EJEMPLOS; con la API (A12) usará `fetch` según `docs/api.md`. |
-| `js/map-base.js` | Mapa base, marcadores y utilidades comunes de las páginas de operación. |
-| `css/operacion.css` | Estilos de los formularios de operación. |
+| Backend | API REST desarrollada en Java |
+| Base de datos | Oracle |
+| Vista | **Web** (HTML, CSS, JavaScript y Leaflet + API REST en Java), en `frontend/`. Conectada a la API (D5b): inicio de sesión, registro de emergencias y consulta de emergencias y unidades de Oracle. El panel principal y el botón de despachar (K7) están pendientes |
+| Rutas geográficas | Visualización de rutas de demostración; integración operativa pendiente de K7 |
+| Despacho | Pendiente de integración operativa K7 |
 
-## Cómo abrir la maqueta
+## Funcionalidades de la aplicación web
 
-Desde la raíz del repositorio, inicia un servidor local:
+La aplicación web permite:
 
-```powershell
-jwebserver -d "$PWD\frontend" -p 8000
+- Iniciar sesión mediante la API.
+- Consultar los tipos de emergencia disponibles en Oracle.
+- Registrar emergencias y almacenarlas en Oracle.
+- Consultar emergencias y unidades disponibles.
+- Visualizar información geográfica de demostración.
+
+**Importante:** las unidades y los datos que aparecen identificados como `EJEMPLO` son datos de demostración. No representan recursos operativos reales.
+
+El despacho operativo de unidades, el seguimiento y la simulación de rutas continúan pendientes de la etapa K7.
+
+## Tecnologías
+
+- Java.
+- Oracle Database.
+- HTML5.
+- CSS3.
+- JavaScript.
+- Leaflet.
+- OpenStreetMap.
+
+## Estructura del proyecto
+
+```text
+RutaVida/
+├── backend/
+│   └── Código de la API REST y configuración del servidor
+├── frontend/
+│   ├── css/
+│   ├── data/
+│   ├── js/
+│   ├── dashboard.html
+│   ├── despacho.html
+│   ├── emergencia.html
+│   ├── login.html
+│   └── README.md
+├── database/
+│   └── Scripts SQL de la base de datos
+├── docs/
+│   └── Documentación técnica y diagramas
+└── README.md
 ```
 
-Abre <http://localhost:8000/dashboard.html> para ver el panel principal, o <http://localhost:8000/> para abrir la página de inicio si está configurada como página predeterminada.
+## Ejecución
 
-No abras los HTML con doble clic: los módulos JavaScript y el mapa requieren un servidor local.
+La configuración y las instrucciones para ejecutar el backend y el frontend se encuentran en sus respectivos archivos README.
 
-Para detener el servidor, pulsa `Ctrl+C`.
+Consulta:
 
-## Rutas de demostración (D4)
+- `backend/README.md`
+- `frontend/README.md`
 
-La capa de rutas utiliza los datos de `data/rutas-demo.js`, generados para la demostración por RouteDemo. Presenta tres escenarios:
+No publiques archivos con credenciales, contraseñas o información privada de conexión a la base de datos.
 
-1. Estación hacia la emergencia.
-2. Rutas después de una congestión simulada.
-3. Traslado desde la emergencia hacia el hospital.
+## Documentación
 
-Las rutas muestran alternativas, distancias, tiempos estimados y explicaciones disponibles en los datos. La congestión y la unidad simuladas son elementos demostrativos, no información operativa en tiempo real.
+La documentación técnica del proyecto se encuentra en `docs/` e incluye la arquitectura del software, diagramas y registros de implementación.
 
-## Reglas
+## Proyecto académico
 
-- La maqueta no realiza autenticación real ni se conecta al backend.
-- Los datos de ejemplo y simulación deben estar identificados como tales.
-- Los datos documentados como reales conservan sus fuentes.
-- El mapa usa Leaflet y OpenStreetMap con su atribución visible.
-- No se deben inventar métricas de respuesta ni presentar datos de ejemplo como reales.
+Desarrollado como parte de las asignaturas de Programación de Computadores III y Base de Datos.
+
+**Proyecto:** Sistema Inteligente de Rutas de Emergencia para Valledupar — RutaVida.
