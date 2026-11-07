@@ -38,7 +38,8 @@ RutaVida/
 | Arquitectura: paquetes, reglas de dependencia, enums, transacciones, `AppContext` | Programado y probado ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)). Desde el 30/10/2026 el modelo solo guarda datos y las reglas están en `service` |
 | Vistas, funciones, procedimientos y triggers PL/SQL (`04_plsql.sql`) | Programado; se prueba con la sección 8 de `98_verificar.sql` |
 | Entidades, DAO principales, motor de rutas, inicio de sesión y reglas de estado | Programado y probado (detalle en [`docs/class-diagram.md`](docs/class-diagram.md), sección 9) |
-| Casos de uso de despacho completos, simulación, catálogos, API REST | Pendiente |
+| API REST ([`docs/api.md`](docs/api.md)) | Programado y probado: sesión con token (A12a), emergencias y catálogos (A12b). Despacho, rutas, seguimiento y simulación: pendiente (K7) |
+| Casos de uso de despacho completos y simulación | Pendiente |
 | Vista | **Decidido: web** (HTML, CSS, JavaScript y Leaflet + API REST en Java). Maqueta en `frontend/` (D3), todavía sin conexión al backend |
 | Decisiones del equipo (vista web, Oracle local, tablas en español) | Registradas en [`docs/decisiones-tecnicas.md`](docs/decisiones-tecnicas.md) |
 
@@ -113,7 +114,7 @@ Con la red vial cargada (paso 3) y `03_datos_valledupar.sql` ejecutado, la clase
 
 Deja el resultado en `frontend/data/rutas-demo.geojson` y en `frontend/data/rutas-demo.js` (el mismo contenido, para abrir la página sin servidor). Los tiempos son estimados con las velocidades supuestas del importador; no son tiempos medidos.
 
-### 5. Servidor web y API (A12a)
+### 5. Servidor web y API (A12a y A12b)
 
 Con Oracle encendido, ejecutar `co.edu.unicesar.rutavida.app.WebServer` (carpeta de trabajo `backend/`). Debe mostrar `[OK] RutaVida está en http://localhost:8080`. El mismo servidor entrega las páginas de `frontend/` y la API de [`docs/api.md`](docs/api.md); se detiene con el botón *Stop* de IntelliJ. Si el puerto 8080 está ocupado, se puede pasar otro como argumento (por ejemplo `8081`).
 
@@ -125,7 +126,24 @@ $pass = Read-Host "Contraseña"
 $body = @{ username = $user; password = $pass } | ConvertTo-Json
 $login = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/auth/login -ContentType "application/json" -Body $body
 $token = $login.value.token
-Invoke-RestMethod -Uri http://localhost:8080/api/emergency-types -Headers @{ Authorization = "Bearer $token" }
+$auth = @{ Authorization = "Bearer $token" }
+Invoke-RestMethod -Uri http://localhost:8080/api/emergency-types -Headers $auth
+```
+
+Registrar una emergencia de prueba y leerla (la emergencia queda guardada en Oracle; la descripción la marca como prueba):
+
+```powershell
+$emergencia = @{
+  emergencyTypeId  = 3
+  addressReference = "Frente al Parque La Popa"
+  location         = @{ latitude = 10.467172; longitude = -73.265099 }
+  severity         = "CRITICA"
+  description      = "PRUEBA de la API, no es una emergencia real"
+} | ConvertTo-Json
+$nueva = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/emergencies -Headers $auth -ContentType "application/json; charset=utf-8" -Body $emergencia
+$id = $nueva.value.id
+Invoke-RestMethod -Uri http://localhost:8080/api/emergencies/$id/history -Headers $auth | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Uri http://localhost:8080/api/units -Headers $auth | ConvertTo-Json -Depth 4
 ```
 
 ## Trabajo en equipo

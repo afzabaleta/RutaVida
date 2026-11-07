@@ -1705,13 +1705,14 @@ classDiagram
         +logout() void
     }
     class EmergencyController {
-    -emergencyService : EmergencyService
-    -authService : AuthService
-    -session : SessionContext
-    +register(request: EmergencyRequest) OperationResult~Emergency~
-    +listActive() OperationResult~List~Emergency~~
-    +history(emergencyId: long) OperationResult~EmergencyHistory~
-}
+        -emergencyService : EmergencyService
+        -authService : AuthService
+        -session : SessionContext
+        +register(request: EmergencyRequest) OperationResult~Emergency~
+        +listActive() OperationResult~List~Emergency~~
+        +find(emergencyId: long) OperationResult~Emergency~
+        +history(emergencyId: long) OperationResult~EmergencyHistory~
+    }
     class DispatchController {
         -dispatchService : DispatchService
         -hospitalService : HospitalService
@@ -1820,6 +1821,7 @@ classDiagram
         -loginController : LoginController
         -webSessionController : WebSessionController
         -catalogController : CatalogController
+        -emergencyController : EmergencyController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -1828,6 +1830,7 @@ classDiagram
         +loginController() LoginController
         +webSessionController() WebSessionController
         +catalogController() CatalogController
+        +emergencyController() EmergencyController
         +graphLoader() GraphLoader
         +adminBootstrap() AdminBootstrapService
     }
@@ -1894,7 +1897,7 @@ Los controladores atrapan las `RutaVidaException` y devuelven un `OperationResul
 
 La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases `<<view>>` de esta sección son provisionales: su papel lo cumple el paquete `api` (sección 8.3), que solo puede usar controladores, DTO, modelo, excepciones y utilidades (`ArchitectureTest`). La página web (HTML, CSS, JavaScript y Leaflet) no forma parte de este diagrama de clases Java.
 
-### 8.3 Servidor web y API REST (paquete `api`, A12a)
+### 8.3 Servidor web y API REST (paquete `api`, A12a y A12b)
 
 `WebServer` arranca un servidor Javalin (DT-06) que entrega las páginas de `frontend/` y la API de `docs/api.md` en la misma dirección. Cada ruta protegida pasa por `ApiServer.secured`: busca la sesión del token (`WebSessionController`, DT-08), revisa el permiso y ejecuta la ruta con `SessionContext.runAs`, de modo que los controladores y los triggers de auditoría ven al usuario de esa petición. El código HTTP sale del `ErrorKind` del resultado (`ApiStatus`, sección 1.2 del contrato).
 
@@ -1910,12 +1913,14 @@ classDiagram
         +DEFAULT_PORT : int$
         -sessions : WebSessionController
         -catalogs : CatalogController
+        -emergencies : EmergencyController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
         +stop() void
         ~secured(module: String, action: String, countsAsUse: boolean, handler: Handler) Handler
         ~send(ctx: Context, result: OperationResult, successStatus: int) void
+        ~pathId(ctx: Context) long$
     }
     class ApiStatus {
         +of(kind: ErrorKind) int$
@@ -1951,10 +1956,22 @@ classDiagram
     class CatalogController {
         -catalogService : CatalogService
         +emergencyTypes() OperationResult~List~EmergencyType~~
+        +vehicleTypes() OperationResult~List~VehicleType~~
+        +units() OperationResult~List~EmergencyVehicle~~
+        +stations() OperationResult~List~EmergencyStation~~
+        +hospitals(includeInactive: boolean) OperationResult~List~Hospital~~
     }
     class CatalogService {
         -emergencyTypeDao : EmergencyTypeDAO
+        -vehicleTypeDao : VehicleTypeDAO
+        -stationDao : EmergencyStationDAO
+        -vehicleDao : EmergencyVehicleDAO
+        -hospitalDao : HospitalDAO
         +emergencyTypes() List~EmergencyType~
+        +vehicleTypes() List~VehicleType~
+        +units() List~EmergencyVehicle~
+        +stations() List~EmergencyStation~
+        +hospitals(includeInactive: boolean) List~Hospital~
     }
     class LoginResponse {
         <<record>>
@@ -1985,6 +2002,7 @@ classDiagram
 
     ApiServer --> WebSessionController
     ApiServer --> CatalogController
+    ApiServer --> EmergencyController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
@@ -1996,10 +2014,16 @@ classDiagram
     LoginResponse --> SessionUser
     CatalogController --> CatalogService
     CatalogService --> EmergencyTypeDAO
+    CatalogService --> VehicleTypeDAO
+    CatalogService --> EmergencyStationDAO
+    CatalogService --> EmergencyVehicleDAO
+    CatalogService --> HospitalDAO
     OperationResult~T~ --> ErrorKind
 ```
 
-`LoginResponse` y `SessionUser` existen para que el JSON nunca lleve `passwordHash` ni el documento del usuario. `JsonMapperFactory` escribe los enums con su código en español (`"CRITICA"`) sin anotar el modelo.
+`LoginResponse` y `SessionUser` existen para que el JSON nunca lleve `passwordHash` ni el documento del usuario. `JsonMapperFactory` escribe los enums con su código en español (`"CRITICA"`) sin anotar el modelo, y envía una `Route` sin sus tramos (un *mix-in* de Jackson; `docs/api.md`, 5.5).
+
+`CatalogController` y `EmergencyController` devuelven `OperationResult.failure(e)`, así la API sabe qué tipo de error ocurrió (400, 401, 403, 404, 409 o 503) sin leer el mensaje.
 
 ---
 
@@ -2031,7 +2055,7 @@ classDiagram
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
 | `GraphLoader` y `AppContext.graphLoader()` | `service`, `app` | **Programado y probado** (K5): pruebas sin Oracle y prueba de integración con la red real |
 | `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
-| `EmergencyService` (registro, activas, historial), `EmergencyRequest`, `EmergencyHistory` | `service`, `dto` | **Programado y probado** (S6) con DAO falsos. Se conecta en `AppContext` en A7d |
+| `EmergencyService` (registro, activas, historial), `EmergencyRequest`, `EmergencyHistory` | `service`, `dto` | **Programado y probado** (S6) con DAO falsos. Conectado en `AppContext` (A7d) y publicado en la API (A12b) |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
@@ -2039,9 +2063,10 @@ classDiagram
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | Simulación | `simulation` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
-| `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos |
+| `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos. `find` y el uso de `OperationResult.failure` se agregaron en A12b |
 | Demás controladores | `controller` | Diseñado |
-| `ApiServer`, `ApiStatus`, `ApiResponse`, `LoginRequest`, `JsonMapperFactory`, `WebServer`, `WebSessionController`, `CatalogController`, `CatalogService`, `LoginResponse`, `SessionUser`, `ErrorKind`, `SessionRequiredException` y los cambios de `SessionContext` y `OperationResult` | `api`, `app`, `controller`, `service`, `dto`, `exception` | **Programado y probado** (A12a): sesión con token, permisos por ruta, errores en JSON y `GET /api/emergency-types`. Las demás rutas de `docs/api.md` son de A12b |
+| `ApiServer`, `ApiStatus`, `ApiResponse`, `LoginRequest`, `JsonMapperFactory`, `WebServer`, `WebSessionController`, `CatalogController`, `CatalogService`, `LoginResponse`, `SessionUser`, `ErrorKind`, `SessionRequiredException` y los cambios de `SessionContext` y `OperationResult` | `api`, `app`, `controller`, `service`, `dto`, `exception` | **Programado y probado** (A12a): sesión con token, permisos por ruta, errores en JSON y `GET /api/emergency-types` |
+| Rutas de emergencias (`/api/emergencies`, `/{id}`, `/{id}/history`) y de recursos (`/api/vehicle-types`, `/api/units`, `/api/stations`, `/api/hospitals`); `ApiServer.pathId`; métodos nuevos de `CatalogService` y `CatalogController` | `api`, `controller`, `service`, `app` | **Programado y probado** (A12b) sin Oracle. Despacho, rutas, seguimiento y simulación llegan con K7 |
 | Vista web | `frontend/` | Maqueta (D3, D5a); se conecta a la API en D5b |
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
