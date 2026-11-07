@@ -57,7 +57,8 @@ flowchart TB
 | `traffic` | Service | Fuentes de tráfico detrás de `TrafficProvider`: simulador (fase 1) y fuente externa (fase 2) | Kendrick |
 | `simulation` | Service | Ciclo de tiempo real, movimiento simulado de unidades y escenarios de demostración | Kendrick |
 | `controller` | Controller | Controladores de casos de uso: reciben la acción del usuario y delegan en los servicios | Sherly |
-| `view` | View | Interfaz de usuario. **Decidido: web** (DT-01); en el backend este paquete pasará a ser `api` (adaptadores REST) y la página web irá en `frontend/` | Diego (página web), Andrés y Sherly (`api`) |
+| `view` | View | Interfaz de usuario. **Decidido: web** (DT-01): la página está en `frontend/` y el backend la atiende con el paquete `api` | Diego (página web) |
+| `api` | View (adaptador web) | Servidor Javalin (DT-06): entrega `frontend/` y la API REST de `docs/api.md`; sesión con token (DT-08), permiso por ruta y errores en JSON. Solo llama a controladores | Andrés |
 | `util` | Util | Ayudas técnicas sin reglas de negocio: conexión, `PasswordHasher`, `ValidationUtil` (la usan los servicios), `GeoUtil` (distancias) y `Messages` | Sherly (`DatabaseConnection`: Andrés) |
 | `osm` | Herramienta | Importador de OpenStreetMap: lee el `.osm` y escribe el SQL de la red vial. No forma parte de la aplicación final | Kendrick |
 | `exception` | Transversal | Jerarquía de excepciones compartida | Andrés |
@@ -78,6 +79,7 @@ Cada paquete tiene un `package-info.java` con su responsabilidad, sus dependenci
 | `osm` | JDBC, Swing/AWT, `dao`, `service`, `controller`, `view`, `graph`, `traffic`, `simulation`, `app` |
 | `controller` | JDBC, Swing/AWT, `dao`, `view`, `app` |
 | `view` | JDBC, `dao`, `service`, `graph`, `traffic`, `simulation` |
+| `api` | JDBC, Swing/AWT, `dao`, `service`, `graph`, `traffic`, `simulation`, `osm`, `app` |
 | Todos, salvo `dao.jdbc` y `app` | `dao.jdbc` |
 
 En resumen: **la vista solo habla con controladores, los controladores solo con servicios, las reglas solo están en los servicios y solo los DAO hablan con Oracle.**
@@ -221,7 +223,8 @@ Ejemplo: *consultar los hospitales operativos*.
 | Casos de uso completos de emergencias, despacho e incidentes (con DAO), `RouteService`, `RouteMonitor` | **Pendiente** (Sprint 3) |
 | DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones | **Pendiente** (Sprint 3) |
 | Simulación (`simulation`) | **Pendiente** |
-| Vista web y API REST | **Pendiente** (decidido: web, ver `docs/decisiones-tecnicas.md`, DT-01) |
+| Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
+| Demás rutas de la API (A12b) y conexión de la página web (D5b) | **Pendiente** |
 
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
 

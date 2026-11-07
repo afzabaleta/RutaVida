@@ -113,6 +113,21 @@ Con la red vial cargada (paso 3) y `03_datos_valledupar.sql` ejecutado, la clase
 
 Deja el resultado en `frontend/data/rutas-demo.geojson` y en `frontend/data/rutas-demo.js` (el mismo contenido, para abrir la página sin servidor). Los tiempos son estimados con las velocidades supuestas del importador; no son tiempos medidos.
 
+### 5. Servidor web y API (A12a)
+
+Con Oracle encendido, ejecutar `co.edu.unicesar.rutavida.app.WebServer` (carpeta de trabajo `backend/`). Debe mostrar `[OK] RutaVida está en http://localhost:8080`. El mismo servidor entrega las páginas de `frontend/` y la API de [`docs/api.md`](docs/api.md); se detiene con el botón *Stop* de IntelliJ. Si el puerto 8080 está ocupado, se puede pasar otro como argumento (por ejemplo `8081`).
+
+Prueba rápida desde PowerShell, con un usuario creado con `CreateAdminUser`. El usuario y la contraseña se escriben cuando la consola los pide, nunca en un archivo del repositorio:
+
+```powershell
+$user = Read-Host "Usuario"
+$pass = Read-Host "Contraseña"
+$body = @{ username = $user; password = $pass } | ConvertTo-Json
+$login = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/auth/login -ContentType "application/json" -Body $body
+$token = $login.value.token
+Invoke-RestMethod -Uri http://localhost:8080/api/emergency-types -Headers @{ Authorization = "Bearer $token" }
+```
+
 ## Trabajo en equipo
 
 - **Cómo trabajar con Git, ramas y Pull Requests:** [`CONTRIBUTING.md`](CONTRIBUTING.md).
