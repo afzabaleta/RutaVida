@@ -16,6 +16,7 @@ public final class Messages {
     public static final String NOT_FOUND = "No se encontró la información solicitada.";
     public static final String UNEXPECTED = "Ocurrió un error inesperado. Intente de nuevo.";
     public static final String SESSION_REQUIRED = "Debe iniciar sesión.";
+    public static final String SESSION_EXPIRED = "La sesión expiró. Inicie sesión de nuevo.";
 
     private Messages() {
     }

@@ -1,13 +1,16 @@
 package co.edu.unicesar.rutavida.app;
 
+import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.LoginController;
 import co.edu.unicesar.rutavida.controller.SessionContext;
+import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.dao.AuditDAO;
 import co.edu.unicesar.rutavida.dao.RoleDAO;
 import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.UserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.ClientIdentifierConnectionFactory;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcAuditDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadNodeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadSegmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
@@ -17,6 +20,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
+import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
 import co.edu.unicesar.rutavida.util.DatabaseConnection;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
@@ -46,8 +50,9 @@ import java.util.Objects;
  * this class decides the concrete implementation. In tests, a service can be built
  * with fakes instead of Oracle.
  *
- * <p>One AppContext holds one {@link SessionContext}: one logged-in user per running
- * application. The REST API (phase 7) will need one session per request.
+ * <p>One AppContext holds one {@link SessionContext}. The console tools use its shared
+ * session; the web server gives each request its own session through
+ * {@link WebSessionController} (many users at once).
  */
 public final class AppContext {
 
@@ -58,6 +63,8 @@ public final class AppContext {
     private final SessionContext session;
     private final AdminBootstrapService adminBootstrap;
     private final LoginController loginController;
+    private final WebSessionController webSessionController;
+    private final CatalogController catalogController;
     private final GraphLoader graphLoader;
 
     private AppContext(DatabaseConnection database, Clock clock) {
@@ -79,6 +86,10 @@ public final class AppContext {
         this.adminBootstrap = new AdminBootstrapService(
                 userDao, roleDao, passwordHasher, auditService, jdbc, clock);
         this.loginController = new LoginController(authService, session);
+        this.webSessionController = new WebSessionController(authService, session, clock);
+
+        // Catalogs for the web (A12a; A12b adds the fleet and the hospitals)
+        this.catalogController = new CatalogController(new CatalogService(new JdbcEmergencyTypeDAO(jdbc)));
         // Next DAOs, services and controllers are created here as they are implemented.
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
@@ -91,7 +102,10 @@ public final class AppContext {
         return new AppContext(DatabaseConnection.fromEnvironment(), Clock.systemDefaultZone());
     }
 
-    /** Id of the logged-in user, or null when nobody is logged in. */
+    /**
+     * Id of the logged-in user (of this web request, or the shared session of the console
+     * tools), or null when nobody is logged in. Read when a connection is opened.
+     */
     private Long currentUserId() {
         return session.isActive() ? session.current().user().getId() : null;
     }
@@ -115,6 +129,15 @@ public final class AppContext {
 
     public LoginController loginController() {
         return loginController;
+    }
+
+    /** Sessions of the web server (token per browser tab, DT-08). */
+    public WebSessionController webSessionController() {
+        return webSessionController;
+    }
+
+    public CatalogController catalogController() {
+        return catalogController;
     }
 
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */
