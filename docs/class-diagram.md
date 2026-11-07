@@ -998,13 +998,14 @@ classDiagram
         +createAdmin(document: String, firstNames: String, lastNames: String, email: String, username: String, password: char[]) User
     }
 
-    class EmergencyService {
-        -emergencyDao : EmergencyDAO
-        -emergencyTypeDao : EmergencyTypeDAO
-        -routeService : RouteService
-        -transactions : TransactionManager
-        -auditService : AuditService
-        -clock : Clock
+   class EmergencyService {
+    -emergencyDao : EmergencyDAO
+    -emergencyTypeDao : EmergencyTypeDAO
+    -assignmentDao : EmergencyAssignmentDAO
+    -routeDao : RouteDAO
+    -auditService : AuditService
+    -transactions : TransactionManager
+    -clock : Clock
         +validateNew(emergency: Emergency) void
         +canChange(from: EmergencyStatus, to: EmergencyStatus) boolean
         +changeStatus(emergency: Emergency, next: EmergencyStatus, at: LocalDateTime) void
@@ -1092,7 +1093,6 @@ classDiagram
     EmergencyService ..> AuditService
     DispatchService ..> AuditService
     FleetService ..> AuditService
-    EmergencyService ..> RouteService
     DispatchService ..> RouteService
     DispatchService ..> HospitalService
     DispatchService ..> HungarianAlgorithm
@@ -1696,12 +1696,13 @@ classDiagram
         +logout() void
     }
     class EmergencyController {
-        -emergencyService : EmergencyService
-        -session : SessionContext
-        +register(request: EmergencyRequest) OperationResult~Emergency~
-        +listActive() List~Emergency~
-        +history(emergencyId: long) OperationResult~EmergencyHistory~
-    }
+    -emergencyService : EmergencyService
+    -authService : AuthService
+    -session : SessionContext
+    +register(request: EmergencyRequest) OperationResult~Emergency~
+    +listActive() OperationResult~List~Emergency~~
+    +history(emergencyId: long) OperationResult~EmergencyHistory~
+}
     class DispatchController {
         -dispatchService : DispatchService
         -hospitalService : HospitalService
@@ -1905,6 +1906,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
 | `GraphLoader` y `AppContext.graphLoader()` | `service`, `app` | **Programado y probado** (K5): pruebas sin Oracle y prueba de integración con la red real |
 | `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
+| `EmergencyService` (registro, activas, historial), `EmergencyRequest`, `EmergencyHistory` | `service`, `dto` | **Programado y probado** (S6) con DAO falsos. Se conecta en `AppContext` en A7d |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
@@ -1912,6 +1914,7 @@ La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases d
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | Simulación | `simulation` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
+| `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos |
 | Demás controladores | `controller` | Diseñado |
 | Vista web y adaptadores REST | `view` → `api`, `frontend/` | Decidido (web); pendiente de programar |
 
