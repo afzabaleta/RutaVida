@@ -36,6 +36,7 @@ class ArchitectureTest {
     private static final String SIMULATION = BASE + ".simulation";
     private static final String CONTROLLER = BASE + ".controller";
     private static final String VIEW = BASE + ".view";
+    private static final String API = BASE + ".api";
     private static final String OSM = BASE + ".osm";
     private static final String EXCEPTION = BASE + ".exception";
     private static final String UTIL = BASE + ".util";
@@ -81,6 +82,14 @@ class ArchitectureTest {
     void controllersDoNotTouchPersistenceNorTheUserInterface() {
         assertNoImports(inPackage(CONTROLLER), concat(JDBC, UI, DAO, VIEW, APP));
     }
+
+
+    /** The web adapter only talks to controllers, like the view (docs/api.md, section 14). */
+    @Test
+    void apiOnlyTalksToControllers() {
+        assertNoImports(inPackage(API), concat(JDBC, UI, DAO, SERVICE, GRAPH, TRAFFIC, SIMULATION, OSM, APP));
+    }
+
     @Test
     void osmImporterOnlyReadsAFileAndWritesSql() {
         assertNoImports(inPackage(OSM),
