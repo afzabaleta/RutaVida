@@ -3,6 +3,7 @@ package co.edu.unicesar.rutavida.controller;
 
 import co.edu.unicesar.rutavida.dto.EmergencyHistory;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
+import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.model.Emergency;
 import co.edu.unicesar.rutavida.model.GeoPoint;
@@ -188,5 +189,30 @@ class EmergencyControllerTest {
                 Messages.NOT_FOUND,
                 missing.message()
         );
+    }
+
+    @Test
+    void oneEmergencyIsFoundById() {
+        session.start(EmergencyTestSupport.session("EMERGENCIAS:GESTIONAR", "EMERGENCIAS:CONSULTAR"));
+        Emergency registered = controller.register(REQUEST).value();
+
+        OperationResult<Emergency> found = controller.find(registered.getId());
+
+        assertTrue(found.success());
+        assertEquals(registered, found.value());
+    }
+
+    @Test
+    void errorsCarryTheirKindForTheWebApi() {
+        assertEquals(ErrorKind.AUTHENTICATION, controller.register(REQUEST).error(), "no session");
+
+        session.start(EmergencyTestSupport.session("EMERGENCIAS:CONSULTAR"));
+        assertEquals(ErrorKind.PERMISSION, controller.register(REQUEST).error(), "no permission");
+
+        session.start(EmergencyTestSupport.session("EMERGENCIAS:GESTIONAR", "EMERGENCIAS:CONSULTAR"));
+        assertEquals(ErrorKind.VALIDATION, controller.register(
+                new EmergencyRequest(ACCIDENT.getId(), " ", POPA, Severity.HIGH, null)).error(), "no address");
+        assertEquals(ErrorKind.NOT_FOUND, controller.find(999).error());
+        assertEquals(ErrorKind.NOT_FOUND, controller.history(999).error());
     }
 }
