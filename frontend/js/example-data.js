@@ -1,11 +1,8 @@
-﻿// EXAMPLE data for the mockup. It is NOT real and NOT calculated by the system.
+﻿```javascript
+// EXAMPLE data of the panel (dashboard.js) until it is connected to the API.
+// It is NOT real and NOT calculated by the system.
 // Every place where it appears on screen must carry the EJEMPLO label.
 // Types and statuses use the same codes as Oracle.
-
-export const EXAMPLE_USER = {
-  name: "Usuario de ejemplo",
-  role: "OPERADOR_CENTRAL",
-};
 
 export const EXAMPLE_EMERGENCIES = [
   {
@@ -42,3 +39,4 @@ export const EXAMPLE_UNITS = [
     location: [10.456500, -73.250600],
   },
 ];
+```

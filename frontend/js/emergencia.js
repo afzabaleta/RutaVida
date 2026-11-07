@@ -1,5 +1,8 @@
+// Register emergency page (CU-06): POST /api/emergencies.
+// The page checks the form to help the user; the server validates everything again.
 
 import {
+  hasPermission,
   listEmergencyTypes,
   registerEmergency,
   SEVERITIES,
@@ -50,7 +53,7 @@ function setPoint(map, latitude, longitude) {
       map,
       point,
       COLORS.emergency,
-      "Ubicación de la emergencia",
+      "Emergencia nueva",
     );
   }
 
@@ -62,16 +65,10 @@ function setPoint(map, latitude, longitude) {
 
 async function fillTypes() {
   const select = byId("type");
-  select.replaceChildren();
-
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Selecciona el tipo de emergencia";
-  select.appendChild(placeholder);
 
   for (const type of await listEmergencyTypes()) {
     const option = document.createElement("option");
-    option.value = type.id;
+    option.value = String(type.id);
     option.textContent = type.label;
     select.appendChild(option);
   }
@@ -79,7 +76,6 @@ async function fillTypes() {
 
 function fillSeverities() {
   const box = byId("severity-options");
-  box.replaceChildren();
 
   for (const severity of SEVERITIES) {
     const label = document.createElement("label");
@@ -140,14 +136,23 @@ async function initialize() {
   const session = await startPage();
   if (!session) return;
 
+  const form = byId("emergency-form");
+  const button = form.querySelector('button[type="submit"]');
+
   try {
     await fillTypes();
   } catch (error) {
+    console.error("Emergency types could not be loaded:", error);
     showMessage(error.message, true);
-    return;
+    button.disabled = true;
   }
 
   fillSeverities();
+
+  if (!hasPermission(session, "EMERGENCIAS:GESTIONAR")) {
+    showMessage("Tu rol no tiene permiso para registrar emergencias.", true);
+    button.disabled = true;
+  }
 
   const map = createBaseMap("map");
 
@@ -165,25 +170,28 @@ async function initialize() {
     }
   });
 
-  const form = byId("emergency-form");
-
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const request = readForm(form);
     if (!request) return;
 
-    const button = form.querySelector('button[type="submit"]');
     button.disabled = true;
 
     try {
       const emergency = await registerEmergency(request);
 
       showMessage(
-        `Emergencia ${emergency.code} registrada correctamente en Oracle.`,
+        `Emergencia ${emergency.code} registrada como ${emergency.status} y guardada en Oracle. Abriendo el despacho…`,
         false,
       );
+
+      setTimeout(() => {
+        window.location.href =
+          `./despacho.html?emergencia=${encodeURIComponent(emergency.id)}`;
+      }, 1200);
     } catch (error) {
+      // The message comes from the server in Spanish (docs/api.md, 1.2).
       console.error("Emergency registration failed:", error);
       showMessage(error.message, true);
       button.disabled = false;

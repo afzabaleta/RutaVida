@@ -11,8 +11,8 @@ import {
   EXAMPLE_UNITS,
 } from "./example-data.js";
 
-import { startPage } from "./page-session.js";
 import { showRoutes } from "./route-layer.js";
+import { startPage } from "./page-session.js";
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 

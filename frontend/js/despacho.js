@@ -1,10 +1,14 @@
 
+// Dispatch page (CU-08 and CU-09). Emergencies and units come from the API.
+// Units are ordered by straight-line distance only as a reference.
+// Saving the dispatch needs the dispatch routes of the API (K7).
+
 import {
+  DISPATCH_AVAILABLE,
   findEmergency,
   listEmergencies,
   listUnits,
   typeLabel,
-  DISPATCH_AVAILABLE,
 } from "./api-client.js";
 
 import { startPage } from "./page-session.js";
@@ -58,7 +62,7 @@ function renderEmergency(emergency) {
     `${emergency.code} · ${typeLabel(emergency.type)}`,
   );
 
-  top.appendChild(makeTag("ORACLE"));
+  top.appendChild(makeTag("ORACLE", true));
   card.appendChild(top);
 
   addText(card, "p", emergency.place);
@@ -80,7 +84,7 @@ function renderEmergency(emergency) {
         map,
         emergency.location,
         COLORS.emergency,
-        emergency.code,
+        `Emergencia ${emergency.code}`,
       ),
     );
 
@@ -131,7 +135,7 @@ function renderSummary() {
     addText(
       box,
       "p",
-      "El despacho real estará disponible cuando se implemente K7.",
+      "El despacho se guardará cuando esté la API de despacho (K7). Por ahora puedes revisar la unidad y las rutas.",
       "status-text",
     );
   } else if (current.status !== "REPORTADA") {
@@ -152,14 +156,21 @@ function renderUnits(units) {
     .filter((unit) => unit.status === "DISPONIBLE")
     .map((unit) => ({
       unit,
-      meters: straightMeters(unit.location, current.location),
+      meters: unit.location
+        ? straightMeters(unit.location, current.location)
+        : Number.POSITIVE_INFINITY,
     }))
     .sort((a, b) => a.meters - b.meters);
 
   byId("unit-pill").textContent = String(available.length);
 
   if (available.length === 0) {
-    addText(list, "p", "No hay unidades disponibles.", "empty-state");
+    addText(
+      list,
+      "p",
+      "No hay unidades disponibles.",
+      "empty-state",
+    );
     return;
   }
 
@@ -170,7 +181,7 @@ function renderUnits(units) {
     const input = document.createElement("input");
     input.type = "radio";
     input.name = "unit";
-    input.value = unit.code;
+    input.value = String(unit.id);
 
     input.addEventListener("change", () => {
       selectedUnit = unit;
@@ -185,16 +196,22 @@ function renderUnits(units) {
     top.className = "data-card-top";
 
     addText(top, "h3", `${unit.code} · ${unit.type}`);
-    top.appendChild(makeTag("DISPONIBLE"));
+
+    top.appendChild(
+      unit.example
+        ? makeTag("EJEMPLO")
+        : makeTag("ORACLE", true),
+    );
 
     body.appendChild(top);
-
     addText(body, "p", unit.place);
 
     addText(
       body,
       "p",
-      `${KM.format(meters / 1000)} km en línea recta`,
+      Number.isFinite(meters)
+        ? `${KM.format(meters / 1000)} km en línea recta`
+        : "Sin posición conocida",
       "status-text",
     );
 
@@ -217,8 +234,8 @@ function renderRoutes(emergency) {
     <= DEMO_RADIUS_METERS;
 
   if (map && isDemoPlace && window.RUTAVIDA_RUTAS_DEMO) {
-    tag.textContent = "DEMO";
-    tag.className = "data-tag";
+    tag.textContent = "CALCULADAS";
+    tag.className = "data-tag real-tag";
 
     showRoutes(map, window.RUTAVIDA_RUTAS_DEMO, elements);
     return;
@@ -240,13 +257,23 @@ function renderRoutes(emergency) {
   elements.note.textContent = "";
 }
 
-async function selectEmergency(code, units) {
-  current = await findEmergency(code);
+async function selectEmergency(id, units) {
   selectedUnit = null;
-
   byId("dispatch-message").hidden = true;
 
-  if (!current) return;
+  try {
+    current = await findEmergency(id);
+  } catch (error) {
+    console.error("Emergency could not be loaded:", error);
+    current = null;
+    showMessage(error.message, true);
+    return;
+  }
+
+  if (!current) {
+    showMessage("Esa emergencia no existe.", true);
+    return;
+  }
 
   renderEmergency(current);
   renderUnits(units);
@@ -258,85 +285,86 @@ async function initialize() {
   const session = await startPage();
   if (!session) return;
 
+  map = createBaseMap("map");
+
+  let units;
+  let emergencies;
+
   try {
-    map = createBaseMap("map");
-
-    const units = await listUnits();
-
-    if (map) {
-      emergencyLayer = L.layerGroup().addTo(map);
-
-      for (const unit of units) {
-        circleMarker(
-          map,
-          unit.location,
-          COLORS.unit,
-          `${unit.code} · ${unit.status}`,
-        );
-      }
-    }
-
-    const emergencies = await listEmergencies();
-    const select = byId("emergency-select");
-
-    select.replaceChildren();
-
-    for (const emergency of emergencies) {
-      const option = document.createElement("option");
-      option.value = emergency.code;
-
-      option.textContent =
-        `${emergency.code} · ${typeLabel(emergency.type)} · ${emergency.status}`;
-
-      select.appendChild(option);
-    }
-
-    const requested =
-      new URLSearchParams(window.location.search).get("emergencia");
-
-    const first =
-      emergencies.find((emergency) => emergency.code === requested)
-      ?? emergencies.find((emergency) => emergency.status === "REPORTADA")
-      ?? emergencies[0];
-
-    if (!first) {
-      addText(
-        byId("emergency-detail"),
-        "p",
-        "No hay emergencias registradas.",
-        "empty-state",
-      );
-
-      byId("dispatch-button").disabled = true;
-      return;
-    }
-
-    select.value = first.code;
-
-    select.addEventListener("change", async () => {
-      try {
-        await selectEmergency(select.value, units);
-      } catch (error) {
-        showMessage(error.message, true);
-      }
-    });
-
-    await selectEmergency(first.code, units);
-
-    const button = byId("dispatch-button");
-    button.disabled = true;
-
-    button.addEventListener("click", () => {
-      showMessage(
-        "El despacho real estará disponible cuando se implemente K7.",
-        true,
-      );
-    });
-
+    [units, emergencies] = await Promise.all([
+      listUnits(),
+      listEmergencies(),
+    ]);
   } catch (error) {
-    console.error("Dispatch page initialization failed:", error);
-    showMessage(error.message, true);
+    // For example 403: the role cannot see the units, or 503: Oracle is down.
+    console.error("Dispatch data could not be loaded:", error);
+
+    addText(
+      byId("emergency-detail"),
+      "p",
+      error.message,
+      "empty-state",
+    );
+
+    return;
   }
+
+  if (map) {
+    emergencyLayer = L.layerGroup().addTo(map);
+
+    for (const unit of units) {
+      if (!unit.location) continue;
+
+      circleMarker(
+        map,
+        unit.location,
+        COLORS.unit,
+        `${unit.code} · ${unit.status}${unit.example ? " (EJEMPLO)" : ""}`,
+      );
+    }
+  }
+
+  const select = byId("emergency-select");
+
+  for (const emergency of emergencies) {
+    const option = document.createElement("option");
+    option.value = String(emergency.id);
+
+    option.textContent =
+      `${emergency.code} · ${typeLabel(emergency.type)} · ${emergency.status}`;
+
+    select.appendChild(option);
+  }
+
+  const requested =
+    new URLSearchParams(window.location.search).get("emergencia");
+
+  const first =
+    emergencies.find(
+      (emergency) => String(emergency.id) === requested,
+    )
+    ?? emergencies.find(
+      (emergency) => emergency.status === "REPORTADA",
+    )
+    ?? emergencies[0];
+
+  if (!first) {
+    addText(
+      byId("emergency-detail"),
+      "p",
+      "No hay emergencias activas. Registra una desde el panel.",
+      "empty-state",
+    );
+    return;
+  }
+
+  select.value = String(first.id);
+
+  select.addEventListener("change", () => {
+    selectEmergency(select.value, units);
+  });
+
+  await selectEmergency(first.id, units);
 }
 
 document.addEventListener("DOMContentLoaded", initialize);
