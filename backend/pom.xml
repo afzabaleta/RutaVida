@@ -17,6 +17,10 @@
              the 23.x driver only supports 19c and later. -->
         <ojdbc.version>21.9.0.0</ojdbc.version>
         <junit.version>5.11.3</junit.version>
+        <!-- Web server and JSON (DT-06). Versions checked on 05/11/2026. -->
+        <javalin.version>7.2.4</javalin.version>
+        <jackson.version>2.22.4</jackson.version>
+        <slf4j.version>2.0.17</slf4j.version>
     </properties>
 
     <dependencyManagement>
@@ -38,7 +42,29 @@
             <artifactId>ojdbc11</artifactId>
             <version>${ojdbc.version}</version>
         </dependency>
-
+        <!-- Web server: pages of frontend/ and REST API (DT-06) -->
+        <dependency>
+            <groupId>io.javalin</groupId>
+            <artifactId>javalin</artifactId>
+            <version>${javalin.version}</version>
+        </dependency>
+        <!-- JSON of the API -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <!-- Log output of Javalin and Jetty -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
         <!-- Unit tests -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
