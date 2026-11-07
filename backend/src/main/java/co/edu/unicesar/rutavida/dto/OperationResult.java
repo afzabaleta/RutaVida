@@ -7,7 +7,6 @@ import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.exception.SessionRequiredException;
 import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.util.Messages;
-import co.edu.unicesar.rutavida.exception.AccessDeniedException;
 
 /**
  * What a controller returns to the view: success with a value,
