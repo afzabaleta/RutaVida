@@ -1,7 +1,11 @@
 package co.edu.unicesar.rutavida.controller;
 
 import co.edu.unicesar.rutavida.dto.OperationResult;
+import co.edu.unicesar.rutavida.model.EmergencyStation;
 import co.edu.unicesar.rutavida.model.EmergencyType;
+import co.edu.unicesar.rutavida.model.EmergencyVehicle;
+import co.edu.unicesar.rutavida.model.Hospital;
+import co.edu.unicesar.rutavida.model.VehicleType;
 import co.edu.unicesar.rutavida.service.CatalogService;
 
 import java.util.List;
@@ -11,9 +15,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Catalogs for the web (GET /api/emergency-types; in A12b also vehicle types, units,
- * stations and hospitals). The permission of each route is checked by the web server
- * before calling here.
+ * Catalogs for the web: emergency and vehicle types, units, stations and hospitals.
+ * The permission of each route is checked by the web server before calling here.
  */
 public class CatalogController {
 
@@ -27,6 +30,22 @@ public class CatalogController {
 
     public OperationResult<List<EmergencyType>> emergencyTypes() {
         return run(catalogService::emergencyTypes);
+    }
+
+    public OperationResult<List<VehicleType>> vehicleTypes() {
+        return run(catalogService::vehicleTypes);
+    }
+
+    public OperationResult<List<EmergencyVehicle>> units() {
+        return run(catalogService::units);
+    }
+
+    public OperationResult<List<EmergencyStation>> stations() {
+        return run(catalogService::stations);
+    }
+
+    public OperationResult<List<Hospital>> hospitals(boolean includeInactive) {
+        return run(() -> catalogService.hospitals(includeInactive));
     }
 
     private static <T> OperationResult<T> run(Supplier<T> query) {

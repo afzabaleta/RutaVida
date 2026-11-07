@@ -24,6 +24,7 @@ import java.util.Set;
  * <ul>
  *   <li>{@code ana.perez} / {@link #PASSWORD}: OPERADOR_CENTRAL with EMERGENCIAS consult and manage.</li>
  *   <li>{@code luis.gomez} / {@link #PASSWORD}: BOMBERO_PARAMEDICO without permissions.</li>
+ *   <li>{@code marta.ruiz} / {@link #PASSWORD}: COORDINADOR with EMERGENCIAS, UNIDADES and HOSPITALES.</li>
  * </ul>
  */
 public final class WebTestSupport {
@@ -45,6 +46,11 @@ public final class WebTestSupport {
                 new Permission(3L, "EMERGENCIAS", "CONSULTAR", "Ver emergencias"),
                 new Permission(4L, "EMERGENCIAS", "GESTIONAR", "Registrar emergencias"))));
         roleDao.add(new Role(4L, "BOMBERO_PARAMEDICO", "Bombero", RecordStatus.ACTIVE, Set.of()));
+        roleDao.add(new Role(3L, "COORDINADOR", "Coordinador", RecordStatus.ACTIVE, Set.of(
+                new Permission(3L, "EMERGENCIAS", "CONSULTAR", "Ver emergencias"),
+                new Permission(4L, "EMERGENCIAS", "GESTIONAR", "Registrar emergencias"),
+                new Permission(5L, "UNIDADES", "CONSULTAR", "Ver unidades y estaciones"),
+                new Permission(7L, "HOSPITALES", "CONSULTAR", "Ver hospitales"))));
 
         String hash = hasher.hash(PASSWORD.toCharArray());
         LocalDateTime registered = LocalDateTime.now(clock);
@@ -52,6 +58,8 @@ public final class WebTestSupport {
                 "ana.perez", hash, RecordStatus.ACTIVE, registered));
         userDao.insert(new User(0L, 4L, "1000000002", "Luis", "Gómez", "luis.gomez@ejemplo.com",
                 "luis.gomez", hash, RecordStatus.ACTIVE, registered));
+        userDao.insert(new User(0L, 3L, "1000000003", "Marta", "Ruiz", "marta.ruiz@ejemplo.com",
+                "marta.ruiz", hash, RecordStatus.ACTIVE, registered));
 
         authService = new AuthService(userDao, roleDao, hasher, new AuditService(auditDao, clock), clock);
     }

@@ -25,7 +25,8 @@ public final class WebServer {
         }
 
         AppContext context = AppContext.create();
-        ApiServer server = new ApiServer(context.webSessionController(), context.catalogController(), frontend);
+        ApiServer server = new ApiServer(context.webSessionController(), context.catalogController(),
+                context.emergencyController(), frontend);
         try {
             server.start(port);
         } catch (RuntimeException e) {

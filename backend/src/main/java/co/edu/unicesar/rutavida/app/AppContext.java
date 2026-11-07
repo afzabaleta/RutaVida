@@ -14,7 +14,10 @@ import co.edu.unicesar.rutavida.dao.jdbc.ClientIdentifierConnectionFactory;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcAuditDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyAssignmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyStationDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyTypeDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyVehicleDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcHospitalDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadNodeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadSegmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
@@ -22,6 +25,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcRouteDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
@@ -95,9 +99,11 @@ public final class AppContext {
         this.loginController = new LoginController(authService, session);
         this.webSessionController = new WebSessionController(authService, session, clock);
 
-        // Catalogs for the web (A12a; A12b adds the fleet and the hospitals)
+        // Catalogs for the web (A12a + A12b, DAOs of A7b and A7c)
         EmergencyTypeDAO emergencyTypeDao = new JdbcEmergencyTypeDAO(jdbc);
-        this.catalogController = new CatalogController(new CatalogService(emergencyTypeDao));
+        this.catalogController = new CatalogController(new CatalogService(emergencyTypeDao,
+                new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyStationDAO(jdbc),
+                new JdbcEmergencyVehicleDAO(jdbc), new JdbcHospitalDAO(jdbc)));
 
         // Emergencies (S6 + A7d): register, active, history
         EmergencyService emergencyService = new EmergencyService(new JdbcEmergencyDAO(jdbc), emergencyTypeDao,

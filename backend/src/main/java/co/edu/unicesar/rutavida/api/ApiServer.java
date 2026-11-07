@@ -1,7 +1,9 @@
 package co.edu.unicesar.rutavida.api;
 
 import co.edu.unicesar.rutavida.controller.CatalogController;
+import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
+import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.exception.ValidationException;
@@ -29,7 +31,8 @@ import java.util.logging.Logger;
  * {@code Authorization: Bearer} token, checks the permission of the route and runs the
  * handler with that session (so the controllers and the audit triggers see that user).
  *
- * <p>A12a has the session routes and the first catalog; A12b adds the rest of the contract.
+ * <p>Routes: session (A12a), emergencies and catalogs (A12b). Dispatch, routes, tracking and
+ * simulation are added when their controllers exist (K7).
  */
 public final class ApiServer {
 
@@ -39,6 +42,7 @@ public final class ApiServer {
     private static final String JSON = "application/json; charset=utf-8";
     private static final String AUTHORIZATION = "Authorization";
     private static final String BAD_REQUEST = "La solicitud no tiene el formato esperado.";
+    private static final String BAD_ID = "El identificador debe ser un número entero positivo.";
 
     /**
      * Second argument of {@link #secured}: a request made by the user counts as use of the
@@ -49,6 +53,7 @@ public final class ApiServer {
 
     private final WebSessionController sessions;
     private final CatalogController catalogs;
+    private final EmergencyController emergencies;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -56,9 +61,11 @@ public final class ApiServer {
     /**
      * @param frontendDirectory folder with index.html; null to serve only the API (tests)
      */
-    public ApiServer(WebSessionController sessions, CatalogController catalogs, Path frontendDirectory) {
+    public ApiServer(WebSessionController sessions, CatalogController catalogs,
+                     EmergencyController emergencies, Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
+        this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -97,6 +104,24 @@ public final class ApiServer {
         // 5. Emergencies
         config.routes.get("/api/emergency-types", secured("EMERGENCIAS", "CONSULTAR", USER_ACTION,
                 ctx -> send(ctx, catalogs.emergencyTypes(), ApiStatus.OK)));
+        config.routes.get("/api/emergencies", secured("EMERGENCIAS", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, emergencies.listActive(), ApiStatus.OK)));
+        config.routes.post("/api/emergencies", secured("EMERGENCIAS", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, emergencies.register(readBody(ctx, EmergencyRequest.class)), ApiStatus.CREATED)));
+        config.routes.get("/api/emergencies/{id}", secured("EMERGENCIAS", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, emergencies.find(pathId(ctx)), ApiStatus.OK)));
+        config.routes.get("/api/emergencies/{id}/history", secured("EMERGENCIAS", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, emergencies.history(pathId(ctx)), ApiStatus.OK)));
+
+        // 7. Resources: units, stations and hospitals
+        config.routes.get("/api/vehicle-types", secured("UNIDADES", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, catalogs.vehicleTypes(), ApiStatus.OK)));
+        config.routes.get("/api/units", secured("UNIDADES", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, catalogs.units(), ApiStatus.OK)));
+        config.routes.get("/api/stations", secured("UNIDADES", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, catalogs.stations(), ApiStatus.OK)));
+        config.routes.get("/api/hospitals", secured("HOSPITALES", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, catalogs.hospitals("true".equalsIgnoreCase(ctx.queryParam("all"))), ApiStatus.OK)));
 
         config.routes.exception(Exception.class, this::onError);
     }
@@ -126,6 +151,19 @@ public final class ApiServer {
             }
             sessions.runAs(session.value(), () -> handler.handle(ctx));
         };
+    }
+
+    /** The {id} of the URL as a positive number; anything else is a 400. */
+    static long pathId(Context ctx) {
+        try {
+            long id = Long.parseLong(ctx.pathParam("id"));
+            if (id <= 0) {
+                throw new ValidationException(BAD_ID);
+            }
+            return id;
+        } catch (NumberFormatException e) {
+            throw new ValidationException(BAD_ID);
+        }
     }
 
     /** Reads the JSON body; an empty or malformed body is a 400. */
