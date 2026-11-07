@@ -577,7 +577,13 @@
     align-items: flex-start;
     flex-direction: column;
   }
-
+.welcome-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
   .demo-notice { max-width: none; }
 
   .kpi-grid { gap: 10px; }

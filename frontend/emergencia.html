@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+    <meta name="theme-color" content="#101923">
+    <title>RutaVida | Registrar emergencia</title>
+    <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./css/rutavida.css">
+    <link rel="stylesheet" href="./css/dashboard.css">
+    <link rel="stylesheet" href="./css/operacion.css">
+
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="">
+
+    <script defer
+            src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <script type="module" src="./js/emergencia.js"></script>
+</head>
+
+<body class="dashboard-body">
+<header class="dashboard-header">
+    <a class="dashboard-brand" href="./index.html" aria-label="RutaVida, volver al inicio">
+        <img src="./img/logo.svg" alt="" width="42" height="42">
+        <span>
+        <strong>RutaVida</strong>
+        <small>Centro de operaciones</small>
+      </span>
+    </a>
+
+    <div class="header-user">
+        <span class="example-badge">MODO DEMOSTRACIÓN</span>
+        <div>
+            <strong id="user-name">Usuario de ejemplo</strong>
+            <small id="user-role">OPERADOR_CENTRAL</small>
+        </div>
+        <a class="logout-link" href="./index.html">Salir</a>
+    </div>
+</header>
+
+<main class="dashboard-main operation-main">
+    <section class="welcome-row">
+        <div>
+            <p class="eyebrow">CU-06 · GESTIÓN DE EMERGENCIAS</p>
+            <h1>Registrar emergencia</h1>
+            <p class="muted">
+                Marca el punto en el mapa y completa los datos. Después pasas al despacho.
+            </p>
+        </div>
+        <span class="demo-notice">
+        Los datos operativos son ejemplos, no reportes reales.
+      </span>
+    </section>
+
+    <div class="operation-notice">
+        <strong>Modo demostración:</strong>
+        Sin conexión al backend: la emergencia es de EJEMPLO y no se guarda en Oracle.
+    </div>
+
+    <section class="operation-grid">
+        <section class="side-panel form-panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">DATOS</p>
+                    <h2>Nueva emergencia</h2>
+                </div>
+                <span class="data-tag">EJEMPLO</span>
+            </div>
+
+            <form id="emergency-form">
+                <div class="form-field">
+                    <label for="type">Tipo de emergencia</label>
+                    <select id="type" name="type" required>
+                        <option value="">Selecciona el tipo</option>
+                    </select>
+                </div>
+
+                <fieldset class="form-field severity-field">
+                    <legend>Severidad</legend>
+                    <div id="severity-options" class="severity-options"></div>
+                </fieldset>
+
+                <div class="form-field">
+                    <label for="address">Dirección o referencia</label>
+                    <input
+                            id="address"
+                            name="address"
+                            type="text"
+                            minlength="5"
+                            maxlength="180"
+                            placeholder="Ej. Carrera 9 con Calle 16"
+                            required>
+                </div>
+
+                <div class="form-field">
+                    <label for="description">Descripción (opcional)</label>
+                    <textarea
+                            id="description"
+                            name="description"
+                            rows="3"
+                            maxlength="400"
+                            placeholder="Describe brevemente lo ocurrido"></textarea>
+                </div>
+
+                <div class="form-field">
+                    <span class="field-label">Ubicación</span>
+                    <p class="muted">
+                        Haz clic en el mapa para marcar el lugar.
+                    </p>
+                    <button id="demo-point" class="secondary-button" type="button">
+                        Usar Parque La Popa (escenario de la demo)
+                    </button>
+                    <p id="point-text" class="point-text">
+                        Ningún punto seleccionado.
+                    </p>
+                </div>
+
+                <div id="form-message" class="form-message" role="status" aria-live="polite" hidden></div>
+
+                <div class="form-actions">
+                    <a class="secondary-button" href="./dashboard.html">Cancelar</a>
+                    <button class="primary-button" type="submit">
+                        Registrar emergencia
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section class="side-panel operation-map-panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">UBICACIÓN</p>
+                    <h2>Marca el punto de la emergencia</h2>
+                </div>
+                <span class="data-tag">EJEMPLO</span>
+            </div>
+
+            <div id="map" role="application"
+                 aria-label="Mapa interactivo para seleccionar la ubicación de la emergencia"></div>
+
+            <div class="map-legend">
+                <span><i class="legend-dot station-dot"></i> Estación</span>
+                <span><i class="legend-dot hospital-dot"></i> Hospital</span>
+                <span><i class="legend-dot emergency-dot"></i> Emergencia</span>
+                <span><i class="legend-zone"></i> Zona de la red vial</span>
+            </div>
+
+            <p class="map-footnote">
+                Cartografía © OpenStreetMap contributors. Solo se aceptan puntos dentro
+                del recuadro punteado: es la zona de la red vial cargada en Oracle (K4).
+            </p>
+        </section>
+    </section>
+
+    <footer class="dashboard-footer">
+        <span>RutaVida · Registro de emergencias (D5a)</span>
+        <span>Datos de EJEMPLO claramente identificados</span>
+    </footer>
+</main>
+</body>
+</html>

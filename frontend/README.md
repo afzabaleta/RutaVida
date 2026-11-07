@@ -1,5 +1,5 @@
 ﻿
-# Frontend de RutaVida (maqueta D3 y rutas D4)
+# Frontend de RutaVida (maqueta D3, rutas D4 y pantallas de operación D5a)
 
 Interfaz web de RutaVida (decisión DT-01): HTML, CSS, JavaScript y Leaflet.
 
@@ -15,6 +15,11 @@ Interfaz web de RutaVida (decisión DT-01): HTML, CSS, JavaScript y Leaflet.
 | `js/valledupar-data.js` | Estación y hospitales documentados en D2, con sus fuentes. |
 | `js/example-data.js` | Usuario, emergencias y unidades de ejemplo; no son datos reales. |
 | `img/logo.svg` | Logo de RutaVida. |
+| `emergencia.html`, `js/emergencia.js` | Registrar emergencia (CU-06): formulario y punto en el mapa. Datos de EJEMPLO, no se guardan en Oracle. |
+| `despacho.html`, `js/despacho.js` | Despacho (CU-08 y CU-09): emergencia, unidades disponibles, rutas y confirmación. Datos de EJEMPLO. |
+| `js/api-client.js` | Único lugar donde las páginas piden y envían datos. Hoy responde con EJEMPLOS; con la API (A12) usará `fetch` según `docs/api.md`. |
+| `js/map-base.js` | Mapa base, marcadores y utilidades comunes de las páginas de operación. |
+| `css/operacion.css` | Estilos de los formularios de operación. |
 
 ## Cómo abrir la maqueta
 
