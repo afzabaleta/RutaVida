@@ -1,14 +1,13 @@
 
-// Dispatch page (CU-08 and CU-09).
-// Units are ordered by straight-line distance only as a reference.
-
 import {
-  dispatchUnit,
   findEmergency,
   listEmergencies,
   listUnits,
   typeLabel,
+  DISPATCH_AVAILABLE,
 } from "./api-client.js";
+
+import { startPage } from "./page-session.js";
 
 import {
   byId,
@@ -59,7 +58,7 @@ function renderEmergency(emergency) {
     `${emergency.code} · ${typeLabel(emergency.type)}`,
   );
 
-  top.appendChild(makeTag("EJEMPLO"));
+  top.appendChild(makeTag("ORACLE"));
   card.appendChild(top);
 
   addText(card, "p", emergency.place);
@@ -81,7 +80,7 @@ function renderEmergency(emergency) {
         map,
         emergency.location,
         COLORS.emergency,
-        `${emergency.code} (EJEMPLO)`,
+        emergency.code,
       ),
     );
 
@@ -125,9 +124,17 @@ function renderSummary() {
     "Ruta: la recomendada por el motor (ruta 1).",
   );
 
-  button.disabled = current.status !== "REPORTADA";
+  button.disabled =
+    !DISPATCH_AVAILABLE || current.status !== "REPORTADA";
 
-  if (current.status !== "REPORTADA") {
+  if (!DISPATCH_AVAILABLE) {
+    addText(
+      box,
+      "p",
+      "El despacho real estará disponible cuando se implemente K7.",
+      "status-text",
+    );
+  } else if (current.status !== "REPORTADA") {
     addText(
       box,
       "p",
@@ -178,7 +185,7 @@ function renderUnits(units) {
     top.className = "data-card-top";
 
     addText(top, "h3", `${unit.code} · ${unit.type}`);
-    top.appendChild(makeTag("EJEMPLO"));
+    top.appendChild(makeTag("DISPONIBLE"));
 
     body.appendChild(top);
 
@@ -210,8 +217,8 @@ function renderRoutes(emergency) {
     <= DEMO_RADIUS_METERS;
 
   if (map && isDemoPlace && window.RUTAVIDA_RUTAS_DEMO) {
-    tag.textContent = "CALCULADAS";
-    tag.className = "data-tag real-tag";
+    tag.textContent = "DEMO";
+    tag.className = "data-tag";
 
     showRoutes(map, window.RUTAVIDA_RUTAS_DEMO, elements);
     return;
@@ -248,105 +255,88 @@ async function selectEmergency(code, units) {
 }
 
 async function initialize() {
-  map = createBaseMap("map");
+  const session = await startPage();
+  if (!session) return;
 
-  const units = await listUnits();
+  try {
+    map = createBaseMap("map");
 
-  if (map) {
-    emergencyLayer = L.layerGroup().addTo(map);
+    const units = await listUnits();
 
-    for (const unit of units) {
-      circleMarker(
-        map,
-        unit.location,
-        COLORS.unit,
-        `${unit.code} · ${unit.status} (EJEMPLO)`,
-      );
+    if (map) {
+      emergencyLayer = L.layerGroup().addTo(map);
+
+      for (const unit of units) {
+        circleMarker(
+          map,
+          unit.location,
+          COLORS.unit,
+          `${unit.code} · ${unit.status}`,
+        );
+      }
     }
-  }
 
-  const emergencies = await listEmergencies();
-  const select = byId("emergency-select");
+    const emergencies = await listEmergencies();
+    const select = byId("emergency-select");
 
-  for (const emergency of emergencies) {
-    const option = document.createElement("option");
-    option.value = emergency.code;
+    select.replaceChildren();
 
-    option.textContent =
-      `${emergency.code} · ${typeLabel(emergency.type)} · ${emergency.status}`;
+    for (const emergency of emergencies) {
+      const option = document.createElement("option");
+      option.value = emergency.code;
 
-    select.appendChild(option);
-  }
+      option.textContent =
+        `${emergency.code} · ${typeLabel(emergency.type)} · ${emergency.status}`;
 
-  const requested =
-    new URLSearchParams(window.location.search).get("emergencia");
+      select.appendChild(option);
+    }
 
-  const first =
-    emergencies.find((emergency) => emergency.code === requested)
-    ?? emergencies.find((emergency) => emergency.status === "REPORTADA")
-    ?? emergencies[0];
+    const requested =
+      new URLSearchParams(window.location.search).get("emergencia");
 
-  if (!first) {
-    addText(
-      byId("emergency-detail"),
-      "p",
-      "No hay emergencias.",
-      "empty-state",
-    );
-    return;
-  }
+    const first =
+      emergencies.find((emergency) => emergency.code === requested)
+      ?? emergencies.find((emergency) => emergency.status === "REPORTADA")
+      ?? emergencies[0];
 
-  select.value = first.code;
-
-  select.addEventListener("change", () => {
-    selectEmergency(select.value, units);
-  });
-
-  await selectEmergency(first.code, units);
-
-  byId("dispatch-button").addEventListener("click", async () => {
-    if (!selectedUnit || !current) return;
-
-    if (current.status !== "REPORTADA") {
-      showMessage(
-        "Solo se puede despachar una emergencia REPORTADA.",
-        true,
+    if (!first) {
+      addText(
+        byId("emergency-detail"),
+        "p",
+        "No hay emergencias registradas.",
+        "empty-state",
       );
+
+      byId("dispatch-button").disabled = true;
       return;
     }
+
+    select.value = first.code;
+
+    select.addEventListener("change", async () => {
+      try {
+        await selectEmergency(select.value, units);
+      } catch (error) {
+        showMessage(error.message, true);
+      }
+    });
+
+    await selectEmergency(first.code, units);
 
     const button = byId("dispatch-button");
     button.disabled = true;
 
-    try {
-      const result = await dispatchUnit(
-        current.code,
-        selectedUnit.code,
-      );
-
-      current = {
-        ...current,
-        status: result.status,
-      };
-
+    button.addEventListener("click", () => {
       showMessage(
-        `${selectedUnit.code} despachada a ${current.code}: la emergencia queda ${result.status} (EJEMPLO, no se guardó en Oracle).`,
-        false,
-      );
-
-      renderSummary();
-
-    } catch (error) {
-      console.error("Dispatch failed:", error);
-
-      showMessage(
-        "No se pudo despachar. Intenta de nuevo.",
+        "El despacho real estará disponible cuando se implemente K7.",
         true,
       );
+    });
 
-      button.disabled = false;
-    }
-  });
+  } catch (error) {
+    console.error("Dispatch page initialization failed:", error);
+    showMessage(error.message, true);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", initialize);

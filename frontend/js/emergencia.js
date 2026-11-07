@@ -1,12 +1,11 @@
 
-// Register emergency page (CU-06).
-// The server will repeat all validations when the API is available.
-
 import {
   listEmergencyTypes,
   registerEmergency,
   SEVERITIES,
 } from "./api-client.js";
+
+import { startPage } from "./page-session.js";
 
 import {
   byId,
@@ -51,7 +50,7 @@ function setPoint(map, latitude, longitude) {
       map,
       point,
       COLORS.emergency,
-      "Emergencia nueva (EJEMPLO)",
+      "Ubicación de la emergencia",
     );
   }
 
@@ -63,10 +62,16 @@ function setPoint(map, latitude, longitude) {
 
 async function fillTypes() {
   const select = byId("type");
+  select.replaceChildren();
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Selecciona el tipo de emergencia";
+  select.appendChild(placeholder);
 
   for (const type of await listEmergencyTypes()) {
     const option = document.createElement("option");
-    option.value = type.name;
+    option.value = type.id;
     option.textContent = type.label;
     select.appendChild(option);
   }
@@ -74,6 +79,7 @@ async function fillTypes() {
 
 function fillSeverities() {
   const box = byId("severity-options");
+  box.replaceChildren();
 
   for (const severity of SEVERITIES) {
     const label = document.createElement("label");
@@ -92,13 +98,12 @@ function fillSeverities() {
 
 function readForm(form) {
   const data = new FormData(form);
-
-  const type = data.get("type");
+  const typeId = data.get("type");
   const severity = data.get("severity");
   const address = String(data.get("address") ?? "").trim();
   const description = String(data.get("description") ?? "").trim();
 
-  if (!type) {
+  if (!typeId) {
     showMessage("Selecciona el tipo de emergencia.", true);
     return null;
   }
@@ -122,7 +127,7 @@ function readForm(form) {
   }
 
   return {
-    type,
+    typeId,
     severity,
     address,
     description,
@@ -132,7 +137,16 @@ function readForm(form) {
 }
 
 async function initialize() {
-  await fillTypes();
+  const session = await startPage();
+  if (!session) return;
+
+  try {
+    await fillTypes();
+  } catch (error) {
+    showMessage(error.message, true);
+    return;
+  }
+
   fillSeverities();
 
   const map = createBaseMap("map");
@@ -157,7 +171,6 @@ async function initialize() {
     event.preventDefault();
 
     const request = readForm(form);
-
     if (!request) return;
 
     const button = form.querySelector('button[type="submit"]');
@@ -167,17 +180,12 @@ async function initialize() {
       const emergency = await registerEmergency(request);
 
       showMessage(
-        `Emergencia ${emergency.code} registrada como REPORTADA (EJEMPLO, no se guardó en Oracle). Abriendo el despacho…`,
+        `Emergencia ${emergency.code} registrada correctamente en Oracle.`,
         false,
       );
-
-      setTimeout(() => {
-        window.location.href =
-          `./despacho.html?emergencia=${encodeURIComponent(emergency.code)}`;
-      }, 1200);
     } catch (error) {
       console.error("Emergency registration failed:", error);
-      showMessage("No se pudo registrar la emergencia. Intenta de nuevo.", true);
+      showMessage(error.message, true);
       button.disabled = false;
     }
   });
