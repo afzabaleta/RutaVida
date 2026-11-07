@@ -3,6 +3,7 @@ package co.edu.unicesar.rutavida.controller;
 
 import co.edu.unicesar.rutavida.dto.EmergencyHistory;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
+import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.model.Emergency;
 import co.edu.unicesar.rutavida.model.UserSession;
@@ -19,7 +20,8 @@ import java.util.logging.Logger;
 /**
  * Use cases of emergencies for the view (CU-06, CU-07, CU-15).
  * It checks the session and the permission, delegates to EmergencyService
- * and turns every error into a message in Spanish.
+ * and turns every error into a message in Spanish with its kind of error
+ * (the web API uses the kind for the HTTP status code).
  */
 public class EmergencyController {
 
@@ -59,6 +61,11 @@ public class EmergencyController {
         return run(VIEW, user -> emergencyService.listActive());
     }
 
+    /** One emergency (GET /api/emergencies/{id}): needs EMERGENCIAS / CONSULTAR. */
+    public OperationResult<Emergency> find(long emergencyId) {
+        return run(VIEW, user -> emergencyService.findById(emergencyId));
+    }
+
     /** CU-15: needs EMERGENCIAS / CONSULTAR. */
     public OperationResult<EmergencyHistory> history(long emergencyId) {
         return run(VIEW, user -> emergencyService.getHistory(emergencyId));
@@ -70,7 +77,7 @@ public class EmergencyController {
             Function<UserSession, T> work) {
 
         if (!session.isActive()) {
-            return OperationResult.error(Messages.SESSION_REQUIRED);
+            return OperationResult.error(ErrorKind.AUTHENTICATION, Messages.SESSION_REQUIRED);
         }
 
         try {
@@ -82,15 +89,17 @@ public class EmergencyController {
 
         } catch (RuntimeException e) {
 
-            String message = Messages.userMessage(e);
+            OperationResult<T> failure = OperationResult.failure(e);
 
-            if (Messages.UNEXPECTED.equals(message)
-                    || Messages.DATABASE_DOWN.equals(message)) {
+            if (failure.error() == ErrorKind.UNEXPECTED
+                    || failure.error() == ErrorKind.UNAVAILABLE) {
 
                 LOG.log(Level.WARNING, "Emergency operation failed", e);
             }
 
-            return OperationResult.error(message);
+            // The kind of error (VALIDATION, PERMISSION, NOT_FOUND...) lets the web API
+            // answer 400, 403, 404... instead of a generic 500.
+            return failure;
         }
     }
 }

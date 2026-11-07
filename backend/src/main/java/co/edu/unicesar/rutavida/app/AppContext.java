@@ -1,26 +1,36 @@
 package co.edu.unicesar.rutavida.app;
 
 import co.edu.unicesar.rutavida.controller.CatalogController;
+import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.LoginController;
 import co.edu.unicesar.rutavida.controller.SessionContext;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.dao.AuditDAO;
+import co.edu.unicesar.rutavida.dao.EmergencyTypeDAO;
 import co.edu.unicesar.rutavida.dao.RoleDAO;
 import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.UserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.ClientIdentifierConnectionFactory;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcAuditDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyAssignmentDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyStationDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyTypeDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyVehicleDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcHospitalDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadNodeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadSegmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcRouteDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
+import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
 import co.edu.unicesar.rutavida.util.DatabaseConnection;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
@@ -65,6 +75,7 @@ public final class AppContext {
     private final LoginController loginController;
     private final WebSessionController webSessionController;
     private final CatalogController catalogController;
+    private final EmergencyController emergencyController;
     private final GraphLoader graphLoader;
 
     private AppContext(DatabaseConnection database, Clock clock) {
@@ -88,8 +99,16 @@ public final class AppContext {
         this.loginController = new LoginController(authService, session);
         this.webSessionController = new WebSessionController(authService, session, clock);
 
-        // Catalogs for the web (A12a; A12b adds the fleet and the hospitals)
-        this.catalogController = new CatalogController(new CatalogService(new JdbcEmergencyTypeDAO(jdbc)));
+        // Catalogs for the web (A12a + A12b, DAOs of A7b and A7c)
+        EmergencyTypeDAO emergencyTypeDao = new JdbcEmergencyTypeDAO(jdbc);
+        this.catalogController = new CatalogController(new CatalogService(emergencyTypeDao,
+                new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyStationDAO(jdbc),
+                new JdbcEmergencyVehicleDAO(jdbc), new JdbcHospitalDAO(jdbc)));
+
+        // Emergencies (S6 + A7d): register, active, history
+        EmergencyService emergencyService = new EmergencyService(new JdbcEmergencyDAO(jdbc), emergencyTypeDao,
+                new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), auditService, jdbc, clock);
+        this.emergencyController = new EmergencyController(emergencyService, authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
@@ -138,6 +157,10 @@ public final class AppContext {
 
     public CatalogController catalogController() {
         return catalogController;
+    }
+
+    public EmergencyController emergencyController() {
+        return emergencyController;
     }
 
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */

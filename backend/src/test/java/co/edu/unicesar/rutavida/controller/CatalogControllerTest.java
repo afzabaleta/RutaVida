@@ -1,16 +1,14 @@
 package co.edu.unicesar.rutavida.controller;
 
-import co.edu.unicesar.rutavida.dao.EmergencyTypeDAO;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
-import co.edu.unicesar.rutavida.exception.DataAccessException;
 import co.edu.unicesar.rutavida.model.EmergencyType;
-import co.edu.unicesar.rutavida.service.CatalogService;
+import co.edu.unicesar.rutavida.model.Hospital;
 import co.edu.unicesar.rutavida.util.Messages;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,46 +16,48 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CatalogControllerTest {
 
-    private static final List<EmergencyType> TYPES = List.of(
-            new EmergencyType(1, "EMERGENCIA_MEDICA", 9, "Urgencia medica sin accidente de transito"),
-            new EmergencyType(3, "ACCIDENTE_VIAL", 8, "Accidente de transito con posibles lesionados"));
+    private CatalogTestSupport support;
+    private CatalogController controller;
 
-    /** Test double: returns the list or fails like Oracle down. */
-    private static EmergencyTypeDAO types(boolean oracleDown) {
-        return new EmergencyTypeDAO() {
-            @Override
-            public Optional<EmergencyType> findById(long id) {
-                return TYPES.stream().filter(type -> type.getId() == id).findFirst();
-            }
-
-            @Override
-            public List<EmergencyType> findAll() {
-                if (oracleDown) {
-                    throw new DataAccessException("ORA-12541: TNS:no listener", null);
-                }
-                return TYPES;
-            }
-        };
+    @BeforeEach
+    void setUp() {
+        support = new CatalogTestSupport();
+        controller = new CatalogController(support.service());
     }
 
     @Test
     void theEmergencyTypesComeFromTheService() {
-        CatalogController controller = new CatalogController(new CatalogService(types(false)));
-
         OperationResult<List<EmergencyType>> result = controller.emergencyTypes();
 
         assertTrue(result.success());
-        assertEquals(TYPES, result.value());
+        assertEquals(CatalogTestSupport.EMERGENCY_TYPES, result.value());
+    }
+
+    @Test
+    void theFleetCatalogsComeFromTheirDaos() {
+        assertEquals(CatalogTestSupport.VEHICLE_TYPES, controller.vehicleTypes().value());
+        assertEquals(CatalogTestSupport.UNITS, controller.units().value());
+        assertEquals(CatalogTestSupport.STATIONS, controller.stations().value());
+    }
+
+    @Test
+    void hospitalsAreTheOperationalOnesUnlessAllAreAsked() {
+        List<Hospital> operational = controller.hospitals(false).value();
+        List<Hospital> all = controller.hospitals(true).value();
+
+        assertEquals(List.of(CatalogTestSupport.ACTIVE_HOSPITAL), operational);
+        assertEquals(List.of(CatalogTestSupport.ACTIVE_HOSPITAL, CatalogTestSupport.INACTIVE_HOSPITAL), all);
     }
 
     @Test
     void oracleDownIsAnUnavailableErrorWithoutTechnicalDetails() {
-        CatalogController controller = new CatalogController(new CatalogService(types(true)));
+        support.oracleDown.set(true);
 
-        OperationResult<List<EmergencyType>> result = controller.emergencyTypes();
-
-        assertFalse(result.success());
-        assertEquals(ErrorKind.UNAVAILABLE, result.error());
-        assertEquals(Messages.DATABASE_DOWN, result.message());
+        for (OperationResult<?> result : List.of(controller.emergencyTypes(), controller.units(),
+                controller.stations(), controller.hospitals(false), controller.vehicleTypes())) {
+            assertFalse(result.success());
+            assertEquals(ErrorKind.UNAVAILABLE, result.error());
+            assertEquals(Messages.DATABASE_DOWN, result.message());
+        }
     }
 }

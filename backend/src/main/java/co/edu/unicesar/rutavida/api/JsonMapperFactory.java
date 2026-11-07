@@ -1,5 +1,7 @@
 package co.edu.unicesar.rutavida.api;
 
+import co.edu.unicesar.rutavida.model.Route;
+import co.edu.unicesar.rutavida.model.RouteSegment;
 import co.edu.unicesar.rutavida.model.enums.AlertType;
 import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
 import co.edu.unicesar.rutavida.model.enums.AuditResult;
@@ -20,6 +22,7 @@ import co.edu.unicesar.rutavida.model.enums.TrafficLevel;
 import co.edu.unicesar.rutavida.model.enums.TrafficLightState;
 import co.edu.unicesar.rutavida.model.enums.TrafficSource;
 import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -34,6 +37,7 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * The JSON rules of docs/api.md, section 1, in one place:
@@ -41,7 +45,8 @@ import java.io.IOException;
  *   <li>catalog values travel with their Spanish code ({@code Severity.CRITICAL} → "CRITICA"),
  *       the same as in Oracle, and are read back with {@code fromCode};</li>
  *   <li>dates as ISO text without zone ("2026-11-04T09:30:15");</li>
- *   <li>unknown fields in a request are ignored (for example a reportedAt sent by the web).</li>
+ *   <li>unknown fields in a request are ignored (for example a reportedAt sent by the web);</li>
+ *   <li>a Route travels without its segments (docs/api.md, 5.5): the history is for reading.</li>
  * </ul>
  * The model is not annotated: it cannot depend on the JSON library.
  */
@@ -76,9 +81,19 @@ public final class JsonMapperFactory {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.registerModule(codes);
+        mapper.addMixIn(Route.class, RouteWithoutSegments.class);
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         return mapper;
+    }
+
+    /**
+     * Jackson mix-in: the annotations are written here, outside the model, and Jackson applies
+     * them to Route as if they were on it.
+     */
+    abstract static class RouteWithoutSegments {
+        @JsonIgnore
+        abstract List<RouteSegment> getSegments();
     }
 
     private static <E extends Enum<E> & CodedEnum> void addCodedEnum(SimpleModule module, Class<E> type) {

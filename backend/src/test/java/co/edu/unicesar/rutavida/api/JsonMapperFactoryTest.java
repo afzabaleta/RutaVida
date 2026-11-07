@@ -2,6 +2,10 @@ package co.edu.unicesar.rutavida.api;
 
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.GeoPoint;
+import co.edu.unicesar.rutavida.model.Route;
+import co.edu.unicesar.rutavida.model.RouteSegment;
+import co.edu.unicesar.rutavida.model.enums.RouteStatus;
+import co.edu.unicesar.rutavida.model.enums.RouteType;
 import co.edu.unicesar.rutavida.model.enums.Severity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -66,5 +71,19 @@ class JsonMapperFactoryTest {
 
         Sample read = json.readValue("{\"severity\":\"BAJA\",\"reportedAt\":\"ignorado\"}", Sample.class);
         assertEquals(Severity.LOW, read.severity());
+    }
+
+    @Test
+    void aRouteTravelsWithoutItsSegments() throws Exception {
+        Route route = new Route(30, 15, 1, null, RouteType.MAIN, 2.84, 6.9, 414.0,
+                LocalDateTime.of(2026, 11, 4, 9, 32), true, RouteStatus.ACTIVE,
+                List.of(new RouteSegment(1, 412, 30.5, 1.0, 0)));
+
+        JsonNode written = json.readTree(json.writeValueAsString(route));
+
+        assertFalse(written.has("segments"), "docs/api.md 5.5: the history does not carry the segments");
+        assertEquals("PRINCIPAL", written.get("type").asText());
+        assertEquals("ACTIVA", written.get("status").asText());
+        assertTrue(written.get("recommended").asBoolean());
     }
 }
