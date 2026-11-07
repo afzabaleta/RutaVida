@@ -1252,6 +1252,7 @@ classDiagram
         +maxKmh : double
         +AMBULANCE : VehicleProfile$
         +FIRE_TRUCK : VehicleProfile$
+        +forType(typeName: String) VehicleProfile$
     }
     class RoadGraph {
         -nodes : Node[]
@@ -1330,16 +1331,19 @@ classDiagram
         +load() RoadGraph
     }
     class RouteService {
+        +MAX_SNAP_METERS : double$
         -graph : RoadGraph
+        -routeDao : RouteDAO
+        -transactions : TransactionManager
+        -clock : Clock
         -router : AStarRouter
-        -alternatives : AlternativeRouteFinder
+        -finder : AlternativeRouteFinder
         -cost : CostFunction
         -explainer : RouteExplanationBuilder
-        -routeDao : RouteDAO
-        +calculateOptions(from: GeoPoint, to: GeoPoint, vehicleTypeId: long) List~RouteOption~
-        +estimateSeconds(from: GeoPoint, to: GeoPoint, vehicleTypeId: long) double
         +isWithinNetwork(point: GeoPoint) boolean
-        +saveForMission(emergencyId: long, vehicleId: long, hospitalId: Long, options: List~RouteOption~) List~Route~
+        +calculateOptions(from: GeoPoint, to: GeoPoint, vehicle: VehicleProfile) List~RouteOption~
+        +estimateSeconds(from: GeoPoint, to: GeoPoint, vehicle: VehicleProfile) OptionalDouble
+        +saveForMission(emergencyId: long, vehicleId: long, hospitalId: Long, vehicle: VehicleProfile, options: List~RouteOption~) List~Route~
     }
     class RouteExplanationBuilder {
         +CONGESTED_FROM : double$
@@ -1647,7 +1651,6 @@ classDiagram
     class BusinessRuleException
     class DataAccessException
     class AccessDeniedException
-    class SessionRequiredException
 
     RuntimeException <|-- RutaVidaException
     RutaVidaException <|-- ValidationException
@@ -1655,10 +1658,7 @@ classDiagram
     RutaVidaException <|-- BusinessRuleException
     RutaVidaException <|-- DataAccessException
     RutaVidaException <|-- AccessDeniedException
-    AccessDeniedException <|-- SessionRequiredException
 ```
-
-`SessionRequiredException` (A12a) significa "no hay sesión o venció". Hereda de `AccessDeniedException`, así que el código que ya atrapa esa excepción sigue funcionando; la API responde `401` para esta y `403` para la otra.
 
 El paquete `event` (bus de eventos en memoria) se eliminó en la refactorización de capas: estaba programado, pero ninguna clase publicaba eventos. Los avisos de tiempo real se hacen con llamadas directas entre servicios (sección 6.2).
 
@@ -1680,23 +1680,18 @@ classDiagram
 
     class SessionContext {
         -current : UserSession
-        -requestSession : ThreadLocal~UserSession~
         +start(session: UserSession) void
         +current() UserSession
         +end() void
         +isActive() boolean
-        +runAs(session: UserSession, work: SessionWork) void
     }
     class OperationResult~T~ {
         <<record>>
         +success : boolean
         +message : String
         +value : T
-        +error : ErrorKind
         +ok(value: T) OperationResult~T~$
         +error(message: String) OperationResult~T~$
-        +error(kind: ErrorKind, message: String) OperationResult~T~$
-        +failure(exception: RuntimeException) OperationResult~T~$
     }
     class LoginController {
         -authService : AuthService
@@ -1818,17 +1813,16 @@ classDiagram
         -session : SessionContext
         -adminBootstrap : AdminBootstrapService
         -loginController : LoginController
-        -webSessionController : WebSessionController
-        -catalogController : CatalogController
+        -graphLoader : GraphLoader
+        -routeService : RouteService
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
         +database() DatabaseConnection
         +session() SessionContext
         +loginController() LoginController
-        +webSessionController() WebSessionController
-        +catalogController() CatalogController
         +graphLoader() GraphLoader
+        +routeService() RouteService
         +adminBootstrap() AdminBootstrapService
     }
     class Main {
@@ -1841,9 +1835,6 @@ classDiagram
         +main(args: String[]) void$
     }
     class RouteDemo {
-        +main(args: String[]) void$
-    }
-    class WebServer {
         +main(args: String[]) void$
     }
     class RouteGeoJsonWriter {
@@ -1886,120 +1877,11 @@ classDiagram
     AppContext ..> GraphLoader : crea
     AppContext ..> EmergencyController : crea e inyecta
     AppContext ..> DispatchController : crea e inyecta
-    WebServer ..> AppContext : crea
-    WebServer ..> ApiServer : inicia en el puerto 8080
 ```
 
 Los controladores atrapan las `RutaVidaException` y devuelven un `OperationResult` con el mensaje en español de `Messages`. La vista no maneja excepciones técnicas.
 
-La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases `<<view>>` de esta sección son provisionales: su papel lo cumple el paquete `api` (sección 8.3), que solo puede usar controladores, DTO, modelo, excepciones y utilidades (`ArchitectureTest`). La página web (HTML, CSS, JavaScript y Leaflet) no forma parte de este diagrama de clases Java.
-
-### 8.3 Servidor web y API REST (paquete `api`, A12a)
-
-`WebServer` arranca un servidor Javalin (DT-06) que entrega las páginas de `frontend/` y la API de `docs/api.md` en la misma dirección. Cada ruta protegida pasa por `ApiServer.secured`: busca la sesión del token (`WebSessionController`, DT-08), revisa el permiso y ejecuta la ruta con `SessionContext.runAs`, de modo que los controladores y los triggers de auditoría ven al usuario de esa petición. El código HTTP sale del `ErrorKind` del resultado (`ApiStatus`, sección 1.2 del contrato).
-
-```mermaid
----
-config:
-  markdownAutoWrap: false
----
-classDiagram
-    direction LR
-
-    class ApiServer {
-        +DEFAULT_PORT : int$
-        -sessions : WebSessionController
-        -catalogs : CatalogController
-        -frontendDirectory : Path
-        -json : ObjectMapper
-        +start(port: int) ApiServer
-        +stop() void
-        ~secured(module: String, action: String, countsAsUse: boolean, handler: Handler) Handler
-        ~send(ctx: Context, result: OperationResult, successStatus: int) void
-    }
-    class ApiStatus {
-        +of(kind: ErrorKind) int$
-        +of(result: OperationResult, successStatus: int) int$
-    }
-    class ApiResponse {
-        <<record>>
-        +success : boolean
-        +message : String
-        +value : Object
-        +of(result: OperationResult) ApiResponse$
-    }
-    class LoginRequest {
-        <<record>>
-        +username : String
-        +password : String
-    }
-    class JsonMapperFactory {
-        +create() ObjectMapper$
-    }
-    class WebSessionController {
-        +DEFAULT_IDLE : Duration$
-        +DEFAULT_MAX_AGE : Duration$
-        -sessions : Map~String, Entry~
-        +login(username: String, password: char[]) OperationResult~LoginResponse~
-        +authenticate(authorization: String, countsAsUse: boolean) OperationResult~UserSession~
-        +authorize(session: UserSession, module: String, action: String) OperationResult~Void~
-        +describe(authorization: String) OperationResult~LoginResponse~
-        +logout(authorization: String) OperationResult~Void~
-        +runAs(session: UserSession, work: SessionWork) void
-        +openSessions() int
-    }
-    class CatalogController {
-        -catalogService : CatalogService
-        +emergencyTypes() OperationResult~List~EmergencyType~~
-    }
-    class CatalogService {
-        -emergencyTypeDao : EmergencyTypeDAO
-        +emergencyTypes() List~EmergencyType~
-    }
-    class LoginResponse {
-        <<record>>
-        +token : String
-        +expiresAt : LocalDateTime
-        +idleTimeoutMinutes : long
-        +user : SessionUser
-        +role : String
-        +permissions : List~String~
-    }
-    class SessionUser {
-        <<record>>
-        +id : long
-        +username : String
-        +firstNames : String
-        +lastNames : String
-    }
-    class ErrorKind {
-        <<enumeration>>
-        VALIDATION
-        AUTHENTICATION
-        PERMISSION
-        NOT_FOUND
-        BUSINESS_RULE
-        UNAVAILABLE
-        UNEXPECTED
-    }
-
-    ApiServer --> WebSessionController
-    ApiServer --> CatalogController
-    ApiServer ..> ApiStatus
-    ApiServer ..> ApiResponse
-    ApiServer ..> LoginRequest
-    ApiServer ..> JsonMapperFactory
-    ApiStatus ..> ErrorKind
-    WebSessionController --> AuthService
-    WebSessionController --> SessionContext : runAs
-    WebSessionController ..> LoginResponse
-    LoginResponse --> SessionUser
-    CatalogController --> CatalogService
-    CatalogService --> EmergencyTypeDAO
-    OperationResult~T~ --> ErrorKind
-```
-
-`LoginResponse` y `SessionUser` existen para que el JSON nunca lleve `passwordHash` ni el documento del usuario. `JsonMapperFactory` escribe los enums con su código en español (`"CRITICA"`) sin anotar el modelo.
+La vista es web (decisión DT-01 en `docs/decisiones-tecnicas.md`). Las clases de esta sección son provisionales: en el backend se reemplazarán por los adaptadores REST del paquete `api`, que solo pueden usar controladores, DTO y modelo (`ArchitectureTest`). La página web (HTML, CSS, JavaScript y Leaflet) no forma parte de este diagrama de clases Java.
 
 ---
 
@@ -2036,12 +1918,12 @@ classDiagram
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
+| `RouteService` y `AppContext.routeService()` | `service`, `app` | **Programado y probado** (K6) con un grafo de prueba, sin Oracle. Guarda las rutas con `RouteDAO` (A6) |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | Simulación | `simulation` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
 | `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos |
 | Demás controladores | `controller` | Diseñado |
-| `ApiServer`, `ApiStatus`, `ApiResponse`, `LoginRequest`, `JsonMapperFactory`, `WebServer`, `WebSessionController`, `CatalogController`, `CatalogService`, `LoginResponse`, `SessionUser`, `ErrorKind`, `SessionRequiredException` y los cambios de `SessionContext` y `OperationResult` | `api`, `app`, `controller`, `service`, `dto`, `exception` | **Programado y probado** (A12a): sesión con token, permisos por ruta, errores en JSON y `GET /api/emergency-types`. Las demás rutas de `docs/api.md` son de A12b |
-| Vista web | `frontend/` | Maqueta (D3, D5a); se conecta a la API en D5b |
+| Vista web y adaptadores REST | `view` → `api`, `frontend/` | Decidido (web); pendiente de programar |
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
