@@ -213,3 +213,70 @@
   }
 }
 
+/* Dispatch page (despacho.html) */
+.side-panel select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #293746);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .03);
+  color: var(--text, #edf3fa);
+  font: inherit;
+}
+
+.side-panel select:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.side-panel select option {
+  background: #172330;
+}
+
+.unit-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.unit-choice input {
+  margin-top: 4px;
+  accent-color: var(--amber);
+}
+
+.unit-choice > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.unit-choice:has(input:checked) {
+  border-color: var(--amber);
+  background: rgba(246, 185, 75, .08);
+}
+
+.dispatch-summary {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0;
+  font-size: .9rem;
+}
+
+.dispatch-summary p {
+  margin: 0;
+}
+
+.dispatch-button {
+  width: 100%;
+  background: var(--red);
+}
+
+.dispatch-button:hover:not(:disabled) {
+  background: #e5484d;
+}
+
+.dispatch-button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
