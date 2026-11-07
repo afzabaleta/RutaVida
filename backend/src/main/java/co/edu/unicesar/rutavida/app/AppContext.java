@@ -14,6 +14,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadNodeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadSegmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcRouteDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
@@ -22,6 +23,7 @@ import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
+import co.edu.unicesar.rutavida.service.RouteService;
 import co.edu.unicesar.rutavida.util.DatabaseConnection;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
 
@@ -66,6 +68,7 @@ public final class AppContext {
     private final WebSessionController webSessionController;
     private final CatalogController catalogController;
     private final GraphLoader graphLoader;
+    private RouteService routeService;
 
     private AppContext(DatabaseConnection database, Clock clock) {
         this.database = Objects.requireNonNull(database, "database");
@@ -143,6 +146,17 @@ public final class AppContext {
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */
     public GraphLoader graphLoader() {
         return graphLoader;
+    }
+
+    /**
+     * Route service on the real road network. The graph is loaded from Oracle the first
+     * time this is called and then shared, so every route uses the same traffic state.
+     */
+    public synchronized RouteService routeService() {
+        if (routeService == null) {
+            routeService = new RouteService(graphLoader.load(), new JdbcRouteDAO(jdbc), jdbc, clock);
+        }
+        return routeService;
     }
 
     /** Only for the CreateAdminUser tool: creating users normally needs a session. */
