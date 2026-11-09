@@ -808,16 +808,26 @@ classDiagram
         +findUnreadByUser(userId: long) List~Notification~
         +markAsRead(id: long) void
     }
+    
+    class DashboardDAO {
+        <<interface>>
+        +summary(trafficSince: LocalDateTime, dayStart: LocalDateTime, dayEnd: LocalDateTime) DashboardSummary
+    }
+    
     class Route
     class VehicleLocation
     class Alert
     class Notification
+    class DashboardSummary
+    
 
     RouteDAO ..> Route
     VehicleLocationDAO ..> VehicleLocation
     AlertDAO ..> Alert
     NotificationDAO ..> Notification
+    DashboardDAO ..> DashboardSummary : solo lectura
 ```
+`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es la única interfaz DAO que depende de `dto`, y solo para leer.
 
 ---
 
@@ -916,6 +926,7 @@ classDiagram
     class JdbcVehicleLocationDAO
     class JdbcAlertDAO
     class JdbcNotificationDAO
+    class JdbcDashboardDAO
 
     AbstractJdbcDAO <|-- JdbcUserDAO
     AbstractJdbcDAO <|-- JdbcRoleDAO
@@ -937,9 +948,10 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcVehicleLocationDAO
     AbstractJdbcDAO <|-- JdbcAlertDAO
     AbstractJdbcDAO <|-- JdbcNotificationDAO
+    AbstractJdbcDAO <|-- JdbcDashboardDAO
 ```
 
-Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 19 flechas de realización no se dibujan para que el diagrama se pueda leer.
+Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 20 flechas de realización no se dibujan para que el diagrama se pueda leer.
 
 ---
 
