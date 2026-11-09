@@ -1,84 +1,134 @@
-﻿# RutaVida
+﻿# RutaVida — Frontend Web
 
-**Sistema Inteligente de Rutas de Emergencia para Valledupar**
+Aplicación web del **Sistema Inteligente de Rutas de Emergencia para Valledupar**.
 
-RutaVida es un sistema orientado a apoyar la gestión de emergencias en Valledupar mediante el registro de incidentes, la consulta de recursos de atención y la visualización de información geográfica para facilitar la coordinación de la respuesta.
+El frontend está desarrollado con HTML, CSS y JavaScript. Utiliza Leaflet para la visualización geográfica y se comunica con el backend mediante una API REST desarrollada en Java.
 
-## Estado del proyecto
-
-El proyecto se desarrolla por etapas académicas. Los módulos implementados y pendientes se identifican en la documentación correspondiente.
-
-| Componente | Estado |
-|---|---|
-| Backend | API REST desarrollada en Java |
-| Base de datos | Oracle |
-| Vista | **Web** (HTML, CSS, JavaScript y Leaflet + API REST en Java), en `frontend/`. Conectada a la API (D5b): inicio de sesión, registro de emergencias y consulta de emergencias y unidades de Oracle. El panel principal y el botón de despachar (K7) están pendientes |
-| Rutas geográficas | Visualización de rutas de demostración; integración operativa pendiente de K7 |
-| Despacho | Pendiente de integración operativa K7 |
-
-## Funcionalidades de la aplicación web
+## 1. Funcionalidades implementadas
 
 La aplicación web permite:
 
-- Iniciar sesión mediante la API.
+- Iniciar sesión mediante la API REST.
 - Consultar los tipos de emergencia disponibles en Oracle.
 - Registrar emergencias y almacenarlas en Oracle.
-- Consultar emergencias y unidades disponibles.
+- Consultar emergencias registradas.
+- Consultar unidades de atención.
 - Visualizar información geográfica de demostración.
 
-**Importante:** las unidades y los datos que aparecen identificados como `EJEMPLO` son datos de demostración. No representan recursos operativos reales.
+**Importante:** los recursos identificados como `EJEMPLO` son datos de demostración. No representan unidades operativas reales.
 
-El despacho operativo de unidades, el seguimiento y la simulación de rutas continúan pendientes de la etapa K7.
+El despacho operativo de unidades y la integración definitiva de rutas corresponden a la etapa K7 y continúan pendientes.
 
-## Tecnologías
-
-- Java.
-- Oracle Database.
-- HTML5.
-- CSS3.
-- JavaScript.
-- Leaflet.
-- OpenStreetMap.
-
-## Estructura del proyecto
+## 2. Estructura del frontend
 
 ```text
-RutaVida/
-├── backend/
-│   └── Código de la API REST y configuración del servidor
-├── frontend/
-│   ├── css/
-│   ├── data/
-│   ├── js/
-│   ├── dashboard.html
-│   ├── despacho.html
-│   ├── emergencia.html
-│   ├── login.html
-│   └── README.md
-├── database/
-│   └── Scripts SQL de la base de datos
-├── docs/
-│   └── Documentación técnica y diagramas
+frontend/
+├── css/
+│   └── Estilos de la aplicación
+├── data/
+│   └── Datos geográficos de demostración
+├── js/
+│   ├── api-client.js
+│   ├── example-data.js
+│   ├── dashboard.js
+│   ├── emergencia.js
+│   └── Otros módulos JavaScript
+├── index.html
+├── dashboard.html
+├── emergencia.html
+├── despacho.html
 └── README.md
 ```
 
-## Ejecución
+## 3. Requisitos
 
-La configuración y las instrucciones para ejecutar el backend y el frontend se encuentran en sus respectivos archivos README.
+Antes de ejecutar la aplicación se necesita:
 
-Consulta:
+- Java configurado en el entorno de desarrollo.
+- Oracle Database disponible.
+- Backend de RutaVida configurado correctamente.
+- IntelliJ IDEA o un entorno compatible para ejecutar el servidor Java.
 
-- `backend/README.md`
-- `frontend/README.md`
+La configuración de conexión a Oracle debe mantenerse en el backend. No se deben publicar credenciales ni contraseñas.
 
-No publiques archivos con credenciales, contraseñas o información privada de conexión a la base de datos.
+## 4. Ejecución de la aplicación
 
-## Documentación
+El frontend se sirve desde el servidor Java del proyecto. No se debe abrir directamente el archivo HTML ni utilizar otro servidor independiente para estas pruebas.
 
-La documentación técnica del proyecto se encuentra en `docs/` e incluye la arquitectura del software, diagramas y registros de implementación.
+### Paso 1. Iniciar Oracle
 
-## Proyecto académico
+Verifica que Oracle Database esté iniciado y que la conexión configurada para RutaVida esté disponible.
 
-Desarrollado como parte de las asignaturas de Programación de Computadores III y Base de Datos.
+### Paso 2. Iniciar el backend
 
-**Proyecto:** Sistema Inteligente de Rutas de Emergencia para Valledupar — RutaVida.
+1. Abre el proyecto en IntelliJ IDEA.
+2. Abre el módulo `backend`.
+3. Localiza la clase `WebServer`:
+
+   `co.edu.unicesar.rutavida.app.WebServer`
+
+4. Ejecuta su método `main`.
+5. Comprueba que la consola muestre el mensaje:
+
+   `[OK] RutaVida está en http://localhost:8080`
+
+Mantén el servidor ejecutándose mientras utilizas la aplicación web.
+
+### Paso 3. Abrir el frontend
+
+En el navegador ingresa a:
+
+`http://localhost:8080/index.html`
+
+La aplicación mostrará la pantalla de inicio de sesión.
+
+Después de iniciar sesión correctamente, podrás acceder al panel principal y a las páginas de registro y consulta.
+
+También puedes comprobar el control de acceso abriendo directamente:
+
+`http://localhost:8080/dashboard.html`
+
+Si no existe una sesión válida, la aplicación debe redirigir al inicio de sesión.
+
+## 5. Verificación funcional
+
+Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
+
+| Prueba | Resultado esperado |
+|---|---|
+| Abrir `index.html` | Se muestra el inicio de sesión |
+| Iniciar sesión | Se accede al panel con el usuario autenticado |
+| Consultar tipos de emergencia | Se muestran los tipos provenientes de Oracle |
+| Registrar una emergencia | La API confirma el registro y lo almacena en Oracle |
+| Consultar emergencias | Se muestran los registros disponibles |
+| Consultar unidades | Se muestran los recursos disponibles y los datos de demostración identificados como `EJEMPLO` |
+| Abrir el panel sin sesión | Se redirige al inicio de sesión |
+| Detener el backend | Se muestra un mensaje de error de conexión |
+
+Para revisar posibles errores, abre las herramientas del navegador con `F12` y consulta la pestaña **Console**.
+
+## 6. Detener la aplicación
+
+Cuando termines las pruebas:
+
+1. Regresa a IntelliJ IDEA.
+2. Detén la ejecución de `WebServer` mediante el botón **Stop**.
+3. Cierra el navegador si ya no necesitas la aplicación.
+
+## 7. Tecnologías utilizadas
+
+- HTML5.
+- CSS3.
+- JavaScript (módulos ES).
+- Leaflet.
+- OpenStreetMap.
+- API REST desarrollada en Java.
+- Oracle Database.
+
+## 8. Documentación relacionada
+
+- `README.md`: documentación general del proyecto.
+- `backend/README.md`: configuración y ejecución del backend.
+- `docs/`: documentación técnica, arquitectura y registros de implementación.
+
+**Proyecto académico:** Sistema Inteligente de Rutas de Emergencia para Valledupar — RutaVida.

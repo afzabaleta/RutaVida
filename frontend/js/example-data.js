@@ -1,4 +1,4 @@
-﻿```javascript
+﻿
 // EXAMPLE data of the panel (dashboard.js) until it is connected to the API.
 // It is NOT real and NOT calculated by the system.
 // Every place where it appears on screen must carry the EJEMPLO label.
@@ -39,4 +39,3 @@ export const EXAMPLE_UNITS = [
     location: [10.456500, -73.250600],
   },
 ];
-```
