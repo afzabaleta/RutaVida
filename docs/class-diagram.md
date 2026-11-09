@@ -1076,11 +1076,8 @@ classDiagram
         +updateServiceAvailability(offering: HospitalServiceOffering, session: UserSession) void
     }
     class DashboardService {
-        -emergencyDao : EmergencyDAO
-        -vehicleDao : EmergencyVehicleDAO
-        -hospitalDao : HospitalDAO
-        -incidentDao : RoadIncidentDAO
-        -assignmentDao : EmergencyAssignmentDAO
+        -dashboardDao : DashboardDAO
+        -clock : Clock
         +getSummary() DashboardSummary
     }
     class AlertService {
@@ -1161,9 +1158,12 @@ classDiagram
         <<record>>
         +activeEmergencies : int
         +availableUnits : int
+        +busyUnits : int
         +operationalHospitals : int
         +activeIncidents : int
-        +averageResponseMinutes : double
+        +congestedSegments : int
+        +closedToday : int
+        +averageResponseMinutes : Double
     }
     class UserRequest {
         <<record>>
@@ -1760,7 +1760,7 @@ class IncidentController {
 
     class DashboardController {
         -dashboardService : DashboardService
-        +summary() DashboardSummary
+        +summary() OperationResult~DashboardSummary~
     }
     class AlertController {
         -alertService : AlertService
@@ -1843,6 +1843,7 @@ classDiagram
         -webSessionController : WebSessionController
         -catalogController : CatalogController
         -emergencyController : EmergencyController
+        -dashboardController : DashboardController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -1852,6 +1853,7 @@ classDiagram
         +webSessionController() WebSessionController
         +catalogController() CatalogController
         +emergencyController() EmergencyController
+        +dashboardController() DashboardController
         +graphLoader() GraphLoader
         +adminBootstrap() AdminBootstrapService
     }
@@ -1935,6 +1937,7 @@ classDiagram
         -sessions : WebSessionController
         -catalogs : CatalogController
         -emergencies : EmergencyController
+        -dashboard : DashboardController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
@@ -2024,6 +2027,7 @@ classDiagram
     ApiServer --> WebSessionController
     ApiServer --> CatalogController
     ApiServer --> EmergencyController
+    ApiServer --> DashboardController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
@@ -2077,6 +2081,7 @@ classDiagram
 | `GraphLoader` y `AppContext.graphLoader()` | `service`, `app` | **Programado y probado** (K5): pruebas sin Oracle y prueba de integración con la red real |
 | `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
 | `EmergencyService` (registro, activas, historial), `EmergencyRequest`, `EmergencyHistory` | `service`, `dto` | **Programado y probado** (S6) con DAO falsos. Conectado en `AppContext` (A7d) y publicado en la API (A12b) |
+| `DashboardDAO`, `JdbcDashboardDAO`, `DashboardService`, `DashboardSummary`, `DashboardController`, `AppContext.dashboardController()` y `GET /api/dashboard/summary` | `dao`, `dao.jdbc`, `service`, `dto`, `controller`, `app`, `api` | **Programado y probado** (A14): una consulta sobre las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` con 3 pruebas de integración contra Oracle XE 18c; servicio, controlador y ruta probados sin Oracle |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
