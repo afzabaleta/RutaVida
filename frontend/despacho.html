@@ -33,16 +33,15 @@
        aria-label="RutaVida, volver al panel">
         <img src="./img/logo.svg" alt="" width="42" height="42">
         <span>
-      <strong>RutaVida</strong>
-      <small>Centro de operaciones</small>
-    </span>
+            <strong>RutaVida</strong>
+            <small>Centro de operaciones</small>
+        </span>
     </a>
 
     <div class="header-user">
-        <span class="example-badge">MODO DEMOSTRACIÓN</span>
         <div>
-            <strong>Usuario de ejemplo</strong>
-            <small>COORDINADOR</small>
+            <strong id="user-name">Cargando…</strong>
+            <small id="user-role">Cargando…</small>
         </div>
         <a class="logout-link" href="./index.html">Salir</a>
     </div>
@@ -55,12 +54,14 @@
             <h1>Despachar unidad</h1>
             <p class="muted">
                 Elige la emergencia, revisa las unidades disponibles y las rutas,
-                y despacha.
+                y consulta la referencia de distancia.
             </p>
         </div>
+
         <span class="demo-notice">
-      Sin conexión al backend: emergencias y unidades de EJEMPLO; nada se guarda.
-    </span>
+            Emergencias y unidades de Oracle. Las unidades EJEMPLO-… son de ejemplo;
+            el despacho llega con K7.
+        </span>
     </section>
 
     <section class="workspace">
@@ -103,7 +104,9 @@
                     <p class="eyebrow">UBICACIÓN</p>
                     <h2>Emergencia y unidades</h2>
                 </div>
-                <span class="map-status"><span></span> Mapa de referencia</span>
+                <span class="map-status">
+                    <span></span> Mapa de referencia
+                </span>
             </div>
 
             <div id="map" role="application"
@@ -159,6 +162,7 @@
                     Al despachar, el servidor guardará la asignación,
                     pondrá la emergencia en ASIGNADA y la unidad en OCUPADO,
                     y guardará las 3 rutas, todo en una sola transacción de Oracle.
+                    Esta operación estará disponible cuando se implemente K7.
                 </p>
             </div>
         </aside>
@@ -166,8 +170,8 @@
     </section>
 
     <footer class="dashboard-footer">
-        <span>RutaVida · Despacho (D5a)</span>
-        <span>Datos de EJEMPLO claramente identificados</span>
+        <span>RutaVida · Despacho (D5b)</span>
+        <span>Datos de Oracle y datos EJEMPLO identificados</span>
     </footer>
 </main>
 </body>

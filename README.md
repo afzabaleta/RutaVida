@@ -40,7 +40,7 @@ RutaVida/
 | Entidades, DAO principales, motor de rutas, inicio de sesión y reglas de estado | Programado y probado (detalle en [`docs/class-diagram.md`](docs/class-diagram.md), sección 9) |
 | API REST ([`docs/api.md`](docs/api.md)) | Programado y probado: sesión con token (A12a), emergencias y catálogos (A12b). Despacho, rutas, seguimiento y simulación: pendiente (K7) |
 | Casos de uso de despacho completos y simulación | Pendiente |
-| Vista | **Decidido: web** (HTML, CSS, JavaScript y Leaflet + API REST en Java). Maqueta en `frontend/` (D3), todavía sin conexión al backend |
+| Vista | **Web** (HTML, CSS, JavaScript y Leaflet + API REST en Java), en `frontend/`. Conectada a la API (D5b): inicio de sesión, registro de emergencias y consulta de emergencias y unidades de Oracle. El panel principal y el botón de despachar (K7) están pendientes |
 | Decisiones del equipo (vista web, Oracle local, tablas en español) | Registradas en [`docs/decisiones-tecnicas.md`](docs/decisiones-tecnicas.md) |
 
 ## Puesta en marcha (cada integrante, una sola vez)

@@ -27,19 +27,19 @@
 
 <body class="dashboard-body">
 <header class="dashboard-header">
-    <a class="dashboard-brand" href="./index.html" aria-label="RutaVida, volver al inicio">
+    <a class="dashboard-brand" href="./dashboard.html"
+       aria-label="RutaVida, volver al panel">
         <img src="./img/logo.svg" alt="" width="42" height="42">
         <span>
-        <strong>RutaVida</strong>
-        <small>Centro de operaciones</small>
-      </span>
+            <strong>RutaVida</strong>
+            <small>Centro de operaciones</small>
+        </span>
     </a>
 
     <div class="header-user">
-        <span class="example-badge">MODO DEMOSTRACIÓN</span>
         <div>
-            <strong id="user-name">Usuario de ejemplo</strong>
-            <small id="user-role">OPERADOR_CENTRAL</small>
+            <strong id="user-name">Cargando…</strong>
+            <small id="user-role">Cargando…</small>
         </div>
         <a class="logout-link" href="./index.html">Salir</a>
     </div>
@@ -55,13 +55,13 @@
             </p>
         </div>
         <span class="demo-notice">
-        Los datos operativos son ejemplos, no reportes reales.
-      </span>
+            Prototipo académico: no lo uses para emergencias reales.
+        </span>
     </section>
 
     <div class="operation-notice">
-        <strong>Modo demostración:</strong>
-        Sin conexión al backend: la emergencia es de EJEMPLO y no se guarda en Oracle.
+        <strong>Conectado a Oracle:</strong>
+        la emergencia se guarda de verdad. En las pruebas, escribe PRUEBA en la descripción.
     </div>
 
     <section class="operation-grid">
@@ -71,7 +71,6 @@
                     <p class="eyebrow">DATOS</p>
                     <h2>Nueva emergencia</h2>
                 </div>
-                <span class="data-tag">EJEMPLO</span>
             </div>
 
             <form id="emergency-form">
@@ -122,7 +121,8 @@
                     </p>
                 </div>
 
-                <div id="form-message" class="form-message" role="status" aria-live="polite" hidden></div>
+                <div id="form-message" class="form-message"
+                     role="status" aria-live="polite" hidden></div>
 
                 <div class="form-actions">
                     <a class="secondary-button" href="./dashboard.html">Cancelar</a>
@@ -139,7 +139,6 @@
                     <p class="eyebrow">UBICACIÓN</p>
                     <h2>Marca el punto de la emergencia</h2>
                 </div>
-                <span class="data-tag">EJEMPLO</span>
             </div>
 
             <div id="map" role="application"
@@ -160,8 +159,8 @@
     </section>
 
     <footer class="dashboard-footer">
-        <span>RutaVida · Registro de emergencias (D5a)</span>
-        <span>Datos de EJEMPLO claramente identificados</span>
+        <span>RutaVida · Registro de emergencias (D5b)</span>
+        <span>Datos guardados en Oracle</span>
     </footer>
 </main>
 </body>

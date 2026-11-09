@@ -1,54 +1,134 @@
-﻿
-# Frontend de RutaVida (maqueta D3, rutas D4 y pantallas de operación D5a)
+﻿# RutaVida — Frontend Web
 
-Interfaz web de RutaVida (decisión DT-01): HTML, CSS, JavaScript y Leaflet.
+Aplicación web del **Sistema Inteligente de Rutas de Emergencia para Valledupar**.
 
-**Todavía no está conectada al backend:** la API REST se desarrolla en la fase 7.
+El frontend está desarrollado con HTML, CSS y JavaScript. Utiliza Leaflet para la visualización geográfica y se comunica con el backend mediante una API REST desarrollada en Java.
 
-| Archivo | Qué es |
-|---|---|
-| `index.html`, `js/login.js` | Inicio de sesión de ejemplo. No envía ni guarda contraseñas. |
-| `dashboard.html`, `js/dashboard.js`, `css/dashboard.css` | Panel principal, mapa, indicadores, emergencias, unidades, hospitales y rutas. |
-| `js/route-layer.js` | Capa visual de rutas D4: escenarios, alternativas, distancias, tiempos y explicaciones. |
-| `data/rutas-demo.js` | Datos de rutas generados para la demostración por el motor RouteDemo. |
-| `css/rutavida.css` | Colores, tipografía y componentes comunes. |
-| `js/valledupar-data.js` | Estación y hospitales documentados en D2, con sus fuentes. |
-| `js/example-data.js` | Usuario, emergencias y unidades de ejemplo; no son datos reales. |
-| `img/logo.svg` | Logo de RutaVida. |
-| `emergencia.html`, `js/emergencia.js` | Registrar emergencia (CU-06): formulario y punto en el mapa. Datos de EJEMPLO, no se guardan en Oracle. |
-| `despacho.html`, `js/despacho.js` | Despacho (CU-08 y CU-09): emergencia, unidades disponibles, rutas y confirmación. Datos de EJEMPLO. |
-| `js/api-client.js` | Único lugar donde las páginas piden y envían datos. Hoy responde con EJEMPLOS; con la API (A12) usará `fetch` según `docs/api.md`. |
-| `js/map-base.js` | Mapa base, marcadores y utilidades comunes de las páginas de operación. |
-| `css/operacion.css` | Estilos de los formularios de operación. |
+## 1. Funcionalidades implementadas
 
-## Cómo abrir la maqueta
+La aplicación web permite:
 
-Desde la raíz del repositorio, inicia un servidor local:
+- Iniciar sesión mediante la API REST.
+- Consultar los tipos de emergencia disponibles en Oracle.
+- Registrar emergencias y almacenarlas en Oracle.
+- Consultar emergencias registradas.
+- Consultar unidades de atención.
+- Visualizar información geográfica de demostración.
 
-```powershell
-jwebserver -d "$PWD\frontend" -p 8000
+**Importante:** los recursos identificados como `EJEMPLO` son datos de demostración. No representan unidades operativas reales.
+
+El despacho operativo de unidades y la integración definitiva de rutas corresponden a la etapa K7 y continúan pendientes.
+
+## 2. Estructura del frontend
+
+```text
+frontend/
+├── css/
+│   └── Estilos de la aplicación
+├── data/
+│   └── Datos geográficos de demostración
+├── js/
+│   ├── api-client.js
+│   ├── example-data.js
+│   ├── dashboard.js
+│   ├── emergencia.js
+│   └── Otros módulos JavaScript
+├── index.html
+├── dashboard.html
+├── emergencia.html
+├── despacho.html
+└── README.md
 ```
 
-Abre <http://localhost:8000/dashboard.html> para ver el panel principal, o <http://localhost:8000/> para abrir la página de inicio si está configurada como página predeterminada.
+## 3. Requisitos
 
-No abras los HTML con doble clic: los módulos JavaScript y el mapa requieren un servidor local.
+Antes de ejecutar la aplicación se necesita:
 
-Para detener el servidor, pulsa `Ctrl+C`.
+- Java configurado en el entorno de desarrollo.
+- Oracle Database disponible.
+- Backend de RutaVida configurado correctamente.
+- IntelliJ IDEA o un entorno compatible para ejecutar el servidor Java.
 
-## Rutas de demostración (D4)
+La configuración de conexión a Oracle debe mantenerse en el backend. No se deben publicar credenciales ni contraseñas.
 
-La capa de rutas utiliza los datos de `data/rutas-demo.js`, generados para la demostración por RouteDemo. Presenta tres escenarios:
+## 4. Ejecución de la aplicación
 
-1. Estación hacia la emergencia.
-2. Rutas después de una congestión simulada.
-3. Traslado desde la emergencia hacia el hospital.
+El frontend se sirve desde el servidor Java del proyecto. No se debe abrir directamente el archivo HTML ni utilizar otro servidor independiente para estas pruebas.
 
-Las rutas muestran alternativas, distancias, tiempos estimados y explicaciones disponibles en los datos. La congestión y la unidad simuladas son elementos demostrativos, no información operativa en tiempo real.
+### Paso 1. Iniciar Oracle
 
-## Reglas
+Verifica que Oracle Database esté iniciado y que la conexión configurada para RutaVida esté disponible.
 
-- La maqueta no realiza autenticación real ni se conecta al backend.
-- Los datos de ejemplo y simulación deben estar identificados como tales.
-- Los datos documentados como reales conservan sus fuentes.
-- El mapa usa Leaflet y OpenStreetMap con su atribución visible.
-- No se deben inventar métricas de respuesta ni presentar datos de ejemplo como reales.
+### Paso 2. Iniciar el backend
+
+1. Abre el proyecto en IntelliJ IDEA.
+2. Abre el módulo `backend`.
+3. Localiza la clase `WebServer`:
+
+   `co.edu.unicesar.rutavida.app.WebServer`
+
+4. Ejecuta su método `main`.
+5. Comprueba que la consola muestre el mensaje:
+
+   `[OK] RutaVida está en http://localhost:8080`
+
+Mantén el servidor ejecutándose mientras utilizas la aplicación web.
+
+### Paso 3. Abrir el frontend
+
+En el navegador ingresa a:
+
+`http://localhost:8080/index.html`
+
+La aplicación mostrará la pantalla de inicio de sesión.
+
+Después de iniciar sesión correctamente, podrás acceder al panel principal y a las páginas de registro y consulta.
+
+También puedes comprobar el control de acceso abriendo directamente:
+
+`http://localhost:8080/dashboard.html`
+
+Si no existe una sesión válida, la aplicación debe redirigir al inicio de sesión.
+
+## 5. Verificación funcional
+
+Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
+
+| Prueba | Resultado esperado |
+|---|---|
+| Abrir `index.html` | Se muestra el inicio de sesión |
+| Iniciar sesión | Se accede al panel con el usuario autenticado |
+| Consultar tipos de emergencia | Se muestran los tipos provenientes de Oracle |
+| Registrar una emergencia | La API confirma el registro y lo almacena en Oracle |
+| Consultar emergencias | Se muestran los registros disponibles |
+| Consultar unidades | Se muestran los recursos disponibles y los datos de demostración identificados como `EJEMPLO` |
+| Abrir el panel sin sesión | Se redirige al inicio de sesión |
+| Detener el backend | Se muestra un mensaje de error de conexión |
+
+Para revisar posibles errores, abre las herramientas del navegador con `F12` y consulta la pestaña **Console**.
+
+## 6. Detener la aplicación
+
+Cuando termines las pruebas:
+
+1. Regresa a IntelliJ IDEA.
+2. Detén la ejecución de `WebServer` mediante el botón **Stop**.
+3. Cierra el navegador si ya no necesitas la aplicación.
+
+## 7. Tecnologías utilizadas
+
+- HTML5.
+- CSS3.
+- JavaScript (módulos ES).
+- Leaflet.
+- OpenStreetMap.
+- API REST desarrollada en Java.
+- Oracle Database.
+
+## 8. Documentación relacionada
+
+- `README.md`: documentación general del proyecto.
+- `backend/README.md`: configuración y ejecución del backend.
+- `docs/`: documentación técnica, arquitectura y registros de implementación.
+
+**Proyecto académico:** Sistema Inteligente de Rutas de Emergencia para Valledupar — RutaVida.

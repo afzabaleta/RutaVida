@@ -1,9 +1,10 @@
-﻿"use strict";
+﻿import { currentSession, login } from "./api-client.js";
 
 const form = document.getElementById("login-form");
 const username = document.getElementById("username");
 const password = document.getElementById("password");
 const togglePassword = document.getElementById("toggle-password");
+const submit = form.querySelector('button[type="submit"]');
 const message = document.getElementById("login-message");
 
 function showMessage(text, type) {
@@ -18,6 +19,12 @@ function hideMessage() {
   message.className = "message";
 }
 
+function hidePassword() {
+  password.type = "password";
+  togglePassword.textContent = "Mostrar";
+  togglePassword.setAttribute("aria-pressed", "false");
+}
+
 togglePassword.addEventListener("click", () => {
   const isVisible = password.type === "text";
 
@@ -26,7 +33,7 @@ togglePassword.addEventListener("click", () => {
   togglePassword.setAttribute("aria-pressed", String(!isVisible));
 });
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   if (!username.value.trim() || !password.value) {
@@ -37,19 +44,51 @@ form.addEventListener("submit", (event) => {
     } else {
       password.focus();
     }
+
     return;
   }
 
-  password.value = "";
-  password.type = "password";
-  togglePassword.textContent = "Mostrar";
-  togglePassword.setAttribute("aria-pressed", "false");
+  submit.disabled = true;
+  showMessage("Verificando…", "info");
 
-  showMessage(
-    "La autenticación aún no está conectada. Esta pantalla es una maqueta.",
-    "info"
-  );
+  try {
+    await login(username.value.trim(), password.value);
+
+    password.value = "";
+    window.location.replace("./dashboard.html");
+  } catch (error) {
+    password.value = "";
+    hidePassword();
+
+    showMessage(error.message, "error");
+    password.focus();
+
+    submit.disabled = false;
+  }
 });
 
 username.addEventListener("input", hideMessage);
 password.addEventListener("input", hideMessage);
+
+async function initialize() {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.has("salir")) {
+    showMessage("Sesión cerrada.", "info");
+  } else if (params.has("expirada")) {
+    showMessage(
+      "La sesión venció o no es válida. Inicie sesión de nuevo.",
+      "info"
+    );
+  }
+
+  try {
+    if (await currentSession()) {
+      window.location.replace("./dashboard.html");
+    }
+  } catch {
+    // The user sees the error when trying to log in.
+  }
+}
+
+initialize();

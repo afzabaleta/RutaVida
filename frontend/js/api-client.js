@@ -1,14 +1,17 @@
 
-import { EXAMPLE_EMERGENCIES, EXAMPLE_UNITS } from "./example-data.js";
+// Single place where the pages talk to the RutaVida REST API.
 
-export const USE_EXAMPLES = true;
+const TOKEN_KEY = "rutavida.token";
 
-const EMERGENCY_TYPES = [
-  { name: "EMERGENCIA_MEDICA", label: "Emergencia médica", priority: 9 },
-  { name: "INCENDIO", label: "Incendio", priority: 9 },
-  { name: "ACCIDENTE_VIAL", label: "Accidente de tránsito", priority: 8 },
-  { name: "RESCATE", label: "Rescate", priority: 7 },
-];
+const GENERIC_ERROR = "Ocurrió un error inesperado. Intente de nuevo.";
+const NO_SERVER = "No se pudo conectar con el servidor de RutaVida. Revisa que WebServer esté encendido.";
+
+const TYPE_LABELS = {
+  EMERGENCIA_MEDICA: "Emergencia médica",
+  INCENDIO: "Incendio",
+  ACCIDENTE_VIAL: "Accidente de tránsito",
+  RESCATE: "Rescate",
+};
 
 export const SEVERITIES = [
   { code: "BAJA", label: "Baja" },
@@ -17,86 +20,251 @@ export const SEVERITIES = [
   { code: "CRITICA", label: "Crítica" },
 ];
 
-const STORAGE_KEY = "rutavida.ejemplo.emergencias";
-
-function readRegistered() {
-  try {
-    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "[]");
-  } catch {
-    return [];
+export class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
   }
 }
 
-function writeRegistered(list) {
+function readToken() {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    return sessionStorage.getItem(TOKEN_KEY);
   } catch {
-    // Storage blocked: the example still works for this page.
+    return null;
   }
 }
 
-function copy(value) {
-  return JSON.parse(JSON.stringify(value));
+function saveToken(token) {
+  try {
+    sessionStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // Session lasts only while this page is open.
+  }
+}
+
+function clearToken() {
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+export function hasToken() {
+  return Boolean(readToken());
+}
+
+async function request(method, path, body) {
+  const headers = { Accept: "application/json" };
+  const token = readToken();
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  let response;
+
+  try {
+    response = await fetch(path, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(0, NO_SERVER);
+  }
+
+  let answer = null;
+
+  try {
+    answer = await response.json();
+  } catch {
+    // Not JSON.
+  }
+
+  if (response.ok && answer?.success === true) {
+    return answer.value;
+  }
+
+  if (response.status === 401) {
+    clearToken();
+  }
+
+  throw new ApiError(
+    response.status,
+    answer?.message || GENERIC_ERROR
+  );
+}
+
+export async function login(username, password) {
+  const session = await request("POST", "/api/auth/login", {
+    username,
+    password,
+  });
+
+  saveToken(session.token);
+  return session;
+}
+
+export async function logout() {
+  try {
+    if (hasToken()) {
+      await request("POST", "/api/auth/logout");
+    }
+  } catch {
+    // Token is cleared anyway.
+  } finally {
+    clearToken();
+  }
+}
+
+export async function currentSession() {
+  if (!hasToken()) {
+    return null;
+  }
+
+  try {
+    return await request("GET", "/api/auth/session");
+  } catch (error) {
+    if (error.status === 401) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function hasPermission(session, permission) {
+  return Boolean(session?.permissions?.includes(permission));
+}
+
+function toPoint(location) {
+  return location
+    ? [location.latitude, location.longitude]
+    : null;
+}
+
+function round6(value) {
+  return Math.round(value * 1e6) / 1e6;
 }
 
 export function typeLabel(name) {
-  return EMERGENCY_TYPES.find((type) => type.name === name)?.label ?? name;
+  return TYPE_LABELS[name] ?? String(name ?? "").replaceAll("_", " ");
 }
 
-export async function listEmergencyTypes() {
-  return copy(EMERGENCY_TYPES);
+let typesPromise = null;
+
+export function listEmergencyTypes() {
+  if (!typesPromise) {
+    typesPromise = request("GET", "/api/emergency-types")
+      .then((types) =>
+        types.map((type) => ({
+          ...type,
+          label: typeLabel(type.name),
+        }))
+      )
+      .catch((error) => {
+        typesPromise = null;
+        throw error;
+      });
+  }
+
+  return typesPromise;
+}
+
+function toEmergency(emergency, types) {
+  const type = types.find(
+    (item) => item.id === emergency.emergencyTypeId
+  );
+
+  return {
+    id: emergency.id,
+    code: `#${emergency.id}`,
+    type: type?.name ?? `TIPO_${emergency.emergencyTypeId}`,
+    severity: emergency.severity,
+    status: emergency.status,
+    place: emergency.addressReference,
+    description: emergency.description,
+    location: toPoint(emergency.location),
+    reportedAt: emergency.reportedAt,
+  };
 }
 
 export async function listEmergencies() {
-  return copy([...EXAMPLE_EMERGENCIES, ...readRegistered()])
-    .map((emergency) => ({ ...emergency, example: true }));
+  const [types, emergencies] = await Promise.all([
+    listEmergencyTypes(),
+    request("GET", "/api/emergencies"),
+  ]);
+
+  return emergencies.map((emergency) =>
+    toEmergency(emergency, types)
+  );
 }
 
-export async function findEmergency(code) {
-  const all = await listEmergencies();
-  return all.find((emergency) => emergency.code === code) ?? null;
+export async function findEmergency(id) {
+  try {
+    const [types, emergency] = await Promise.all([
+      listEmergencyTypes(),
+      request(
+        "GET",
+        `/api/emergencies/${encodeURIComponent(id)}`
+      ),
+    ]);
+
+    return toEmergency(emergency, types);
+  } catch (error) {
+    if (error.status === 404 || error.status === 400) {
+      return null;
+    }
+    throw error;
+  }
 }
 
-export async function registerEmergency(request) {
-  const registered = readRegistered();
+export async function registerEmergency(form) {
+  const [types, emergency] = await Promise.all([
+    listEmergencyTypes(),
+    request("POST", "/api/emergencies", {
+      emergencyTypeId: Number(form.typeId),
+      addressReference: form.address,
+      location: {
+        latitude: round6(form.latitude),
+        longitude: round6(form.longitude),
+      },
+      severity: form.severity,
+      description: form.description || null,
+    }),
+  ]);
 
-  const emergency = {
-    code: `EJ-${String(101 + registered.length)}`,
-    type: request.type,
-    severity: request.severity,
-    status: "REPORTADA",
-    place: request.address,
-    description: request.description || null,
-    location: [request.latitude, request.longitude],
-  };
-
-  registered.push(emergency);
-  writeRegistered(registered);
-
-  return { ...copy(emergency), example: true };
+  return toEmergency(emergency, types);
 }
 
 export async function listUnits() {
-  return copy(EXAMPLE_UNITS).map((unit) => ({
-    ...unit,
-    example: true,
+  const [units, vehicleTypes, stations] = await Promise.all([
+    request("GET", "/api/units"),
+    request("GET", "/api/vehicle-types"),
+    request("GET", "/api/stations"),
+  ]);
+
+  return units.map((unit) => ({
+    id: unit.id,
+    code: unit.unitCode,
+    type:
+      vehicleTypes.find(
+        (type) => type.id === unit.vehicleTypeId
+      )?.name ?? "UNIDAD",
+    status: unit.operationalStatus,
+    place:
+      stations.find(
+        (station) => station.id === unit.stationId
+      )?.name ?? "Sin estación",
+    location: toPoint(unit.lastLocation),
+    example: unit.unitCode.startsWith("EJEMPLO-"),
   }));
 }
 
-export async function dispatchUnit(emergencyCode, unitCode) {
-  const registered = readRegistered();
-  const own = registered.find((emergency) => emergency.code === emergencyCode);
-
-  if (own) {
-    own.status = "ASIGNADA";
-    own.unit = unitCode;
-    writeRegistered(registered);
-  }
-
-  return {
-    emergencyCode,
-    unitCode,
-    status: "ASIGNADA",
-    example: true,
-  };
-}
+export const DISPATCH_AVAILABLE = false;

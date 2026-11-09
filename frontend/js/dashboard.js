@@ -9,10 +9,10 @@ import {
 import {
   EXAMPLE_EMERGENCIES,
   EXAMPLE_UNITS,
-  EXAMPLE_USER,
 } from "./example-data.js";
 
 import { showRoutes } from "./route-layer.js";
+import { startPage } from "./page-session.js";
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
@@ -144,7 +144,7 @@ function focusMarker(map, marker) {
   marker.openPopup();
 }
 
-function initializeDashboard() {
+function initializeMap() {
   const mapElement = byId("map");
 
   if (typeof L === "undefined") {
@@ -154,9 +154,6 @@ function initializeDashboard() {
     }
     return;
   }
-
-  byId("user-name").textContent = EXAMPLE_USER.name;
-  byId("user-role").textContent = EXAMPLE_USER.role;
 
   byId("emergency-count").textContent = String(
     EXAMPLE_EMERGENCIES.length,
@@ -329,7 +326,7 @@ function initializeDashboard() {
     );
   }
 
-  // D4: cargar y mostrar las rutas calculadas por RouteDemo.
+  // Rutas de demostración.
   requestAnimationFrame(() => {
     map.invalidateSize();
 
@@ -339,6 +336,14 @@ function initializeDashboard() {
       note: byId("route-note"),
     });
   });
+}
+
+async function initializeDashboard() {
+  const session = await startPage();
+
+  if (!session) return;
+
+  initializeMap();
 }
 
 if (document.readyState === "loading") {

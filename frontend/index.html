@@ -23,7 +23,7 @@
 
       <p id="login-message" class="message" role="alert" aria-live="polite" hidden></p>
 
-      <form id="login-form" novalidate>
+        <form id="login-form" method="post" novalidate>
         <div class="field">
           <label for="username">Usuario</label>
           <input id="username" name="username" type="text"
@@ -46,11 +46,10 @@
       </form>
 
       <p class="muted">
-        Maqueta académica. El inicio de sesión todavía no está conectado al sistema.
-      </p>
+          Prototipo académico. No reemplaza un servicio oficial de despacho de emergencias.
     </section>
   </main>
 
-  <script src="js/login.js"></script>
+  <script type="module" src="js/login.js"></script>
 </body>
 </html>

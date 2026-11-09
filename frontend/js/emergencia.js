@@ -1,12 +1,14 @@
-
-// Register emergency page (CU-06).
-// The server will repeat all validations when the API is available.
+// Register emergency page (CU-06): POST /api/emergencies.
+// The page checks the form to help the user; the server validates everything again.
 
 import {
+  hasPermission,
   listEmergencyTypes,
   registerEmergency,
   SEVERITIES,
 } from "./api-client.js";
+
+import { startPage } from "./page-session.js";
 
 import {
   byId,
@@ -51,7 +53,7 @@ function setPoint(map, latitude, longitude) {
       map,
       point,
       COLORS.emergency,
-      "Emergencia nueva (EJEMPLO)",
+      "Emergencia nueva",
     );
   }
 
@@ -66,7 +68,7 @@ async function fillTypes() {
 
   for (const type of await listEmergencyTypes()) {
     const option = document.createElement("option");
-    option.value = type.name;
+    option.value = String(type.id);
     option.textContent = type.label;
     select.appendChild(option);
   }
@@ -92,13 +94,12 @@ function fillSeverities() {
 
 function readForm(form) {
   const data = new FormData(form);
-
-  const type = data.get("type");
+  const typeId = data.get("type");
   const severity = data.get("severity");
   const address = String(data.get("address") ?? "").trim();
   const description = String(data.get("description") ?? "").trim();
 
-  if (!type) {
+  if (!typeId) {
     showMessage("Selecciona el tipo de emergencia.", true);
     return null;
   }
@@ -122,7 +123,7 @@ function readForm(form) {
   }
 
   return {
-    type,
+    typeId,
     severity,
     address,
     description,
@@ -132,8 +133,26 @@ function readForm(form) {
 }
 
 async function initialize() {
-  await fillTypes();
+  const session = await startPage();
+  if (!session) return;
+
+  const form = byId("emergency-form");
+  const button = form.querySelector('button[type="submit"]');
+
+  try {
+    await fillTypes();
+  } catch (error) {
+    console.error("Emergency types could not be loaded:", error);
+    showMessage(error.message, true);
+    button.disabled = true;
+  }
+
   fillSeverities();
+
+  if (!hasPermission(session, "EMERGENCIAS:GESTIONAR")) {
+    showMessage("Tu rol no tiene permiso para registrar emergencias.", true);
+    button.disabled = true;
+  }
 
   const map = createBaseMap("map");
 
@@ -151,33 +170,30 @@ async function initialize() {
     }
   });
 
-  const form = byId("emergency-form");
-
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const request = readForm(form);
-
     if (!request) return;
 
-    const button = form.querySelector('button[type="submit"]');
     button.disabled = true;
 
     try {
       const emergency = await registerEmergency(request);
 
       showMessage(
-        `Emergencia ${emergency.code} registrada como REPORTADA (EJEMPLO, no se guardó en Oracle). Abriendo el despacho…`,
+        `Emergencia ${emergency.code} registrada como ${emergency.status} y guardada en Oracle. Abriendo el despacho…`,
         false,
       );
 
       setTimeout(() => {
         window.location.href =
-          `./despacho.html?emergencia=${encodeURIComponent(emergency.code)}`;
+          `./despacho.html?emergencia=${encodeURIComponent(emergency.id)}`;
       }, 1200);
     } catch (error) {
+      // The message comes from the server in Spanish (docs/api.md, 1.2).
       console.error("Emergency registration failed:", error);
-      showMessage("No se pudo registrar la emergencia. Intenta de nuevo.", true);
+      showMessage(error.message, true);
       button.disabled = false;
     }
   });
