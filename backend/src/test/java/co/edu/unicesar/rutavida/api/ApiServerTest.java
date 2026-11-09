@@ -4,14 +4,17 @@ import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.WebTestSupport;
+import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyTypeDAO;
+import co.edu.unicesar.rutavida.service.DashboardService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import co.edu.unicesar.rutavida.dto.DashboardSummary;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,8 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The real HTTP server on a free port of this computer, with the EXAMPLE users of
  * WebTestSupport, the in-memory catalogs of CatalogTestSupport and EmergencyService on
- * in-memory DAOs. Checks the contract of docs/api.md (sections 1, 2, 4, 5 and 7) as the web
- * will see it. Does not need Oracle.
+ * in-memory DAOs, and a dashboard with fixed counts. Checks the contract of docs/api.md
+ * (sections 1, 2, 4, 5, 7 and 11) as the web will see it. Does not need Oracle.
  */
 class ApiServerTest {
 
@@ -71,8 +74,12 @@ class ApiServerTest {
         EmergencyController emergencies = new EmergencyController(emergencyService, support.authService,
                 support.sessionContext);
 
-        server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies, frontend);
-        int port = freePort();
+        // EXAMPLE counts; no unit has arrived today, so there is no average response time.
+        DashboardController dashboard = new DashboardController(new DashboardService(
+                (since, start, end) -> new DashboardSummary(3, 3, 1, 2, 1, 4, 0, null), support.clock));
+
+        server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
+                dashboard, frontend);        int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
     }
@@ -283,4 +290,29 @@ class ApiServerTest {
         assertEquals(403, send("GET", "/api/units", login("luis.gomez"), null).statusCode(),
                 "a role without UNIDADES / CONSULTAR");
     }
+
+
+    // ------------------------------------------------------------ dashboard (A14)
+
+    @Test
+    void theDashboardSummaryKeepsNullWhenThereIsNoAverage() throws Exception {
+        HttpResponse<String> response = send("GET", "/api/dashboard/summary", login("marta.ruiz"), null);
+
+        assertEquals(200, response.statusCode(), response.body());
+        JsonNode summary = value(response);
+        assertEquals(3, summary.get("activeEmergencies").asInt());
+        assertEquals(3, summary.get("availableUnits").asInt());
+        assertEquals(1, summary.get("busyUnits").asInt());
+        assertEquals(2, summary.get("operationalHospitals").asInt());
+        assertEquals(1, summary.get("activeIncidents").asInt());
+        assertEquals(4, summary.get("congestedSegments").asInt());
+        assertEquals(0, summary.get("closedToday").asInt());
+        assertTrue(summary.has("averageResponseMinutes"), "the field is sent");
+        assertTrue(summary.get("averageResponseMinutes").isNull(), "null, never 0 (docs/api.md 11.1)");
+
+        assertEquals(403, send("GET", "/api/dashboard/summary", login("luis.gomez"), null).statusCode(),
+                "a role without REPORTES / CONSULTAR");
+        assertEquals(401, send("GET", "/api/dashboard/summary", null, null).statusCode());
+    }
+
 }

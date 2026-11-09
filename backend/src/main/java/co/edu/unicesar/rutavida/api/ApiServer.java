@@ -3,6 +3,7 @@ package co.edu.unicesar.rutavida.api;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
+import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
@@ -50,10 +51,12 @@ public final class ApiServer {
      * false, so an open tab does not keep the session alive (DT-08).
      */
     private static final boolean USER_ACTION = true;
+    private static final boolean AUTOMATIC = false;
 
     private final WebSessionController sessions;
     private final CatalogController catalogs;
     private final EmergencyController emergencies;
+    private final DashboardController dashboard;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -62,10 +65,11 @@ public final class ApiServer {
      * @param frontendDirectory folder with index.html; null to serve only the API (tests)
      */
     public ApiServer(WebSessionController sessions, CatalogController catalogs,
-                     EmergencyController emergencies, Path frontendDirectory) {
+                     EmergencyController emergencies, DashboardController dashboard, Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
+        this.dashboard = Objects.requireNonNull(dashboard, "dashboard");
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -122,6 +126,10 @@ public final class ApiServer {
                 ctx -> send(ctx, catalogs.stations(), ApiStatus.OK)));
         config.routes.get("/api/hospitals", secured("HOSPITALES", "CONSULTAR", USER_ACTION,
                 ctx -> send(ctx, catalogs.hospitals("true".equalsIgnoreCase(ctx.queryParam("all"))), ApiStatus.OK)));
+
+        // 11. Dashboard. The panel refreshes it by itself, so it does not keep the session alive.
+        config.routes.get("/api/dashboard/summary", secured("REPORTES", "CONSULTAR", AUTOMATIC,
+                ctx -> send(ctx, dashboard.summary(), ApiStatus.OK)));
 
         config.routes.exception(Exception.class, this::onError);
     }
