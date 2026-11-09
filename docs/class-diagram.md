@@ -1487,13 +1487,14 @@ classDiagram
         +tick() void
     }
     class TrackingService {
-        -positionSource : VehiclePositionSource
+        -positions : VehiclePositionSource
         -vehicleDao : EmergencyVehicleDAO
         -locationDao : VehicleLocationDAO
-        -dispatchService : DispatchService
-        -clock : Clock
-        +refreshPositions() void
-        +currentPosition(vehicleId: long) GeoPoint
+        -dispatchRules : DispatchService
+        -transactions : TransactionManager
+        +refreshPositions() int
+        +currentPosition(vehicleId: long) Optional~GeoPoint~
+        +history(vehicleId: long, from: LocalDateTime, to: LocalDateTime) List~VehicleLocation~
     }
     class VehiclePositionSource {
         <<interface>>
@@ -1501,11 +1502,13 @@ classDiagram
     }
     class VehicleMovementSimulator {
         -graph : RoadGraph
-        -routeDao : RouteDAO
+        -cost : CostFunction
         -clock : Clock
+        -trips : Map~Long, Trip~
         +poll() List~VehicleLocation~
-        +follow(vehicleId: long, route: Route) void
+        +follow(vehicleId: long, route: Route, vehicle: VehicleProfile) void
         +stopFollowing(vehicleId: long) void
+        +isFollowing(vehicleId: long) boolean
     }
     class GpsPositionSource {
         <<fase 2>>
@@ -1529,6 +1532,7 @@ classDiagram
     }
     class RoadConditionService
     class IncidentService
+    class RoadGraph
     class SimulatedTrafficProvider
     class RouteMonitor
     class DispatchService
@@ -1543,9 +1547,12 @@ classDiagram
     SimulationEngine --> TrackingService
     SimulationEngine --> RouteMonitor
     TrackingService ..> DispatchService : moveVehicle
+    VehicleMovementSimulator --> RoadGraph : lee tramos y tráfico
     RoadClosureScenario --> IncidentService
     RushHourScenario --> SimulatedTrafficProvider
 ```
+
+**Seguimiento y movimiento simulado (A13).** `VehicleMovementSimulator` mueve cada unidad por los tramos de su ruta con la misma función de costo del motor (`EmergencyCost`) y el tráfico actual del grafo, así que llega en el tiempo que la ruta estimó y se demora si hay trancón. Un tramo cerrado la detiene hasta que reciba la ruta recalculada (`follow` otra vez). `TrackingService` guarda la última posición en `VEHICULO_EMERGENCIA` y el historial en `UBICACION_VEHICULO`: una transacción por llamada, el historial en un solo lote y sin escribir una unidad que no se movió. Todas las posiciones llevan la fuente `SIMULACION`. El simulador no lee `RouteDAO`: recibe la ruta ya cargada.
 
 **Cambios respecto al diseño del documento consolidado (Parte IV):**
 
@@ -2061,7 +2068,8 @@ classDiagram
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
-| Simulación | `simulation` | Diseñado |
+| `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. Se conecta en `AppContext` y en `GET /api/tracking` en A12e; `SimulationEngine` lo llama en cada ciclo (K9) |
+| Demás clases de simulación (`SimulationEngine`, escenarios) | `simulation` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
 | `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos. `find` y el uso de `OperationResult.failure` se agregaron en A12b |
 | Demás controladores | `controller` | Diseñado |
