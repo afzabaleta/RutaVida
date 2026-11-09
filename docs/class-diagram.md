@@ -741,6 +741,7 @@ classDiagram
     class RoadSegmentDAO {
         <<interface>>
         +findAll() List~RoadSegment~
+        +findById(id: long) Optional~RoadSegment~
         +updateStatus(id: long, status: RoadSegmentStatus) void
     }
     class TrafficLightDAO {
@@ -948,7 +949,9 @@ Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la secció
 
 Cada servicio agrupa las reglas de un área del negocio (*High Cohesion*) y recibe sus dependencias por constructor. Es el único lugar donde viven las reglas: el modelo solo guarda datos y el DAO solo los lee y escribe.
 
-En `EmergencyService`, `DispatchService` e `IncidentService` ya están **programadas** las reglas de estado (los métodos `validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`, `reject`, `close`…). Los métodos de caso de uso que usan DAO (`register`, `dispatch`, `report`…) y sus dependencias siguen **diseñados** para el Sprint 3 (ver sección 9).
+
+Los casos de uso con DAO de emergencias (`register`, S6) e incidentes (`report`, `changeStatus`, S7) ya están programados; los de despacho (`dispatch`…) siguen diseñados (ver sección 9).
+
 
 ```mermaid
 ---
@@ -1395,33 +1398,35 @@ classDiagram
         +poll() List~EdgeUpdate~
         +source() TrafficSource
     }
-    class IncidentService {
-        -incidentDao : RoadIncidentDAO
-        -roadConditions : RoadConditionService
-        -routeMonitor : RouteMonitor
-        -transactions : TransactionManager
-        -auditService : AuditService
-        -clock : Clock
-        +validateNew(incident: RoadIncident) void
-        +activate(incident: RoadIncident, blocksSegment: boolean) void
-        +reject(incident: RoadIncident, at: LocalDateTime) void
-        +close(incident: RoadIncident, at: LocalDateTime) void
-        +affectsRouting(incident: RoadIncident) boolean
-        +blocksTraffic(incident: RoadIncident) boolean
-        +report(request: IncidentRequest, origin: IncidentOrigin, session: UserSession) RoadIncident
-        +activate(id: long, blocksSegment: boolean, session: UserSession) void
-        +reject(id: long, session: UserSession) void
-        +close(id: long, session: UserSession) void
-        +listPending() List~RoadIncident~
-        +listActive() List~RoadIncident~
-    }
+
+     class IncidentService {
+    -incidentDao : RoadIncidentDAO
+    -segmentDao : RoadSegmentDAO
+    -auditService : AuditService
+    -transactions : TransactionManager
+    -clock : Clock
+    +report(request: IncidentRequest, origin: IncidentOrigin, session: UserSession) RoadIncident
+    +changeStatus(id: long, next: IncidentStatus) RoadIncident
+    +findById(id: long) RoadIncident
+    +listOpen() List~RoadIncident~
+    +listByStatus(status: IncidentStatus) List~RoadIncident~
+    +validateNew(incident: RoadIncident) void
+    +activate(incident: RoadIncident, blocksSegment: boolean) void
+    +reject(incident: RoadIncident, at: LocalDateTime) void
+    +close(incident: RoadIncident, at: LocalDateTime) void
+    +affectsRouting(incident: RoadIncident) boolean
+    +blocksTraffic(incident: RoadIncident) boolean
+}
     class IncidentRequest {
-        <<record>>
-        +segmentId : long
-        +type : IncidentType
-        +severity : Severity
-        +description : String
-    }
+    <<record>>
+    +segmentId : long
+    +type : IncidentType
+    +severity : Severity
+    +blocksSegment : boolean
+    +description : String
+}
+
+
     class RouteMonitor {
         -routeDao : RouteDAO
         -routeService : RouteService
@@ -1446,7 +1451,7 @@ classDiagram
     RouteService --> AlternativeRouteFinder
     RouteService --> RouteExplanationBuilder
     RouteService ..> RouteOption
-    IncidentService --> RoadConditionService
+    IncidentService ..> RoadConditionService : K7
     IncidentService --> RouteMonitor : revisa rutas activas
     IncidentService ..> IncidentRequest
     RouteMonitor --> RouteService
@@ -1537,7 +1542,7 @@ classDiagram
     VehiclePositionSource <|.. GpsPositionSource
     DemoScenario <|.. RoadClosureScenario
     DemoScenario <|.. RushHourScenario
-    IncidentService --> RoadConditionService
+    IncidentService ..> RoadConditionService : K7
     TrackingService --> VehiclePositionSource
     SimulationEngine --> RoadConditionService
     SimulationEngine --> TrackingService
@@ -1729,14 +1734,18 @@ classDiagram
         -session : SessionContext
         +options(emergencyId: long, vehicleId: long) OperationResult~List~RouteOption~~
     }
-    class IncidentController {
-        -incidentService : IncidentService
-        -session : SessionContext
-        +report(request: IncidentRequest) OperationResult~RoadIncident~
-        +activate(incidentId: long, blocksSegment: boolean) OperationResult~Void~
-        +reject(incidentId: long) OperationResult~Void~
-        +listPending() List~RoadIncident~
-    }
+
+class IncidentController {
+    -incidentService : IncidentService
+    -authService : AuthService
+    -session : SessionContext
+    +report(request: IncidentRequest) OperationResult~RoadIncident~
+    +changeStatus(incidentId: long, next: IncidentStatus) OperationResult~RoadIncident~
+    +listOpen() OperationResult~List~RoadIncident~~
+    +listByStatus(status: IncidentStatus) OperationResult~List~RoadIncident~~
+    +find(incidentId: long) OperationResult~RoadIncident~
+}
+
     class DashboardController {
         -dashboardService : DashboardService
         +summary() DashboardSummary
@@ -2068,5 +2077,6 @@ classDiagram
 | `ApiServer`, `ApiStatus`, `ApiResponse`, `LoginRequest`, `JsonMapperFactory`, `WebServer`, `WebSessionController`, `CatalogController`, `CatalogService`, `LoginResponse`, `SessionUser`, `ErrorKind`, `SessionRequiredException` y los cambios de `SessionContext` y `OperationResult` | `api`, `app`, `controller`, `service`, `dto`, `exception` | **Programado y probado** (A12a): sesión con token, permisos por ruta, errores en JSON y `GET /api/emergency-types` |
 | Rutas de emergencias (`/api/emergencies`, `/{id}`, `/{id}/history`) y de recursos (`/api/vehicle-types`, `/api/units`, `/api/stations`, `/api/hospitals`); `ApiServer.pathId`; métodos nuevos de `CatalogService` y `CatalogController` | `api`, `controller`, `service`, `app` | **Programado y probado** (A12b) sin Oracle. Despacho, rutas, seguimiento y simulación llegan con K7 |
 | Vista web | `frontend/` | Conectada a la API (D5b): inicio de sesión, registro de emergencias y consulta de emergencias y unidades. El panel principal sigue con datos de EJEMPLO; el despacho se conecta con K7 |
+| `IncidentService`, `IncidentRequest`, `IncidentController`, `RoadSegmentDAO.findById` | `service`, `dto`, `controller`, `dao` | **Programado y probado (S7)** con DAO falsos; `findById`, contra Oracle. Aplicar el incidente al grafo y recalcular rutas corresponde a K7 |
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
