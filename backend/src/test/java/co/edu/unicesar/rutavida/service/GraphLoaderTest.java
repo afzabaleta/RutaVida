@@ -72,12 +72,17 @@ class GraphLoaderTest {
             new TrafficLight(3, 4, "SEM-4", TrafficLightState.OUT_OF_SERVICE, 60, false, RecordStatus.ACTIVE),
             new TrafficLight(4, 1, "SEM-1", TrafficLightState.GREEN, 60, false, RecordStatus.INACTIVE));
 
-    /** RoadSegmentDAO has two methods, so it cannot be a lambda. */
+    /** RoadSegmentDAO has several methods, so it cannot be a lambda. */
     private static RoadSegmentDAO segments(List<RoadSegment> rows) {
         return new RoadSegmentDAO() {
             @Override
             public List<RoadSegment> findAll() {
                 return rows;
+            }
+
+            @Override
+            public Optional<RoadSegment> findById(long id) {
+                throw new UnsupportedOperationException("GraphLoader only uses findAll");
             }
 
             @Override
