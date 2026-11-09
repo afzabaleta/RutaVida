@@ -7,6 +7,7 @@ import co.edu.unicesar.rutavida.model.enums.RoadSegmentStatus;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * RoadSegmentDAO on Oracle (table TRAMO_VIAL). The virtual column tiempo_base_seg is not
@@ -14,10 +15,13 @@ import java.util.Objects;
  */
 public class JdbcRoadSegmentDAO extends AbstractJdbcDAO implements RoadSegmentDAO {
 
-    private static final String SELECT_ALL =
+    private static final String COLUMNS =
             "SELECT id_tramo, id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via,"
-                    + " distancia_m, velocidad_max_kmh, estado"
-                    + " FROM tramo_vial ORDER BY id_tramo";
+                    + " distancia_m, velocidad_max_kmh, estado FROM tramo_vial";
+
+    private static final String SELECT_ALL = COLUMNS + " ORDER BY id_tramo";
+
+    private static final String SELECT_BY_ID = COLUMNS + " WHERE id_tramo = ?";
 
     private static final String UPDATE_STATUS =
             "UPDATE tramo_vial SET estado = ? WHERE id_tramo = ?";
@@ -39,6 +43,11 @@ public class JdbcRoadSegmentDAO extends AbstractJdbcDAO implements RoadSegmentDA
     @Override
     public List<RoadSegment> findAll() {
         return queryList(SELECT_ALL, MAPPER);
+    }
+
+    @Override
+    public Optional<RoadSegment> findById(long id) {
+        return queryOne(SELECT_BY_ID, MAPPER, id);
     }
 
     @Override

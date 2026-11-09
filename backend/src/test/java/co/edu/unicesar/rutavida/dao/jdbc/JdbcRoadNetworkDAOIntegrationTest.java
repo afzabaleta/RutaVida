@@ -154,6 +154,23 @@ class JdbcRoadNetworkDAOIntegrationTest {
     }
 
     @Test
+    void findByIdReadsOneSegment() {
+        inRolledBackTransaction(jdbc, () -> {
+            long[] ids = insertTwoNodes();
+            long id = insertSegment(ids[0], ids[1], "VIA PRUEBA S7");
+
+            RoadSegment found = segmentDao.findById(id).orElseThrow();
+
+            assertEquals(id, found.getId());
+            assertEquals(ids[0], found.getFromNodeId());
+            assertEquals(ids[1], found.getToNodeId());
+            assertEquals("VIA PRUEBA S7", found.getRoadName());
+            assertEquals(RoadSegmentStatus.OPEN, found.getStatus());
+            assertTrue(segmentDao.findById(-1).isEmpty());
+        });
+    }
+
+    @Test
     void trafficLightsAreReadWithEveryColumn() {
         inRolledBackTransaction(jdbc, () -> {
             long[] ids = insertTwoNodes();
