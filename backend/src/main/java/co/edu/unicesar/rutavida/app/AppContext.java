@@ -127,14 +127,13 @@ public final class AppContext {
         // Dashboard (A14): one query on the views and fn_tiempo_respuesta of 04_plsql.sql
         this.dashboardController = new DashboardController(
                 new DashboardService(new JdbcDashboardDAO(jdbc), clock));
-        // Next DAOs, services and controllers are created here as they are implemented.
-
 
         // Road incidents (S7) and their segments on the map (A12c)
         IncidentService incidentService = new IncidentService(new JdbcRoadIncidentDAO(jdbc),
                 new JdbcRoadSegmentDAO(jdbc), auditService, jdbc, clock);
         this.incidentController = new IncidentController(incidentService, authService, session);
         this.roadMapController = new RoadMapController(new RoadMapService(new JdbcRoadMapDAO(jdbc)));
+        // Next DAOs, services and controllers are created here as they are implemented.
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
         this.graphLoader = new GraphLoader(
@@ -193,7 +192,6 @@ public final class AppContext {
     public DashboardController dashboardController() {
         return dashboardController;
     }
-
 
     /** Road incidents: report, validate and list (S7, A12c). */
     public IncidentController incidentController() {
