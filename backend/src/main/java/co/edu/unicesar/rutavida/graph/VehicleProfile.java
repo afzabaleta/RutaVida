@@ -14,6 +14,16 @@ public record VehicleProfile(String type, double congestionRelief, double signal
     public static final VehicleProfile AMBULANCE = new VehicleProfile("AMBULANCIA", 0.35, 0.60, 90);
     public static final VehicleProfile FIRE_TRUCK = new VehicleProfile("BOMBERO", 0.25, 0.50, 80);
 
+    public static VehicleProfile forType(String typeName) {
+        if (AMBULANCE.type().equals(typeName)) {
+            return AMBULANCE;
+        }
+        if (FIRE_TRUCK.type().equals(typeName)) {
+            return FIRE_TRUCK;
+        }
+        throw new IllegalArgumentException("No vehicle profile for type " + typeName);
+    }
+
     public VehicleProfile {
         if (type == null || type.isBlank()) {
             throw new IllegalArgumentException("type is required");
