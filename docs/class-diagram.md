@@ -814,11 +814,17 @@ classDiagram
         +summary(trafficSince: LocalDateTime, dayStart: LocalDateTime, dayEnd: LocalDateTime) DashboardSummary
     }
     
+    class RoadMapDAO {
+        <<interface>>
+        +segmentViews(segmentIds: Collection~Long~) List~SegmentView~
+    }
+    
     class Route
     class VehicleLocation
     class Alert
     class Notification
     class DashboardSummary
+    class SegmentView
     
 
     RouteDAO ..> Route
@@ -826,8 +832,9 @@ classDiagram
     AlertDAO ..> Alert
     NotificationDAO ..> Notification
     DashboardDAO ..> DashboardSummary : solo lectura
+    RoadMapDAO ..> SegmentView : solo lectura
 ```
-`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es la única interfaz DAO que depende de `dto`, y solo para leer.
+`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es una de las dos interfaces DAO que dependen de `dto`, y solo para leer. La otra es `RoadMapDAO` (A12c): un tramo con las coordenadas de sus dos nodos, para dibujarlo en el mapa.
 
 ---
 
@@ -927,6 +934,7 @@ classDiagram
     class JdbcAlertDAO
     class JdbcNotificationDAO
     class JdbcDashboardDAO
+    class JdbcRoadMapDAO
 
     AbstractJdbcDAO <|-- JdbcUserDAO
     AbstractJdbcDAO <|-- JdbcRoleDAO
@@ -949,9 +957,10 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcAlertDAO
     AbstractJdbcDAO <|-- JdbcNotificationDAO
     AbstractJdbcDAO <|-- JdbcDashboardDAO
+    AbstractJdbcDAO <|-- JdbcRoadMapDAO
 ```
 
-Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 20 flechas de realización no se dibujan para que el diagrama se pueda leer.
+Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 21 flechas de realización no se dibujan para que el diagrama se pueda leer.
 
 ---
 
@@ -1080,6 +1089,13 @@ classDiagram
         -clock : Clock
         +getSummary() DashboardSummary
     }
+    
+    class RoadMapService {
+        -mapDao : RoadMapDAO
+        +describe(incidents: List~RoadIncident~) List~IncidentView~
+        +describe(incident: RoadIncident) IncidentView
+    }
+    
     class AlertService {
         -alertDao : AlertDAO
         -notificationDao : NotificationDAO
@@ -1165,6 +1181,28 @@ classDiagram
         +closedToday : int
         +averageResponseMinutes : Double
     }
+    class SegmentView {
+        <<record>>
+        +segmentId : long
+        +streetName : String
+        +from : GeoPoint
+        +to : GeoPoint
+    }
+    class IncidentView {
+        <<record>>
+        +id : long
+        +segmentId : long
+        +type : IncidentType
+        +severity : Severity
+        +blocksSegment : boolean
+        +description : String
+        +startedAt : LocalDateTime
+        +endedAt : LocalDateTime
+        +status : IncidentStatus
+        +origin : IncidentOrigin
+        +segment : SegmentView
+        +of(incident: RoadIncident, segment: SegmentView) IncidentView$
+    }
     class UserRequest {
         <<record>>
         +roleId : long
@@ -1208,6 +1246,8 @@ class Messages {
     DispatchService ..> UnitSuggestion
     HospitalService ..> HospitalOption
     DashboardService ..> DashboardSummary
+    RoadMapService ..> IncidentView
+    IncidentView --> SegmentView
     UserService ..> UserRequest
     EmergencyService ..> ValidationUtil
 ```
@@ -1761,6 +1801,11 @@ class IncidentController {
     class DashboardController {
         -dashboardService : DashboardService
         +summary() OperationResult~DashboardSummary~
+    }
+    class RoadMapController {
+        -mapService : RoadMapService
+        +incidentsOnMap(incidents: OperationResult~List~RoadIncident~~) OperationResult~List~IncidentView~~
+        +incidentOnMap(incident: OperationResult~RoadIncident~) OperationResult~IncidentView~
     }
     class AlertController {
         -alertService : AlertService
