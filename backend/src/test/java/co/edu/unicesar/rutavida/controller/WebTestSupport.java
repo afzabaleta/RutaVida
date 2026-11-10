@@ -50,7 +50,8 @@ public final class WebTestSupport {
                 new Permission(3L, "EMERGENCIAS", "CONSULTAR", "Ver emergencias"),
                 new Permission(4L, "EMERGENCIAS", "GESTIONAR", "Registrar emergencias"),
                 new Permission(5L, "UNIDADES", "CONSULTAR", "Ver unidades y estaciones"),
-                new Permission(7L, "HOSPITALES", "CONSULTAR", "Ver hospitales"))));
+                new Permission(7L, "HOSPITALES", "CONSULTAR", "Ver hospitales"),
+                new Permission(15L, "REPORTES", "CONSULTAR", "Ver dashboard y reportes"))));
 
         String hash = hasher.hash(PASSWORD.toCharArray());
         LocalDateTime registered = LocalDateTime.now(clock);
