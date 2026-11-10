@@ -460,7 +460,7 @@ La web los consulta **cada 15 segundos** (DT-07): cambian menos que las posicion
 
 ### 9.1 `GET /api/incidents`
 
-Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO` (o cualquier otro estado), solo los de ese estado; un estado que no existe responde `400`. Es la entidadRoadIncident más el tramo para dibujarlo:
+Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO` (o cualquier otro estado), solo los de ese estado; un estado que no existe responde `400`. Es la entidad `RoadIncident` más el tramo para dibujarlo:
 
 ```json
 { "success": true, "message": null, "value": [
