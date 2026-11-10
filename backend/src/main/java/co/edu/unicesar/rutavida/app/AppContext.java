@@ -3,7 +3,9 @@ package co.edu.unicesar.rutavida.app;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
+import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
+import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.SessionContext;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.dao.AuditDAO;
@@ -19,6 +21,8 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyStationDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyVehicleDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcHospitalDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadIncidentDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadMapDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadNodeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadSegmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
@@ -35,6 +39,8 @@ import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.DashboardService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
+import co.edu.unicesar.rutavida.service.IncidentService;
+import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.util.DatabaseConnection;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
 
@@ -80,6 +86,8 @@ public final class AppContext {
     private final CatalogController catalogController;
     private final EmergencyController emergencyController;
     private final DashboardController dashboardController;
+    private final IncidentController incidentController;
+    private final RoadMapController roadMapController;
     private final GraphLoader graphLoader;
 
     private AppContext(DatabaseConnection database, Clock clock) {
@@ -118,6 +126,13 @@ public final class AppContext {
         this.dashboardController = new DashboardController(
                 new DashboardService(new JdbcDashboardDAO(jdbc), clock));
         // Next DAOs, services and controllers are created here as they are implemented.
+
+
+        // Road incidents (S7) and their segments on the map (A12c)
+        IncidentService incidentService = new IncidentService(new JdbcRoadIncidentDAO(jdbc),
+                new JdbcRoadSegmentDAO(jdbc), auditService, jdbc, clock);
+        this.incidentController = new IncidentController(incidentService, authService, session);
+        this.roadMapController = new RoadMapController(new RoadMapService(new JdbcRoadMapDAO(jdbc)));
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
         this.graphLoader = new GraphLoader(
@@ -175,6 +190,17 @@ public final class AppContext {
     /** Indicators of the main panel (A14). */
     public DashboardController dashboardController() {
         return dashboardController;
+    }
+
+
+    /** Road incidents: report, validate and list (S7, A12c). */
+    public IncidentController incidentController() {
+        return incidentController;
+    }
+
+    /** Road data for the map: incidents with their segments (A12c). */
+    public RoadMapController roadMapController() {
+        return roadMapController;
     }
 
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */

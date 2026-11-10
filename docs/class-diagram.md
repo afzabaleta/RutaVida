@@ -1889,6 +1889,8 @@ classDiagram
         -catalogController : CatalogController
         -emergencyController : EmergencyController
         -dashboardController : DashboardController
+        -incidentController : IncidentController
+        -roadMapController : RoadMapController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -1899,6 +1901,8 @@ classDiagram
         +catalogController() CatalogController
         +emergencyController() EmergencyController
         +dashboardController() DashboardController
+        +incidentController() IncidentController
+        +roadMapController() RoadMapController
         +graphLoader() GraphLoader
         +adminBootstrap() AdminBootstrapService
     }
@@ -1983,6 +1987,8 @@ classDiagram
         -catalogs : CatalogController
         -emergencies : EmergencyController
         -dashboard : DashboardController
+        -incidents : IncidentController
+        -roadMap : RoadMapController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
@@ -2006,6 +2012,10 @@ classDiagram
         <<record>>
         +username : String
         +password : String
+    }
+    class IncidentStatusRequest {
+        <<record>>
+        +status : IncidentStatus
     }
     class JsonMapperFactory {
         +create() ObjectMapper$
@@ -2073,9 +2083,12 @@ classDiagram
     ApiServer --> CatalogController
     ApiServer --> EmergencyController
     ApiServer --> DashboardController
+    ApiServer --> IncidentController
+    ApiServer --> RoadMapController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
+    ApiServer ..> IncidentStatusRequest
     ApiServer ..> JsonMapperFactory
     ApiStatus ..> ErrorKind
     WebSessionController --> AuthService

@@ -2,13 +2,18 @@ package co.edu.unicesar.rutavida.api;
 
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
+import co.edu.unicesar.rutavida.controller.IncidentController;
+import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
+import co.edu.unicesar.rutavida.dto.IncidentRequest;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.exception.ValidationException;
+import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.UserSession;
+import co.edu.unicesar.rutavida.model.enums.IncidentStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.javalin.Javalin;
@@ -19,6 +24,7 @@ import io.javalin.http.staticfiles.Location;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,8 +38,8 @@ import java.util.logging.Logger;
  * {@code Authorization: Bearer} token, checks the permission of the route and runs the
  * handler with that session (so the controllers and the audit triggers see that user).
  *
- * <p>Routes: session (A12a), emergencies and catalogs (A12b). Dispatch, routes, tracking and
- * simulation are added when their controllers exist (K7).
+ * <p>Routes: session (A12a), emergencies and catalogs (A12b), dashboard (A14) and road incidents
+ * (A12c). Dispatch, routes, tracking and simulation are added when their controllers exist (K7).
  */
 public final class ApiServer {
 
@@ -44,6 +50,7 @@ public final class ApiServer {
     private static final String AUTHORIZATION = "Authorization";
     private static final String BAD_REQUEST = "La solicitud no tiene el formato esperado.";
     private static final String BAD_ID = "El identificador debe ser un número entero positivo.";
+    private static final String BAD_STATUS = "El estado del incidente no es válido.";
 
     /**
      * Second argument of {@link #secured}: a request made by the user counts as use of the
@@ -57,6 +64,8 @@ public final class ApiServer {
     private final CatalogController catalogs;
     private final EmergencyController emergencies;
     private final DashboardController dashboard;
+    private final IncidentController incidents;
+    private final RoadMapController roadMap;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -65,11 +74,14 @@ public final class ApiServer {
      * @param frontendDirectory folder with index.html; null to serve only the API (tests)
      */
     public ApiServer(WebSessionController sessions, CatalogController catalogs,
-                     EmergencyController emergencies, DashboardController dashboard, Path frontendDirectory) {
+                     EmergencyController emergencies, DashboardController dashboard,
+                     IncidentController incidents, RoadMapController roadMap, Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
         this.dashboard = Objects.requireNonNull(dashboard, "dashboard");
+        this.incidents = Objects.requireNonNull(incidents, "incidents");
+        this.roadMap = Objects.requireNonNull(roadMap, "roadMap");
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -131,6 +143,17 @@ public final class ApiServer {
         config.routes.get("/api/dashboard/summary", secured("REPORTES", "CONSULTAR", AUTOMATIC,
                 ctx -> send(ctx, dashboard.summary(), ApiStatus.OK)));
 
+        // 9. Road incidents. The map refreshes the list by itself, so reading it does not
+        // keep the session alive; reporting and validating do.
+        config.routes.get("/api/incidents", secured("INCIDENTES", "CONSULTAR", AUTOMATIC,
+                ctx -> send(ctx, roadMap.incidentsOnMap(listIncidents(ctx)), ApiStatus.OK)));
+        config.routes.post("/api/incidents", secured("INCIDENTES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, roadMap.incidentOnMap(incidents.report(readBody(ctx, IncidentRequest.class))),
+                        ApiStatus.CREATED)));
+        config.routes.patch("/api/incidents/{id}/status", secured("INCIDENTES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, roadMap.incidentOnMap(incidents.changeStatus(pathId(ctx), readStatus(ctx))),
+                        ApiStatus.OK)));
+
         config.routes.exception(Exception.class, this::onError);
     }
 
@@ -159,6 +182,28 @@ public final class ApiServer {
             }
             sessions.runAs(session.value(), () -> handler.handle(ctx));
         };
+    }
+
+    /** GET /api/incidents: the open ones, or only those of ?status= (an unknown status is a 400). */
+    private OperationResult<List<RoadIncident>> listIncidents(Context ctx) {
+        String status = ctx.queryParam("status");
+        if (status == null || status.isBlank()) {
+            return incidents.listOpen();
+        }
+        try {
+            return incidents.listByStatus(IncidentStatus.fromCode(status.trim()));
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(BAD_STATUS);
+        }
+    }
+
+    /** The new status of PATCH /api/incidents/{id}/status; without it, a 400. */
+    private IncidentStatus readStatus(Context ctx) {
+        IncidentStatus status = readBody(ctx, IncidentStatusRequest.class).status();
+        if (status == null) {
+            throw new ValidationException(BAD_STATUS);
+        }
+        return status;
     }
 
     /** The {id} of the URL as a positive number; anything else is a 400. */
