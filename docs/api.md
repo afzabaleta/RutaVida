@@ -460,8 +460,7 @@ La web los consulta **cada 15 segundos** (DT-07): cambian menos que las posicion
 
 ### 9.1 `GET /api/incidents`
 
-Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO`, solo esos. Es la entidad `RoadIncident` más el tramo para dibujarlo:
-
+Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO` (o cualquier otro estado), solo los de ese estado; un estado que no existe responde `400`.
 ```json
 { "success": true, "message": null, "value": [
   { "id": 4, "segmentId": 413, "type": "ACCIDENTE", "severity": "ALTA", "blocksSegment": false,
@@ -486,7 +485,7 @@ Salida `201`: el incidente (forma de 9.1). `400` si el tramo no existe o el tipo
 
 ### 9.3 `PATCH /api/incidents/{id}/status`
 
-Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RECHAZADO" }` o `{ "status": "CERRADO" }`. Al pasar a `ACTIVO` o `CERRADO`, el motor de rutas lo tiene en cuenta y se revisan las rutas activas (CU-17). Salida `200`: el incidente. `409` si la transición no está permitida (`IncidentService`).
+Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RECHAZADO" }` o `{ "status": "CERRADO" }`. Al pasar a `ACTIVO` o `CERRADO`, el motor de rutas lo tiene en cuenta en el siguiente ciclo de la simulación (unos segundos) y se revisan las rutas activas (CU-17, K8 y K9). Salida `200`: el incidente (forma de 9.1). `400` si falta `status`; `404` si el incidente no existe. `409` si la transición no está permitida (`IncidentService`).
 
 ## 10. Simulación (CU-19)
 

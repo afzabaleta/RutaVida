@@ -2140,6 +2140,7 @@ classDiagram
 | `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
 | `EmergencyService` (registro, activas, historial), `EmergencyRequest`, `EmergencyHistory` | `service`, `dto` | **Programado y probado** (S6) con DAO falsos. Conectado en `AppContext` (A7d) y publicado en la API (A12b) |
 | `DashboardDAO`, `JdbcDashboardDAO`, `DashboardService`, `DashboardSummary`, `DashboardController`, `AppContext.dashboardController()` y `GET /api/dashboard/summary` | `dao`, `dao.jdbc`, `service`, `dto`, `controller`, `app`, `api` | **Programado y probado** (A14): una consulta sobre las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` con 3 pruebas de integración contra Oracle XE 18c; servicio, controlador y ruta probados sin Oracle |
+| `SegmentView`, `IncidentView`, `RoadMapDAO`, `JdbcRoadMapDAO`, `RoadMapService`, `RoadMapController`, `IncidentStatusRequest`, `AppContext.incidentController()`/`roadMapController()` y las rutas `/api/incidents` | `dto`, `dao`, `dao.jdbc`, `service`, `controller`, `app`, `api` | **Programado y probado** (A12c): `IncidentController` (S7) publicado en la API, con el tramo de cada incidente para el mapa; `JdbcRoadMapDAO`, contra Oracle XE 18c. Aplicar el incidente al grafo es de K8 y K9 |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
