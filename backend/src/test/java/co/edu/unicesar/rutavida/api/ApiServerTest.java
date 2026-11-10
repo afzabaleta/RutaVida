@@ -3,14 +3,20 @@ package co.edu.unicesar.rutavida.api;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
+import co.edu.unicesar.rutavida.controller.IncidentController;
+import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.WebTestSupport;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.dto.SegmentView;
 import co.edu.unicesar.rutavida.model.EmergencyType;
+import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyTypeDAO;
+import co.edu.unicesar.rutavida.service.IncidentTestSupport;
+import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.service.DashboardService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,8 +45,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The real HTTP server on a free port of this computer, with the EXAMPLE users of
  * WebTestSupport, the in-memory catalogs of CatalogTestSupport and EmergencyService on
- * in-memory DAOs, and a dashboard with fixed counts. Checks the contract of docs/api.md
- * (sections 1, 2, 4, 5, 7 and 11) as the web will see it. Does not need Oracle.
+ * in-memory DAOs, a dashboard with fixed counts and the incidents of IncidentTestSupport.
+ * Checks the contract of docs/api.md (sections 1, 2, 4, 5, 7, 9 and 11) as the web will see
+ * it. Does not need Oracle.
  */
 class ApiServerTest {
 
@@ -48,6 +56,15 @@ class ApiServerTest {
             {"emergencyTypeId": 3, "addressReference": "Frente al Parque La Popa",
              "location": {"latitude": 10.467172, "longitude": -73.265099},
              "severity": "CRITICA", "description": "Choque de prueba"}""";
+
+    /** Body of POST /api/incidents (docs/api.md, 9.2). */
+    private static final String NEW_INCIDENT = """
+            {"segmentId": 413, "type": "ACCIDENTE", "severity": "ALTA", "blocksSegment": false,
+             "description": "Choque en la Calle 16"}""";
+
+    /** The only segment the map of these tests knows (EXAMPLE coordinates). */
+    private static final SegmentView CALLE_16 = new SegmentView(IncidentTestSupport.SEGMENT_ID, "Calle 16",
+            new GeoPoint(10.468901, -73.258004), new GeoPoint(10.468377, -73.260112));
 
     @TempDir
     Path frontend;
@@ -78,8 +95,15 @@ class ApiServerTest {
         DashboardController dashboard = new DashboardController(new DashboardService(
                 (since, start, end) -> new DashboardSummary(3, 3, 1, 2, 1, 4, 0, null), support.clock));
 
+        // Incidents on in-memory DAOs (S7); the map knows only CALLE_16.
+        IncidentController incidents = new IncidentController(new IncidentTestSupport().service(),
+                support.authService, support.sessionContext);
+        RoadMapController roadMap = new RoadMapController(new RoadMapService(
+                ids -> ids.contains(CALLE_16.segmentId()) ? List.of(CALLE_16) : List.of()));
+
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
-                dashboard, frontend);        int port = freePort();
+                dashboard, incidents, roadMap, frontend);
+        int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
     }
@@ -315,4 +339,55 @@ class ApiServerTest {
         assertEquals(401, send("GET", "/api/dashboard/summary", null, null).statusCode());
     }
 
+    // ------------------------------------------------------------ road incidents (A12c)
+
+    @Test
+    void anIncidentIsReportedValidatedAndListedWithItsSegment() throws Exception {
+        String token = login("marta.ruiz");
+
+        HttpResponse<String> reported = send("POST", "/api/incidents", token, NEW_INCIDENT);
+        assertEquals(201, reported.statusCode(), reported.body());
+        JsonNode incident = value(reported);
+        long id = incident.get("id").asLong();
+        assertEquals("PENDIENTE", incident.get("status").asText(), "it does not change the routes yet");
+        assertEquals("OPERADOR", incident.get("origin").asText());
+        assertEquals("ACCIDENTE", incident.get("type").asText());
+        assertEquals("Calle 16", incident.get("segment").get("streetName").asText());
+        assertEquals(10.468901, incident.get("segment").get("from").get("latitude").asDouble());
+
+        assertEquals(1, value(send("GET", "/api/incidents", token, null)).size());
+        assertEquals(0, value(send("GET", "/api/incidents?status=ACTIVO", token, null)).size());
+
+        HttpResponse<String> active = send("PATCH", "/api/incidents/" + id + "/status", token,
+                "{\"status\": \"ACTIVO\"}");
+        assertEquals(200, active.statusCode(), active.body());
+        assertEquals("ACTIVO", value(active).get("status").asText());
+        assertEquals(1, value(send("GET", "/api/incidents?status=ACTIVO", token, null)).size());
+
+        assertEquals(409, send("PATCH", "/api/incidents/" + id + "/status", token,
+                "{\"status\": \"RECHAZADO\"}").statusCode(), "an active incident is closed, not rejected");
+        HttpResponse<String> closed = send("PATCH", "/api/incidents/" + id + "/status", token,
+                "{\"status\": \"CERRADO\"}");
+        assertEquals("CERRADO", value(closed).get("status").asText());
+        assertTrue(value(send("GET", "/api/incidents", token, null)).isEmpty(), "a closed incident is not open");
+    }
+
+    @Test
+    void wrongIncidentRequestsAre400403And404() throws Exception {
+        String token = login("marta.ruiz");
+
+        assertEquals(400, send("POST", "/api/incidents", token,
+                        "{\"segmentId\": 999, \"type\": \"ACCIDENTE\", \"severity\": \"ALTA\"}").statusCode(),
+                "the segment does not exist");
+        assertEquals(400, send("POST", "/api/incidents", token,
+                        "{\"segmentId\": 413, \"type\": \"METEORITO\", \"severity\": \"ALTA\"}").statusCode(),
+                "unknown type");
+        assertEquals(400, send("GET", "/api/incidents?status=VOLANDO", token, null).statusCode());
+        assertEquals(400, send("PATCH", "/api/incidents/1/status", token, "{}").statusCode(), "no status");
+        assertEquals(404, send("PATCH", "/api/incidents/999/status", token,
+                "{\"status\": \"ACTIVO\"}").statusCode());
+        assertEquals(403, send("GET", "/api/incidents", login("ana.perez"), null).statusCode(),
+                "the test operator has no INCIDENTES permission");
+        assertEquals(401, send("GET", "/api/incidents", null, null).statusCode());
+    }
 }

@@ -226,6 +226,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Motor de la simulación y escenarios (`SimulationEngine`, K9) | **Pendiente** |
 | Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
+| API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Rutas de despacho, seguimiento y simulación (K7) y panel principal con datos de Oracle | **Pendiente** |
 

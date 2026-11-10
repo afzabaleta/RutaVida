@@ -816,11 +816,17 @@ classDiagram
         +summary(trafficSince: LocalDateTime, dayStart: LocalDateTime, dayEnd: LocalDateTime) DashboardSummary
     }
     
+    class RoadMapDAO {
+        <<interface>>
+        +segmentViews(segmentIds: Collection~Long~) List~SegmentView~
+    }
+    
     class Route
     class VehicleLocation
     class Alert
     class Notification
     class DashboardSummary
+    class SegmentView
     
 
     RouteDAO ..> Route
@@ -828,8 +834,9 @@ classDiagram
     AlertDAO ..> Alert
     NotificationDAO ..> Notification
     DashboardDAO ..> DashboardSummary : solo lectura
+    RoadMapDAO ..> SegmentView : solo lectura
 ```
-`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es la única interfaz DAO que depende de `dto`, y solo para leer.
+`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es una de las dos interfaces DAO que dependen de `dto`, y solo para leer. La otra es `RoadMapDAO` (A12c): un tramo con las coordenadas de sus dos nodos, para dibujarlo en el mapa.
 
 ---
 
@@ -929,6 +936,7 @@ classDiagram
     class JdbcAlertDAO
     class JdbcNotificationDAO
     class JdbcDashboardDAO
+    class JdbcRoadMapDAO
 
     AbstractJdbcDAO <|-- JdbcUserDAO
     AbstractJdbcDAO <|-- JdbcRoleDAO
@@ -951,9 +959,10 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcAlertDAO
     AbstractJdbcDAO <|-- JdbcNotificationDAO
     AbstractJdbcDAO <|-- JdbcDashboardDAO
+    AbstractJdbcDAO <|-- JdbcRoadMapDAO
 ```
 
-Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 20 flechas de realización no se dibujan para que el diagrama se pueda leer.
+Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 21 flechas de realización no se dibujan para que el diagrama se pueda leer.
 
 ---
 
@@ -1082,7 +1091,12 @@ classDiagram
         -clock : Clock
         +getSummary() DashboardSummary
     }
-        class AlertService {
+    class RoadMapService {
+        -mapDao : RoadMapDAO
+        +describe(incidents: List~RoadIncident~) List~IncidentView~
+        +describe(incident: RoadIncident) IncidentView
+    }
+    class AlertService {
         -alertDao : AlertDAO
         -userDao : UserDAO
         -roleDao : RoleDAO
@@ -1171,6 +1185,28 @@ classDiagram
         +closedToday : int
         +averageResponseMinutes : Double
     }
+    class SegmentView {
+        <<record>>
+        +segmentId : long
+        +streetName : String
+        +from : GeoPoint
+        +to : GeoPoint
+    }
+    class IncidentView {
+        <<record>>
+        +id : long
+        +segmentId : long
+        +type : IncidentType
+        +severity : Severity
+        +blocksSegment : boolean
+        +description : String
+        +startedAt : LocalDateTime
+        +endedAt : LocalDateTime
+        +status : IncidentStatus
+        +origin : IncidentOrigin
+        +segment : SegmentView
+        +of(incident: RoadIncident, segment: SegmentView) IncidentView$
+    }
     class UserRequest {
         <<record>>
         +roleId : long
@@ -1214,6 +1250,8 @@ class Messages {
     DispatchService ..> UnitSuggestion
     HospitalService ..> HospitalOption
     DashboardService ..> DashboardSummary
+    RoadMapService ..> IncidentView
+    IncidentView --> SegmentView
     UserService ..> UserRequest
     EmergencyService ..> ValidationUtil
 ```
@@ -1779,12 +1817,17 @@ class IncidentController {
         -dashboardService : DashboardService
         +summary() OperationResult~DashboardSummary~
     }
-      class AlertController {
-            -alertService : AlertService
-            -session : SessionContext
-            +list(onlyUnread: boolean) OperationResult~List~Alert~~
-            +markAsRead(alertId: long) OperationResult~Alert~
-        }
+    class RoadMapController {
+        -mapService : RoadMapService
+        +incidentsOnMap(incidents: OperationResult~List~RoadIncident~~) OperationResult~List~IncidentView~~
+        +incidentOnMap(incident: OperationResult~RoadIncident~) OperationResult~IncidentView~
+    }
+    class AlertController {
+        -alertService : AlertService
+        -session : SessionContext
+        +list(onlyUnread: boolean) OperationResult~List~Alert~~
+        +markAsRead(alertId: long) OperationResult~Alert~
+    }
     class SimulationController {
         -engine : SimulationEngine
         -scenarios : List~DemoScenario~
@@ -1863,6 +1906,8 @@ classDiagram
         -catalogController : CatalogController
         -emergencyController : EmergencyController
         -dashboardController : DashboardController
+        -incidentController : IncidentController
+        -roadMapController : RoadMapController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -1873,6 +1918,8 @@ classDiagram
         +catalogController() CatalogController
         +emergencyController() EmergencyController
         +dashboardController() DashboardController
+        +incidentController() IncidentController
+        +roadMapController() RoadMapController
         +graphLoader() GraphLoader
         +routeService() RouteService
         +adminBootstrap() AdminBootstrapService
@@ -1958,6 +2005,8 @@ classDiagram
         -catalogs : CatalogController
         -emergencies : EmergencyController
         -dashboard : DashboardController
+        -incidents : IncidentController
+        -roadMap : RoadMapController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
@@ -1981,6 +2030,10 @@ classDiagram
         <<record>>
         +username : String
         +password : String
+    }
+    class IncidentStatusRequest {
+        <<record>>
+        +status : IncidentStatus
     }
     class JsonMapperFactory {
         +create() ObjectMapper$
@@ -2048,9 +2101,12 @@ classDiagram
     ApiServer --> CatalogController
     ApiServer --> EmergencyController
     ApiServer --> DashboardController
+    ApiServer --> IncidentController
+    ApiServer --> RoadMapController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
+    ApiServer ..> IncidentStatusRequest
     ApiServer ..> JsonMapperFactory
     ApiStatus ..> ErrorKind
     WebSessionController --> AuthService
@@ -2102,6 +2158,7 @@ classDiagram
 | `RouteDemo`, `RouteGeoJsonWriter` | `app` | **Programado y probado** (demo del avance) con pruebas sin Oracle. Herramienta de demostración: no reemplaza a `RouteService` ni guarda nada en Oracle |
 | `EmergencyService` (registro, activas, historial), `EmergencyRequest`, `EmergencyHistory` | `service`, `dto` | **Programado y probado** (S6) con DAO falsos. Conectado en `AppContext` (A7d) y publicado en la API (A12b) |
 | `DashboardDAO`, `JdbcDashboardDAO`, `DashboardService`, `DashboardSummary`, `DashboardController`, `AppContext.dashboardController()` y `GET /api/dashboard/summary` | `dao`, `dao.jdbc`, `service`, `dto`, `controller`, `app`, `api` | **Programado y probado** (A14): una consulta sobre las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` con 3 pruebas de integración contra Oracle XE 18c; servicio, controlador y ruta probados sin Oracle |
+| `SegmentView`, `IncidentView`, `RoadMapDAO`, `JdbcRoadMapDAO`, `RoadMapService`, `RoadMapController`, `IncidentStatusRequest`, `AppContext.incidentController()`/`roadMapController()` y las rutas `/api/incidents` | `dto`, `dao`, `dao.jdbc`, `service`, `controller`, `app`, `api` | **Programado y probado** (A12c): `IncidentController` (S7) publicado en la API, con el tramo de cada incidente para el mapa; `JdbcRoadMapDAO`, contra Oracle XE 18c. Aplicar el incidente al grafo es de K8 y K9 |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
