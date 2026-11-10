@@ -1255,6 +1255,7 @@ classDiagram
         +maxKmh : double
         +AMBULANCE : VehicleProfile$
         +FIRE_TRUCK : VehicleProfile$
+        +forType(typeName: String) VehicleProfile$
     }
     class RoadGraph {
         -nodes : Node[]
@@ -1333,16 +1334,19 @@ classDiagram
         +load() RoadGraph
     }
     class RouteService {
+        +MAX_SNAP_METERS : double$
         -graph : RoadGraph
+        -routeDao : RouteDAO
+        -transactions : TransactionManager
+        -clock : Clock
         -router : AStarRouter
-        -alternatives : AlternativeRouteFinder
+        -finder : AlternativeRouteFinder
         -cost : CostFunction
         -explainer : RouteExplanationBuilder
-        -routeDao : RouteDAO
-        +calculateOptions(from: GeoPoint, to: GeoPoint, vehicleTypeId: long) List~RouteOption~
-        +estimateSeconds(from: GeoPoint, to: GeoPoint, vehicleTypeId: long) double
         +isWithinNetwork(point: GeoPoint) boolean
-        +saveForMission(emergencyId: long, vehicleId: long, hospitalId: Long, options: List~RouteOption~) List~Route~
+        +calculateOptions(from: GeoPoint, to: GeoPoint, vehicle: VehicleProfile) List~RouteOption~
+        +estimateSeconds(from: GeoPoint, to: GeoPoint, vehicle: VehicleProfile) OptionalDouble
+        +saveForMission(emergencyId: long, vehicleId: long, hospitalId: Long, vehicle: VehicleProfile, options: List~RouteOption~) List~Route~
     }
     class RouteExplanationBuilder {
         +CONGESTED_FROM : double$
@@ -1828,6 +1832,8 @@ classDiagram
         -session : SessionContext
         -adminBootstrap : AdminBootstrapService
         -loginController : LoginController
+        -graphLoader : GraphLoader
+        -routeService : RouteService
         -webSessionController : WebSessionController
         -catalogController : CatalogController
         -emergencyController : EmergencyController
@@ -1841,6 +1847,7 @@ classDiagram
         +catalogController() CatalogController
         +emergencyController() EmergencyController
         +graphLoader() GraphLoader
+        +routeService() RouteService
         +adminBootstrap() AdminBootstrapService
     }
     class Main {
@@ -2069,6 +2076,7 @@ classDiagram
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
+| `RouteService` y `AppContext.routeService()` | `service`, `app` | **Programado y probado** (K6) con un grafo de prueba, sin Oracle. Guarda las rutas con `RouteDAO` (A6) |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | Simulación | `simulation` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
