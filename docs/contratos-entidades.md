@@ -442,3 +442,33 @@ La ruta no cambia después de creada: `RouteDAO.updateStatus` cambia su estado e
 | `source` | `PositionSource` | `fuente VARCHAR2(20)` | Sí | — |
 
 Es historial: no cambia después de crearla (solo `setId`). En la primera versión todas las posiciones vienen del simulador (`getSource()` = `SIMULATION`) y se muestran como `SIMULACION`, nunca como GPS real.
+
+
+
+---
+
+## 11. Alertas (S8)
+
+Agregada el 09/11/2026 para la tarea S8. Se aplican las mismas reglas R1–R14.
+
+### `Alert` ↔ `ALERTA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_alerta NUMBER(12)` | Sí | R3 |
+| `emergencyId` | `Long` | `id_emergencia` | No | `null` = alerta general (por ejemplo, disponibilidad de una unidad) |
+| `userId` | `long` | `id_usuario` | Sí | El usuario que la recibe |
+| `type` | `AlertType` | `tipo_alerta VARCHAR2(40)` | Sí | — |
+| `message` | `String` | `mensaje VARCHAR2(300)` | Sí | Máx. 300 |
+| `createdAt` | `LocalDateTime` | `fecha_hora TIMESTAMP` | Sí | R10 |
+| `read` | `boolean` | `leida CHAR(1)` | Sí | `true` ↔ `'S'` (lo convierte el DAO). Una alerta nueva no está leída |
+
+Reglas (en `AlertService`):
+
+- **A quién le llega.** Las alertas de una misión (`routeRecalculated`, `incidentOnRoute`, `congestionOnRoute`) le llegan al coordinador que despachó la unidad (`EmergencyAssignment.coordinatorUserId`). Las generales (`availabilityChanged`) les llegan a todos los usuarios activos cuyo rol activo tiene `DESPACHO / GESTIONAR`, en una sola transacción.
+- **El tipo sale del hecho.** Un incidente que cierra la vía (o de tipo `CIERRE`) es `CIERRE_VIA`; un accidente que no la cierra es `ACCIDENTE_EN_RUTA`; los demás, `OTRO`.
+- **Sin cambio, sin alerta.** Si la unidad sigue en el mismo estado, no se guarda nada.
+- **Cada usuario ve solo las suyas.** Marcar como leída la alerta de otro usuario responde "no encontrada", igual que una que no existe.
+- **No se auditan:** son avisos, no operaciones de negocio.
+
+`Notification` (`NOTIFICACION`) no es parte de S8: queda diseñada para avisos que no son operativos.

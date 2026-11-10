@@ -796,9 +796,11 @@ classDiagram
         +insertBatch(locations: List~VehicleLocation~) void
         +findByVehicle(vehicleId: long, from: LocalDateTime, to: LocalDateTime) List~VehicleLocation~
     }
-    class AlertDAO {
+        class AlertDAO {
         <<interface>>
         +insert(alert: Alert) long
+        +findById(id: long) Optional~Alert~
+        +findByUser(userId: long, limit: int) List~Alert~
         +findUnreadByUser(userId: long) List~Alert~
         +markAsRead(id: long) void
     }
@@ -1089,21 +1091,23 @@ classDiagram
         -clock : Clock
         +getSummary() DashboardSummary
     }
-    
     class RoadMapService {
         -mapDao : RoadMapDAO
         +describe(incidents: List~RoadIncident~) List~IncidentView~
         +describe(incident: RoadIncident) IncidentView
     }
-    
     class AlertService {
         -alertDao : AlertDAO
-        -notificationDao : NotificationDAO
         -userDao : UserDAO
-        +routeRecalculated(route: Route, secondsSaved: double) void
-        +unitDispatched(assignment: EmergencyAssignment) void
-        +listUnread(session: UserSession) List~Alert~
-        +markAsRead(alertId: long, session: UserSession) void
+        -roleDao : RoleDAO
+        -transactions : TransactionManager
+        -clock : Clock
+        +routeRecalculated(assignment: EmergencyAssignment, unitCode: String, minutesSaved: double) Alert
+        +incidentOnRoute(assignment: EmergencyAssignment, unitCode: String, incident: RoadIncident, roadName: String) Alert
+        +congestionOnRoute(assignment: EmergencyAssignment, unitCode: String, roadName: String) Alert
+        +availabilityChanged(vehicle: EmergencyVehicle, before: VehicleOperationalStatus) List~Alert~
+        +list(session: UserSession, onlyUnread: boolean) List~Alert~
+        +markAsRead(alertId: long, session: UserSession) Alert
     }
     class PasswordHasher {
         -iterations : int
@@ -1821,8 +1825,8 @@ class IncidentController {
     class AlertController {
         -alertService : AlertService
         -session : SessionContext
-        +unread() List~Alert~
-        +markAsRead(alertId: long) void
+        +list(onlyUnread: boolean) OperationResult~List~Alert~~
+        +markAsRead(alertId: long) OperationResult~Alert~
     }
     class SimulationController {
         -engine : SimulationEngine
@@ -2170,5 +2174,6 @@ classDiagram
 | Rutas de emergencias (`/api/emergencies`, `/{id}`, `/{id}/history`) y de recursos (`/api/vehicle-types`, `/api/units`, `/api/stations`, `/api/hospitals`); `ApiServer.pathId`; métodos nuevos de `CatalogService` y `CatalogController` | `api`, `controller`, `service`, `app` | **Programado y probado** (A12b) sin Oracle. Despacho, rutas, seguimiento y simulación llegan con K7 |
 | Vista web | `frontend/` | Conectada a la API (D5b): inicio de sesión, registro de emergencias y consulta de emergencias y unidades. El panel principal sigue con datos de EJEMPLO; el despacho se conecta con K7 |
 | `IncidentService`, `IncidentRequest`, `IncidentController`, `RoadSegmentDAO.findById` | `service`, `dto`, `controller`, `dao` | **Programado y probado (S7)** con DAO falsos; `findById`, contra Oracle. Aplicar el incidente al grafo y recalcular rutas corresponde a K7 |
+| `Alert`, `AlertDAO`, `JdbcAlertDAO`, `AlertService`, `AlertController` | `model`, `dao`, `dao.jdbc`, `service`, `controller` | **Programado y probado** (S8): servicio y controlador con DAO falsos; `JdbcAlertDAO`, contra Oracle. Se conecta en `AppContext` y en `/api/alerts` en A12f; K7, K8 y K9 llaman al servicio. `Notification` y `NotificationDAO` siguen diseñados |
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
