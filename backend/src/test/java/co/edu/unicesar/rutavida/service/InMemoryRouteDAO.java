@@ -1,6 +1,7 @@
 package co.edu.unicesar.rutavida.service;
 
 import co.edu.unicesar.rutavida.dao.RouteDAO;
+import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.model.enums.RouteStatus;
 
@@ -53,7 +54,14 @@ public class InMemoryRouteDAO implements RouteDAO {
 
     @Override
     public void updateStatus(long id, RouteStatus status) {
-        throw new UnsupportedOperationException("Not needed by these tests");
+        Route old = routes.get(id);
+        if (old == null) {
+            throw new NotFoundException("Ruta", id);
+        }
+        Route changed = new Route(old.getId(), old.getEmergencyId(), old.getVehicleId(),
+                old.getDestinationHospitalId(), old.getType(), old.getDistanceKm(), old.getEstimatedMinutes(),
+                old.getTotalCost(), old.getGeneratedAt(), old.isRecommended(), status, old.getSegments());
+        routes.put(id, changed);
     }
 
     /** Every route saved, in insertion order. */

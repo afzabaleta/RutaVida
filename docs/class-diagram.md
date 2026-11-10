@@ -1154,11 +1154,20 @@ classDiagram
         +severity : Severity
         +description : String
     }
-    class UnitSuggestion {
+    class UnitCandidate {
         <<record>>
-        +vehicle : EmergencyVehicle
-        +etaSeconds : double
+        +vehicleId : long
+        +unitCode : String
+        +vehicleType : String
+        +stationName : String
+        +location : GeoPoint
+        +etaMinutes : double
         +distanceKm : double
+    }
+    class DispatchResult {
+        <<record>>
+        +assignment : EmergencyAssignment
+        +routes : List~Route~
     }
     class HospitalOption {
         <<record>>
@@ -1247,7 +1256,8 @@ class Messages {
     DispatchService ..> HospitalService
     EmergencyService ..> EmergencyRequest
     EmergencyService ..> EmergencyHistory
-    DispatchService ..> UnitSuggestion
+    DispatchService ..> UnitCandidate
+    DispatchService ..> DispatchResult
     HospitalService ..> HospitalOption
     DashboardService ..> DashboardSummary
     RoadMapService ..> IncidentView

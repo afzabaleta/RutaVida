@@ -42,7 +42,7 @@ class TrackingServiceTest {
             List<VehicleLocation> polled = List.copyOf(next);
             next.clear();
             return polled;
-        }, vehicles, history, new DispatchService(), transactions);
+        }, vehicles, history, DispatchTestSupport.rules(), transactions);
 
         ambulance = vehicles.insert(new EmergencyVehicle(0, 1, 1, "EJEMPLO-AMB-01", null,
                 VehicleOperationalStatus.BUSY, STATION, T0.minusMinutes(5)));
