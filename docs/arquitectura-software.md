@@ -229,6 +229,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
 | API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |
+| API de alertas: las del usuario de la sesión y marcarlas como leídas (`/api/alerts`, A12f) | Programado y probado |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
 | Rutas de despacho de la API (A12d) y seguimiento (A12e) | **Pendiente** |

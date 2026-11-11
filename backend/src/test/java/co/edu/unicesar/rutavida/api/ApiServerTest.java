@@ -1,6 +1,7 @@
 package co.edu.unicesar.rutavida.api;
 
 import co.edu.unicesar.rutavida.controller.CatalogController;
+import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
@@ -8,13 +9,19 @@ import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.WebTestSupport;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.SegmentView;
+import co.edu.unicesar.rutavida.model.Alert;
 import co.edu.unicesar.rutavida.model.EmergencyType;
+import co.edu.unicesar.rutavida.model.enums.AlertType;
+import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
+import co.edu.unicesar.rutavida.service.InMemoryAlertDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyTypeDAO;
+import co.edu.unicesar.rutavida.service.InMemoryRoleDAO;
+import co.edu.unicesar.rutavida.service.InMemoryUserDAO;
 import co.edu.unicesar.rutavida.service.IncidentTestSupport;
 import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.service.DashboardService;
@@ -36,6 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,13 +81,16 @@ class ApiServerTest {
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final CatalogTestSupport catalogs = new CatalogTestSupport();
     private InMemoryEmergencyDAO emergencyDao;
+    private WebTestSupport support;
+    private long martaFirstAlert;
+    private long anaAlert;
     private ApiServer server;
     private String base;
 
     @BeforeEach
     void start() throws IOException {
         Files.writeString(frontend.resolve("index.html"), "<h1>RutaVida de prueba</h1>", StandardCharsets.UTF_8);
-        WebTestSupport support = new WebTestSupport();
+        support = new WebTestSupport();
 
         InMemoryEmergencyTypeDAO types = new InMemoryEmergencyTypeDAO();
         types.add(new EmergencyType(3, "ACCIDENTE_VIAL", 8, "Accidente de transito con posibles lesionados"));
@@ -101,8 +112,21 @@ class ApiServerTest {
         RoadMapController roadMap = new RoadMapController(new RoadMapService(
                 ids -> ids.contains(CALLE_16.segmentId()) ? List.of(CALLE_16) : List.of()));
 
+        // EXAMPLE alerts: two for marta.ruiz (user 3) and one for ana.perez (user 1).
+        InMemoryAlertDAO alertDao = new InMemoryAlertDAO();
+        LocalDateTime now = LocalDateTime.now(support.clock);
+        martaFirstAlert = alertDao.insert(new Alert(0, 15L, 3, AlertType.ROUTE_RECALCULATION,
+                "Se recalculó la ruta de EJEMPLO-AMB-01: llega 1,5 min antes.", now.minusMinutes(10), false));
+        alertDao.insert(new Alert(0, null, 3, AlertType.AVAILABILITY_CHANGE,
+                "La unidad EJEMPLO-AMB-02 pasó de DISPONIBLE a MANTENIMIENTO.", now.minusMinutes(2), false));
+        anaAlert = alertDao.insert(new Alert(0, null, 1, AlertType.OTHER,
+                "Alerta de EJEMPLO de otra usuaria.", now.minusMinutes(1), false));
+        AlertController alerts = new AlertController(new AlertService(alertDao, new InMemoryUserDAO(),
+                new InMemoryRoleDAO(), new EmergencyTestSupport.CountingTransactions(), support.clock),
+                support.sessionContext);
+
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
-                dashboard, incidents, roadMap, frontend);
+                dashboard, incidents, roadMap, alerts, frontend);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -389,5 +413,60 @@ class ApiServerTest {
         assertEquals(403, send("GET", "/api/incidents", login("ana.perez"), null).statusCode(),
                 "the test operator has no INCIDENTES permission");
         assertEquals(401, send("GET", "/api/incidents", null, null).statusCode());
+    }
+
+
+    // ------------------------------------------------------------ alerts (A12f)
+
+    @Test
+    void eachUserReadsOnlyHisAlertsAndMarksThemAsRead() throws Exception {
+        String token = login("marta.ruiz");
+
+        HttpResponse<String> listed = send("GET", "/api/alerts", token, null);
+        assertEquals(200, listed.statusCode(), listed.body());
+        JsonNode alerts = value(listed);
+        assertEquals(2, alerts.size(), "not the alert of ana.perez");
+        assertEquals("CAMBIO_DISPONIBILIDAD", alerts.get(0).get("type").asText(), "newest first");
+        assertTrue(alerts.get(0).get("emergencyId").isNull(), "a general alert");
+        assertEquals("RECALCULO_RUTA", alerts.get(1).get("type").asText());
+        assertEquals(15, alerts.get(1).get("emergencyId").asLong());
+        assertEquals("2026-11-05T08:50:00", alerts.get(1).get("createdAt").asText());
+        assertFalse(alerts.get(1).get("read").asBoolean());
+
+        HttpResponse<String> read = send("PATCH", "/api/alerts/" + martaFirstAlert + "/read", token, null);
+        assertEquals(200, read.statusCode(), read.body());
+        assertTrue(value(read).get("read").asBoolean());
+
+        JsonNode unread = value(send("GET", "/api/alerts?unread=true", token, null));
+        assertEquals(1, unread.size());
+        assertEquals("CAMBIO_DISPONIBILIDAD", unread.get(0).get("type").asText());
+        assertEquals(2, value(send("GET", "/api/alerts", token, null)).size(), "the read one is still listed");
+    }
+
+    @Test
+    void alertsNeedOnlyASessionAndTheAlertOfAnotherUserIs404() throws Exception {
+        String marta = login("marta.ruiz");
+
+        assertEquals(404, send("PATCH", "/api/alerts/" + anaAlert + "/read", marta, null).statusCode(),
+                "the alert of another user");
+        assertEquals(404, send("PATCH", "/api/alerts/999/read", marta, null).statusCode());
+        assertEquals(400, send("PATCH", "/api/alerts/abc/read", marta, null).statusCode());
+
+        HttpResponse<String> noPermissions = send("GET", "/api/alerts", login("luis.gomez"), null);
+        assertEquals(200, noPermissions.statusCode(), "a role without permissions still reads its alerts");
+        assertTrue(value(noPermissions).isEmpty());
+        assertEquals(401, send("GET", "/api/alerts", null, null).statusCode());
+    }
+
+    @Test
+    void readingTheAlertsDoesNotKeepTheSessionAlive() throws Exception {
+        String token = login("marta.ruiz");
+
+        support.clock.advance(Duration.ofMinutes(20));
+        assertEquals(200, send("GET", "/api/alerts", token, null).statusCode());
+        support.clock.advance(Duration.ofMinutes(15));
+
+        assertEquals(401, send("GET", "/api/alerts", token, null).statusCode(),
+                "35 minutes without a request of the user (DT-08)");
     }
 }
