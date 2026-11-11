@@ -1908,6 +1908,8 @@ classDiagram
         -dashboardController : DashboardController
         -incidentController : IncidentController
         -roadMapController : RoadMapController
+        -alertService : AlertService
+        -alertController : AlertController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -1920,6 +1922,8 @@ classDiagram
         +dashboardController() DashboardController
         +incidentController() IncidentController
         +roadMapController() RoadMapController
+        +alertService() AlertService
+        +alertController() AlertController
         +graphLoader() GraphLoader
         +routeService() RouteService
         +adminBootstrap() AdminBootstrapService
@@ -2007,11 +2011,13 @@ classDiagram
         -dashboard : DashboardController
         -incidents : IncidentController
         -roadMap : RoadMapController
+        -alerts : AlertController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
         +stop() void
         ~secured(module: String, action: String, countsAsUse: boolean, handler: Handler) Handler
+        ~authenticated(countsAsUse: boolean, handler: Handler) Handler
         ~send(ctx: Context, result: OperationResult, successStatus: int) void
         ~pathId(ctx: Context) long$
     }
@@ -2103,6 +2109,7 @@ classDiagram
     ApiServer --> DashboardController
     ApiServer --> IncidentController
     ApiServer --> RoadMapController
+    ApiServer --> AlertController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
