@@ -4,6 +4,7 @@ import co.edu.unicesar.rutavida.model.RoadSegment;
 import co.edu.unicesar.rutavida.model.enums.RoadSegmentStatus;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Road segments (table TRAMO_VIAL). Each row is one driving direction: a two-way street
@@ -14,6 +15,9 @@ public interface RoadSegmentDAO {
 
     /** Every segment, whatever its status, ordered by id. */
     List<RoadSegment> findAll();
+
+    /** One segment, whatever its status (e.g. to check the segment of a new incident). */
+    Optional<RoadSegment> findById(long id);
 
     /**
      * Changes the administrative status of one segment (ABIERTO, CERRADO, RESTRINGIDO),

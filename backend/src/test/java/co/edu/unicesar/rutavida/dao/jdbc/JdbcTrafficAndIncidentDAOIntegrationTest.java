@@ -1,7 +1,7 @@
+
 package co.edu.unicesar.rutavida.dao.jdbc;
 
 import co.edu.unicesar.rutavida.exception.NotFoundException;
-import co.edu.unicesar.rutavida.service.IncidentService;
 import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.TrafficReading;
 import co.edu.unicesar.rutavida.model.enums.IncidentOrigin;
@@ -10,6 +10,8 @@ import co.edu.unicesar.rutavida.model.enums.IncidentType;
 import co.edu.unicesar.rutavida.model.enums.Severity;
 import co.edu.unicesar.rutavida.model.enums.TrafficLevel;
 import co.edu.unicesar.rutavida.model.enums.TrafficSource;
+import co.edu.unicesar.rutavida.service.IncidentService;
+import co.edu.unicesar.rutavida.service.IncidentTestSupport;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -33,9 +35,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class JdbcTrafficAndIncidentDAOIntegrationTest {
 
-    private static final IncidentService INCIDENTS = new IncidentService();
+    private static final IncidentService INCIDENTS =
+            new IncidentTestSupport().service();
 
-    private static final LocalDateTime START = LocalDateTime.of(2026, 10, 24, 7, 30);
+    private static final LocalDateTime START =
+            LocalDateTime.of(2026, 10, 24, 7, 30);
 
     private static JdbcTransactionManager jdbc;
     private static JdbcTrafficReadingDAO trafficDao;
@@ -59,8 +63,10 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
     }
 
     private static RoadIncident newIncident(long segmentId, String description) {
-        return new RoadIncident(0, segmentId, IncidentType.ACCIDENT, Severity.HIGH, false,
-                description, START, null, IncidentStatus.PENDING, IncidentOrigin.OPERATOR);
+        return new RoadIncident(
+                0, segmentId, IncidentType.ACCIDENT, Severity.HIGH, false,
+                description, START, null, IncidentStatus.PENDING, IncidentOrigin.OPERATOR
+        );
     }
 
     private static long auditRows(long incidentId, String change) {
@@ -72,6 +78,7 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
     void insertBatchSavesEveryColumnOfEveryReading() {
         inRolledBackTransaction(jdbc, () -> {
             long segment = insertTestSegment();
+
             trafficDao.insertBatch(List.of(
                     new TrafficReading(0, segment, START, TrafficLevel.CONGESTED, 12.5, 2.4, TrafficSource.SIMULATION),
                     new TrafficReading(0, segment, START.plusMinutes(1), TrafficLevel.MODERATE, null, 1.5,
@@ -92,9 +99,11 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
     @Test
     void aBatchBiggerThanOneRoundTripIsSavedWhole() {
         int total = JdbcTrafficReadingDAO.BATCH_SIZE * 2 + 7;
+
         inRolledBackTransaction(jdbc, () -> {
             long segment = insertTestSegment();
             List<TrafficReading> readings = new ArrayList<>();
+
             for (int i = 0; i < total; i++) {
                 readings.add(new TrafficReading(0, segment, START.plusSeconds(i), TrafficLevel.FLUID,
                         i % 2 == 0 ? null : 40.0, 1.0, TrafficSource.SIMULATION));
@@ -112,6 +121,7 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
 
         TrafficReading saved = new TrafficReading(0, 1, START, TrafficLevel.FLUID, null, 1.0, TrafficSource.MANUAL);
         saved.setId(5);
+
         assertThrows(IllegalArgumentException.class, () -> trafficDao.insertBatch(List.of(saved)));
         assertThrows(NullPointerException.class, () -> trafficDao.insertBatch(null));
     }
@@ -126,7 +136,9 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
 
             assertTrue(id > 0);
             assertEquals(id, incident.getId(), "insert assigns the id to the object");
+
             RoadIncident read = incidentDao.findById(id).orElseThrow();
+
             assertEquals(segment, read.getSegmentId());
             assertEquals(IncidentType.ACCIDENT, read.getType());
             assertEquals(Severity.HIGH, read.getSeverity());
@@ -136,7 +148,9 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
             assertNull(read.getEndedAt());
             assertEquals(IncidentStatus.PENDING, read.getStatus());
             assertEquals(IncidentOrigin.OPERATOR, read.getOrigin());
-            assertFalse(INCIDENTS.affectsRouting(read), "a pending incident does not change routes (RN-05)");
+
+            assertFalse(INCIDENTS.affectsRouting(read),
+                    "a pending incident does not change routes (RN-05)");
         });
     }
 
@@ -149,14 +163,18 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
 
             INCIDENTS.activate(incident, true);
             incidentDao.update(incident);
+
             RoadIncident active = incidentDao.findById(id).orElseThrow();
+
             assertEquals(IncidentStatus.ACTIVE, active.getStatus());
             assertTrue(INCIDENTS.blocksTraffic(active));
             assertEquals(1, auditRows(id, "PENDIENTE -> ACTIVO"));
 
             INCIDENTS.close(incident, START.plusHours(2));
             incidentDao.update(incident);
+
             RoadIncident closed = incidentDao.findById(id).orElseThrow();
+
             assertEquals(IncidentStatus.CLOSED, closed.getStatus());
             assertEquals(START.plusHours(2), closed.getEndedAt());
             assertFalse(INCIDENTS.affectsRouting(closed));
@@ -170,18 +188,23 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
             long segment = insertTestSegment();
             RoadIncident pending = newIncident(segment, "PRUEBA_A5 pendiente");
             RoadIncident active = newIncident(segment, "PRUEBA_A5 activo");
+
             incidentDao.insert(pending);
             incidentDao.insert(active);
+
             INCIDENTS.activate(active, false);
             incidentDao.update(active);
 
             List<RoadIncident> actives = incidentDao.findByStatus(IncidentStatus.ACTIVE);
+
             assertTrue(actives.stream().anyMatch(i -> i.getId() == active.getId()));
             assertFalse(actives.stream().anyMatch(i -> i.getId() == pending.getId()));
             assertTrue(actives.stream().allMatch(i -> i.getStatus() == IncidentStatus.ACTIVE));
 
             List<RoadIncident> pendings = incidentDao.findByStatus(IncidentStatus.PENDING);
+
             assertTrue(pendings.stream().anyMatch(i -> i.getId() == pending.getId()));
+
             for (int i = 1; i < pendings.size(); i++) {
                 assertFalse(pendings.get(i).getStartedAt().isBefore(pendings.get(i - 1).getStartedAt()),
                         "oldest first");
@@ -196,8 +219,11 @@ class JdbcTrafficAndIncidentDAOIntegrationTest {
         RoadIncident unsaved = newIncident(1, null);
         assertThrows(IllegalArgumentException.class, () -> incidentDao.update(unsaved));
 
-        RoadIncident missing = new RoadIncident(999_999_999, 1, IncidentType.OTHER, Severity.LOW, false,
-                null, START, null, IncidentStatus.PENDING, IncidentOrigin.OPERATOR);
+        RoadIncident missing = new RoadIncident(
+                999_999_999, 1, IncidentType.OTHER, Severity.LOW, false,
+                null, START, null, IncidentStatus.PENDING, IncidentOrigin.OPERATOR
+        );
+
         assertThrows(NotFoundException.class, () -> incidentDao.update(missing));
         assertThrows(IllegalArgumentException.class, () -> incidentDao.insert(missing));
         assertThrows(NullPointerException.class, () -> incidentDao.findByStatus(null));

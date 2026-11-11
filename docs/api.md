@@ -460,7 +460,7 @@ La web los consulta **cada 15 segundos** (DT-07): cambian menos que las posicion
 
 ### 9.1 `GET /api/incidents`
 
-Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO`, solo esos. Es la entidad `RoadIncident` más el tramo para dibujarlo:
+Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO` (o cualquier otro estado), solo los de ese estado; un estado que no existe responde `400`. Es la entidad `RoadIncident` más el tramo para dibujarlo:
 
 ```json
 { "success": true, "message": null, "value": [
@@ -486,7 +486,7 @@ Salida `201`: el incidente (forma de 9.1). `400` si el tramo no existe o el tipo
 
 ### 9.3 `PATCH /api/incidents/{id}/status`
 
-Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RECHAZADO" }` o `{ "status": "CERRADO" }`. Al pasar a `ACTIVO` o `CERRADO`, el motor de rutas lo tiene en cuenta y se revisan las rutas activas (CU-17). Salida `200`: el incidente. `409` si la transición no está permitida (`IncidentService`).
+Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RECHAZADO" }` o `{ "status": "CERRADO" }`. Al pasar a `ACTIVO` o `CERRADO`, el motor de rutas lo tiene en cuenta en el siguiente ciclo de la simulación (unos segundos) y se revisan las rutas activas (CU-17, K8 y K9). Salida `200`: el incidente (forma de 9.1). `400` si falta `status`; `404` si el incidente no existe. `409` si la transición no está permitida (`IncidentService`).
 
 ## 10. Simulación (CU-19)
 
@@ -523,7 +523,21 @@ Salida `200`: el tramo con la forma de 8.2. `404` si el tramo no existe.
 } }
 ```
 
-`averageResponseMinutes` es el promedio de `fn_tiempo_respuesta` (reporte → llegada) de las emergencias cerradas hoy, o `null` si todavía no hay ninguna. La web muestra "Sin datos" en ese caso, nunca un 0.
+Qué cuenta cada campo (A14, una sola consulta en Oracle):
+
+| Campo | Qué cuenta |
+|---|---|
+| `activeEmergencies` | Emergencias que no están `CERRADA` (`vw_emergencias_activas`) |
+| `availableUnits` / `busyUnits` | Unidades `DISPONIBLE` (`vw_unidades_disponibles`) / `OCUPADO`. Las de `MANTENIMIENTO` o `FUERA_SERVICIO` no están en ninguna |
+| `operationalHospitals` | Hospitales activos (`vw_hospitales_operativos`) |
+| `activeIncidents` | Incidentes `ACTIVO`, los que cambian las rutas. Los `PENDIENTE` no cuentan |
+| `congestedSegments` | Tramos cuya última lectura de `TRAFICO` de los últimos 15 minutos es `CONGESTIONADO` |
+| `closedToday` | Emergencias `CERRADA` hoy, de 00:00 a 24:00 en la hora del servidor (Colombia) |
+| `averageResponseMinutes` | Promedio de `fn_tiempo_respuesta` (reporte → llegada) de las emergencias con una llegada hoy, contando solo la primera unidad que llegó a cada una. Un decimal |
+
+`averageResponseMinutes` es `null` si hoy no ha llegado ninguna unidad. La web muestra "Sin datos" en ese caso, nunca un 0. Se mide por la llegada y no por el cierre para que el indicador funcione desde el despacho (K7), antes de que exista el cierre (CU-12).
+
+El panel puede pedir este resumen solo cada cierto tiempo: esa consulta no cuenta como uso de la sesión (DT-08).
 
 ### 11.2 `GET /api/alerts`
 
