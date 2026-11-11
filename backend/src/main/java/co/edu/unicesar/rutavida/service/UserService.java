@@ -24,6 +24,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+/**
+ * User management (CU-03): create users, list them, deactivate and activate them, and let
+ * each user change his own password.
+ *
+ * <p>Permissions are checked by UserController. The rules of a valid user (document, email,
+ * username and password) are the same ones of AdminBootstrapService. Every change is saved
+ * together with its audit row in one transaction.
+ */
 public class UserService {
 
     static final String AUDIT_MODULE = "USUARIOS";
@@ -35,11 +43,8 @@ public class UserService {
     private final TransactionManager transactions;
     private final Clock clock;
 
-    public UserService(UserDAO userDao, RoleDAO roleDao,
-                       PasswordHasher passwordHasher,
-                       AuditService auditService,
-                       TransactionManager transactions,
-                       Clock clock) {
+    public UserService(UserDAO userDao, RoleDAO roleDao, PasswordHasher passwordHasher,
+                       AuditService auditService, TransactionManager transactions, Clock clock) {
         this.userDao = Objects.requireNonNull(userDao, "userDao");
         this.roleDao = Objects.requireNonNull(roleDao, "roleDao");
         this.passwordHasher = Objects.requireNonNull(passwordHasher, "passwordHasher");
@@ -48,6 +53,14 @@ public class UserService {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    /**
+     * Creates an active user with an active role. The password is erased from the request
+     * after hashing it.
+     *
+     * @throws ValidationException if a field or the password is not valid
+     * @throws NotFoundException if the role does not exist
+     * @throws BusinessRuleException if the role is inactive or the document, email or username is taken
+     */
     public User create(UserRequest request, UserSession session) {
         ValidationUtil.requireNonNull(request, "usuario");
         ValidationUtil.requireNonNull(session, "sesión");
@@ -105,17 +118,23 @@ public class UserService {
         }
     }
 
+    /** Every user, active or not, by username. */
     public List<User> listAll() {
         return userDao.findAll().stream()
                 .sorted(Comparator.comparing(User::getUsername))
                 .toList();
     }
 
+    /** One user by id. */
     public User findById(long id) {
         return userDao.findById(id)
                 .orElseThrow(() -> new NotFoundException("Usuario", id));
     }
 
+    /**
+     * The user can no longer log in. Nobody deactivates himself, and the last active
+     * administrator is never deactivated: the system would be left without one.
+     */
     public User deactivate(long userId, UserSession session) {
         ValidationUtil.requireNonNull(session, "sesión");
 
@@ -143,6 +162,7 @@ public class UserService {
         });
     }
 
+    /** An inactive user can log in again. */
     public User activate(long userId, UserSession session) {
         ValidationUtil.requireNonNull(session, "sesión");
 
@@ -158,11 +178,11 @@ public class UserService {
         });
     }
 
-    public void changeOwnPassword(
-            UserSession session,
-            char[] current,
-            char[] next) {
-
+    /**
+     * The user of the session changes his own password: he must give the current one, and
+     * the new one follows the password rules and is different. Both arrays are erased.
+     */
+    public void changeOwnPassword(UserSession session, char[] current, char[] next) {
         ValidationUtil.requireNonNull(session, "sesión");
 
         try {
@@ -210,6 +230,9 @@ public class UserService {
         }
     }
 
+    // ------------------------------------------------------------------ rules
+
+    /** Oracle also rejects repeated values; checking first gives a clear message. */
     private void requireUnique(User user) {
         if (userDao.findByUsername(user.getUsername()).isPresent()) {
             throw new BusinessRuleException(

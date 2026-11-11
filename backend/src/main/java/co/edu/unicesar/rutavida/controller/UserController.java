@@ -16,10 +16,14 @@ import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * User management for the view (CU-03). It checks the session and the permission,
+ * delegates to UserService and converts errors into messages in Spanish with their kind.
+ * Users leave this class as UserView: the password hash never reaches the view.
+ */
 public class UserController {
 
-    private static final Logger LOG =
-            Logger.getLogger(UserController.class.getName());
+    private static final Logger LOG = Logger.getLogger(UserController.class.getName());
 
     static final String MODULE = "USUARIOS";
     static final String MANAGE = "GESTIONAR";
@@ -29,52 +33,47 @@ public class UserController {
     private final AuthService authService;
     private final SessionContext session;
 
-    public UserController(
-            UserService userService,
-            AuthService authService,
-            SessionContext session) {
-
+    public UserController(UserService userService, AuthService authService,
+                          SessionContext session) {
         this.userService = Objects.requireNonNull(userService, "userService");
         this.authService = Objects.requireNonNull(authService, "authService");
         this.session = Objects.requireNonNull(session, "session");
     }
 
+    /** CU-03: creates a user. */
     public OperationResult<UserView> create(UserRequest request) {
-        return run(MANAGE,
-                user -> UserView.of(userService.create(request, user)));
+        return run(MANAGE, user -> UserView.of(userService.create(request, user)));
     }
 
+    /** CU-03: every user, by username. */
     public OperationResult<List<UserView>> list() {
-        return run(VIEW,
-                user -> userService.listAll().stream()
-                        .map(UserView::of)
-                        .toList());
+        return run(VIEW, user -> userService.listAll().stream()
+                .map(UserView::of)
+                .toList());
     }
 
+    /** CU-03: the user can no longer log in. */
     public OperationResult<UserView> deactivate(long userId) {
         return run(MANAGE,
                 user -> UserView.of(userService.deactivate(userId, user)));
     }
 
+    /** CU-03: an inactive user can log in again. */
     public OperationResult<UserView> activate(long userId) {
         return run(MANAGE,
                 user -> UserView.of(userService.activate(userId, user)));
     }
 
-    public OperationResult<Void> changeOwnPassword(
-            char[] current,
-            char[] next) {
-
+    /** Any logged-in user changes his own password: no permission needed, only the session. */
+    public OperationResult<Void> changeOwnPassword(char[] current, char[] next) {
         return run(null, user -> {
             userService.changeOwnPassword(user, current, next);
             return null;
         });
     }
 
-    private <T> OperationResult<T> run(
-            String action,
-            Function<UserSession, T> work) {
-
+    /** Checks the session and, if {@code action} is not null, the permission. */
+    private <T> OperationResult<T> run(String action, Function<UserSession, T> work) {
         if (!session.isActive()) {
             return OperationResult.error(
                     ErrorKind.AUTHENTICATION,

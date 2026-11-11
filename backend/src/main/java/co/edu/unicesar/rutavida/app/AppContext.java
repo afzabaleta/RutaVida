@@ -1,7 +1,10 @@
 package co.edu.unicesar.rutavida.app;
 
+import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.controller.DispatchController;
+import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
@@ -15,6 +18,7 @@ import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.UserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.ClientIdentifierConnectionFactory;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcAuditDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcAlertDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyAssignmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyStationDAO;
@@ -34,6 +38,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditService;
+import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.DashboardService;
@@ -89,8 +94,13 @@ public final class AppContext {
     private final DashboardController dashboardController;
     private final IncidentController incidentController;
     private final RoadMapController roadMapController;
+    private final AlertService alertService;
+    private final AlertController alertController;
     private final GraphLoader graphLoader;
+    private final AuthService authService;
+    private final AuditService auditService;
     private RouteService routeService;
+    private DispatchController dispatchController;
 
     private AppContext(DatabaseConnection database, Clock clock) {
         this.database = Objects.requireNonNull(database, "database");
@@ -105,9 +115,8 @@ public final class AppContext {
         RoleDAO roleDao = new JdbcRoleDAO(jdbc);
         AuditDAO auditDao = new JdbcAuditDAO(jdbc);
         PasswordHasher passwordHasher = new PasswordHasher();
-        AuditService auditService = new AuditService(auditDao, clock);
-
-        AuthService authService = new AuthService(userDao, roleDao, passwordHasher, auditService, clock);
+        this.auditService = new AuditService(auditDao, clock);
+        this.authService = new AuthService(userDao, roleDao, passwordHasher, auditService, clock);
         this.adminBootstrap = new AdminBootstrapService(
                 userDao, roleDao, passwordHasher, auditService, jdbc, clock);
         this.loginController = new LoginController(authService, session);
@@ -133,6 +142,11 @@ public final class AppContext {
                 new JdbcRoadSegmentDAO(jdbc), auditService, jdbc, clock);
         this.incidentController = new IncidentController(incidentService, authService, session);
         this.roadMapController = new RoadMapController(new RoadMapService(new JdbcRoadMapDAO(jdbc)));
+
+        // Alerts of each user (S8, A12f). Dispatch, recalculation and simulation (K7, K8, K9)
+        // create them through alertService(), so everyone shares this instance.
+        this.alertService = new AlertService(new JdbcAlertDAO(jdbc), userDao, roleDao, jdbc, clock);
+        this.alertController = new AlertController(alertService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
@@ -203,6 +217,17 @@ public final class AppContext {
         return roadMapController;
     }
 
+
+    /** Creates the alerts of the users; K7, K8 and K9 receive this one (S8, A12f). */
+    public AlertService alertService() {
+        return alertService;
+    }
+
+    /** Alerts of the user of the session (A12f). */
+    public AlertController alertController() {
+        return alertController;
+    }
+
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */
     public GraphLoader graphLoader() {
         return graphLoader;
@@ -217,6 +242,22 @@ public final class AppContext {
             routeService = new RouteService(graphLoader.load(), new JdbcRouteDAO(jdbc), jdbc, clock);
         }
         return routeService;
+    }
+
+    /**
+     * Dispatch (K7). Created the first time it is used because it needs routeService(),
+     * which loads the road graph from Oracle.
+     */
+    public synchronized DispatchController dispatchController() {
+        if (dispatchController == null) {
+            DispatchService dispatchService = new DispatchService(new JdbcEmergencyDAO(jdbc),
+                    new JdbcEmergencyTypeDAO(jdbc), new JdbcEmergencyVehicleDAO(jdbc),
+                    new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyStationDAO(jdbc),
+                    new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), routeService(),
+                    auditService, jdbc, clock);
+            dispatchController = new DispatchController(dispatchService, authService, session);
+        }
+        return dispatchController;
     }
 
     /** Only for the CreateAdminUser tool: creating users normally needs a session. */

@@ -2,7 +2,7 @@
 
 Responsable: Andrés (líder, DAO e integración).
 Fecha: 14 de octubre de 2026 · actualizado el 30 de octubre de 2026 (refactorización de capas).
-Estado: **capas, modelo, DAO principales, motor de rutas, reglas de estado, API REST y panel principal conectado a Oracle programados y probados**; despacho completo y simulación pendientes (sección 10).
+Estado: **capas, modelo, DAO principales, motor de rutas, reglas de estado, API REST y panel principal conectado a Oracle programados y probados**; casos de uso del despacho programados (K7); traslado al hospital, cierre, motor de la simulación y parte de la API REST pendientes (sección 10).
 
 Paquete raíz: `co.edu.unicesar.rutavida` · Java 21 · Maven · Oracle XE local (`XEPDB1`).
 
@@ -91,33 +91,34 @@ En resumen: **la vista solo habla con controladores, los controladores solo con 
 ```mermaid
 sequenceDiagram
     actor Op as Coordinador
-    participant V as view
+    participant V as api (web)
     participant C as DispatchController
     participant S as DispatchService
+    participant R as RouteService
     participant T as TransactionManager
     participant D as DAOs (interfaces)
-    participant A as AlertService
 
     Op->>V: Selecciona unidad y "Despachar"
     V->>C: dispatch(emergencyId, vehicleId)
-    C->>S: dispatch(emergencyId, vehicleId, userId)
-    S->>D: buscar emergencia y unidad
-    S->>S: isDispatchable(unidad), canChange(REPORTADA → ASIGNADA)
-    S->>T: runInTransaction(...)
-    T->>D: insertar ASIGNACION_EMERGENCIA
-    T->>D: EMERGENCIA → ASIGNADA
-    T->>D: VEHICULO_EMERGENCIA → OCUPADO
-    T->>D: insertar AUDITORIA
+    C->>C: sesión activa y permiso DESPACHO / GESTIONAR
+    C->>S: dispatch(emergencyId, vehicleId, sesión)
+    S->>T: callInTransaction(...)
+    S->>D: buscar emergencia (REPORTADA) y unidad (DISPONIBLE y de un tipo adecuado)
+    S->>R: calculateOptions(posición de la unidad, emergencia, perfil)
+    R-->>S: hasta 3 rutas, la recomendada primero
+    S->>D: sp_asignar_unidad: ASIGNACION_EMERGENCIA, unidad OCUPADO, emergencia ASIGNADA
+    S->>R: saveForMission(...): ruta 1 ACTIVA, las demás PROPUESTA
+    S->>D: insertar AUDITORIA (DESPACHAR)
     T-->>S: commit (o rollback si algo falla)
-    S->>A: unitDispatched(asignación)
-    S-->>C: asignación creada
+    S-->>C: DispatchResult (asignación y rutas)
     C-->>V: resultado / mensaje en español
 ```
 
-- **Transacción:** las cuatro escrituras se guardan juntas o no se guarda ninguna. Los DAOs no hacen `commit` ni `close`; de eso se encarga `JdbcTransactionManager`.
-- **Reglas:** las dos comprobaciones las hace `DispatchService` con sus propios métodos; la entidad `EmergencyVehicle` solo entrega su estado.
+- **Transacción:** la asignación, los cambios de la unidad y la emergencia, las rutas y la auditoría se guardan juntos o no se guarda ninguno. Los DAOs no hacen `commit` ni `close`; de eso se encarga `JdbcTransactionManager`.
+- **Reglas:** las comprobaciones las hace `DispatchService` con sus propios métodos (`isDispatchable`, `suits`, `validateNew`); la entidad `EmergencyVehicle` solo entrega su estado.
+- **Rutas recalculadas:** las rutas se calculan otra vez al despachar, aunque el coordinador ya vio la vista previa, porque el tráfico pudo cambiar en ese tiempo.
 - **Errores:** si una regla no se cumple, el servicio lanza `BusinessRuleException`; si falla Oracle, el DAO lanza `DataAccessException`. El controlador convierte ambas en un mensaje en español para el usuario.
-
+- **Programado en K7.** Avisar del despacho con `AlertService` es de S8.
 ## 5. Cómo fluye el tiempo real
 
 ```
@@ -142,8 +143,8 @@ La página web pide el estado a la API REST (rutas, posiciones, alertas) y redib
 |---|---|---|
 | **Information Expert** | `EmergencyService` conoce las transiciones de una emergencia (`canChange`, `changeStatus`); `DispatchService` las de una asignación y qué unidad se puede despachar (`isDispatchable`); `IncidentService` cuándo un incidente afecta las rutas (`affectsRouting`). Cada servicio es el experto de su área | Programado y probado |
 | **Information Expert** | `RoadGraph` conoce sus tramos y su estado; `AStarRouter` calcula el tiempo total de una ruta | Programado y probado |
-| **Creator** | `DispatchService` crea la `EmergencyAssignment` (tiene la emergencia, la unidad y el usuario); `RouteService` crea las `Route` | Por programar |
-| **Controller** | `LoginController`, `EmergencyController`, `DispatchController`… reciben las acciones del usuario que genera la vista | `LoginController` programado; los demás por programar |
+| **Creator** | `DispatchService` crea la `EmergencyAssignment` (tiene la emergencia, la unidad y el usuario); `RouteService` crea las `Route` | Programado y probado (K6, K7) |
+| **Controller** | `LoginController`, `EmergencyController`, `DispatchController`… reciben las acciones del usuario que genera la vista | `LoginController`, `EmergencyController` y `DispatchController` programados; los demás por programar |
 | **Low Coupling** | La vista solo conoce controladores; los servicios solo interfaces DAO; el modelo no depende de ninguna otra capa | Reglas programadas y probadas (`ArchitectureTest`) |
 | **High Cohesion** | Un servicio por área de negocio (`EmergencyService`, `DispatchService`, `IncidentService`…); un DAO por agregado; el modelo solo con datos | Programado |
 | **Polymorphism** | `CostFunction` (`EmergencyCost`, `DistanceOnlyCost`), `TrafficProvider` (simulado o real) | Programado y probado |
@@ -220,16 +221,18 @@ Ejemplo: *consultar los hospitales operativos*.
 | Reglas de estado en `EmergencyService`, `DispatchService`, `IncidentService` | Programado y probado (sin Oracle) |
 | Motor de rutas (`graph`) y tráfico simulado (`traffic`) | Programado y probado |
 | `LoginController`, `SessionContext` | Programado y probado |
-| Casos de uso completos de emergencias, despacho e incidentes (con DAO), `RouteService`, `RouteMonitor` | **Pendiente** (Sprint 3) |
+| Casos de uso con DAO de emergencias (`register`, S6) y de despacho (`candidates`, `preview`, `dispatch`, `advance`, K7), y `RouteService` (K6) | Programado y probado (sin Oracle) |
+| Traslado al hospital (K7b), cierre de la emergencia (CU-12), `RouteMonitor` y recálculo de rutas (K8) | **Pendiente** |
 | DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones | **Pendiente** (Sprint 3) |
 | Movimiento simulado de las unidades y seguimiento (`VehicleMovementSimulator`, `TrackingService`, A13) | Programado y probado |
 | Motor de la simulación y escenarios (`SimulationEngine`, K9) | **Pendiente** |
 | Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
 | API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |
+| API de alertas: las del usuario de la sesión y marcarlas como leídas (`/api/alerts`, A12f) | Programado y probado |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
-| Rutas de despacho, seguimiento y simulación (K7) | **Pendiente** |
+| Rutas de despacho de la API (A12d) y seguimiento (A12e) | **Pendiente** |
 | Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado; falta la API |
 
 
@@ -239,4 +242,4 @@ El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
 
 - **Sin framework de inyección (sin Spring) por ahora.** `AppContext` cumple esa función en pocas líneas y es fácil de explicar en la sustentación.
 - **Vista web (DT-01, 15/10/2026).** Se agregará un paquete `api` con adaptadores REST que llamen a los mismos controladores, sin tocar `service` ni `dao`. El paquete `view` del backend se reemplazará por `api` cuando se programe, ajustando `ArchitectureTest` y el diagrama de clases en el mismo PR. El servidor HTTP, la librería JSON y el mecanismo de tiempo real están pendientes (ver `docs/decisiones-tecnicas.md`).
-- **Pendiente:** contratos de los servicios principales (`DispatchService`, `RouteService`), a acordar entre Kendrick, Sherly y Andrés antes de programarlos.
+- **Contratos de `RouteService` (K6) y `DispatchService` (K7):** programados. Sus métodos están en `docs/class-diagram.md` (sección 5) y su uso desde la web, en `docs/api.md` (sección 6).

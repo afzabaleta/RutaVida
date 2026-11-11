@@ -16,6 +16,14 @@ import co.edu.unicesar.rutavida.util.ValidationUtil;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Hospital management (CU-05): register, edit, activate and deactivate the hospitals that
+ * can receive a transfer. Only active hospitals are destinations (listOperational).
+ *
+ * <p>Permissions are checked by HospitalController. Every change is saved together with its
+ * audit row in one transaction. The services of each hospital (SERVICIO_HOSPITAL) and the
+ * ranking for a transfer come later (K7b).
+ */
 public class HospitalService {
 
     static final String AUDIT_MODULE = "HOSPITALES";
@@ -24,28 +32,27 @@ public class HospitalService {
     private final AuditService auditService;
     private final TransactionManager transactions;
 
-    public HospitalService(
-            HospitalDAO hospitalDao,
-            AuditService auditService,
-            TransactionManager transactions) {
-
+    public HospitalService(HospitalDAO hospitalDao, AuditService auditService,
+                           TransactionManager transactions) {
         this.hospitalDao = Objects.requireNonNull(hospitalDao, "hospitalDao");
         this.auditService = Objects.requireNonNull(auditService, "auditService");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
     }
 
+    /** Active hospitals, by name: the possible destinations of a transfer. */
     public List<Hospital> listOperational() {
         return hospitalDao.findOperational();
     }
 
+    /** One hospital by id. */
     public Hospital findById(long id) {
         return hospitalDao.findById(id)
                 .orElseThrow(() -> new NotFoundException("Hospital", id));
     }
 
+    /** Registers an active hospital. Two hospitals cannot have the same name. */
     public Hospital register(HospitalRequest request, UserSession session) {
         ValidationUtil.requireNonNull(session, "sesión");
-
         Hospital hospital = build(0, request, RecordStatus.ACTIVE);
 
         return transactions.callInTransaction(() -> {
@@ -66,21 +73,13 @@ public class HospitalService {
         });
     }
 
-    public Hospital update(
-            long id,
-            HospitalRequest request,
-            UserSession session) {
-
+    /** Rewrites the data of a hospital; its status does not change. */
+    public Hospital update(long id, HospitalRequest request, UserSession session) {
         ValidationUtil.requireNonNull(session, "sesión");
 
         return transactions.callInTransaction(() -> {
             Hospital saved = findById(id);
-
-            Hospital hospital = build(
-                    saved.getId(),
-                    request,
-                    saved.getStatus()
-            );
+            Hospital hospital = build(saved.getId(), request, saved.getStatus());
 
             requireUniqueName(hospital);
             hospitalDao.update(hospital);
@@ -98,11 +97,11 @@ public class HospitalService {
         });
     }
 
-    public Hospital changeStatus(
-            long id,
-            RecordStatus status,
-            UserSession session) {
-
+    /**
+     * Activates (ACTIVO) or deactivates (INACTIVO) a hospital; an inactive one receives no
+     * transfers.
+     */
+    public Hospital changeStatus(long id, RecordStatus status, UserSession session) {
         ValidationUtil.requireNonNull(status, "estado");
         ValidationUtil.requireNonNull(session, "sesión");
 
@@ -110,11 +109,9 @@ public class HospitalService {
             Hospital saved = findById(id);
 
             if (saved.getStatus() == status) {
-                throw new BusinessRuleException(
-                        status == RecordStatus.ACTIVE
-                                ? "El hospital ya está activo."
-                                : "El hospital ya está inactivo."
-                );
+                throw new BusinessRuleException(status == RecordStatus.ACTIVE
+                        ? "El hospital ya está activo."
+                        : "El hospital ya está inactivo.");
             }
 
             Hospital hospital = new Hospital(
@@ -133,8 +130,7 @@ public class HospitalService {
             auditService.record(
                     session.user().getId(),
                     AUDIT_MODULE,
-                    status == RecordStatus.ACTIVE
-                            ? "ACTIVAR" : "DESACTIVAR",
+                    status == RecordStatus.ACTIVE ? "ACTIVAR" : "DESACTIVAR",
                     id,
                     AuditResult.SUCCESS,
                     null
@@ -144,16 +140,13 @@ public class HospitalService {
         });
     }
 
-    private static Hospital build(
-            long id,
-            HospitalRequest request,
-            RecordStatus status) {
+    // ------------------------------------------------------------------ rules
 
+    /** Checks the data of the request (the same limits as the HOSPITAL table). */
+    private static Hospital build(long id, HospitalRequest request, RecordStatus status) {
         ValidationUtil.requireNonNull(request, "hospital");
 
-        String phone = ValidationUtil.optionalText(
-                request.phone(), "teléfono", 20
-        );
+        String phone = ValidationUtil.optionalText(request.phone(), "teléfono", 20);
 
         if (phone != null && !phone.matches("[0-9+() -]{7,20}")) {
             throw new ValidationException(
@@ -183,12 +176,8 @@ public class HospitalService {
 
     private void requireUniqueName(Hospital hospital) {
         boolean taken = hospitalDao.findAll().stream()
-                .anyMatch(other ->
-                        other.getId() != hospital.getId()
-                                && other.getName().equalsIgnoreCase(
-                                hospital.getName()
-                        )
-                );
+                .anyMatch(other -> other.getId() != hospital.getId()
+                        && other.getName().equalsIgnoreCase(hospital.getName()));
 
         if (taken) {
             throw new BusinessRuleException(

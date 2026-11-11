@@ -245,7 +245,7 @@ Las rutas del historial no traen el trazado: el historial es para leer, no para 
 
 ### 6.1 `GET /api/emergencies/{id}/candidates`
 
-Las unidades que pueden atender la emergencia (CU-09, paso 2): solo `DISPONIBLE` y de un tipo adecuado para la emergencia (regla de `DispatchService` que se define en K7). Ordenadas por tiempo estimado de llegada, la más rápida primero:
+Las unidades que pueden atender la emergencia (CU-09, paso 2): solo `DISPONIBLE` y de un tipo adecuado para la emergencia (regla `DispatchService.suits`, K7: `EMERGENCIA_MEDICA` → `AMBULANCIA`; `INCENDIO` y `RESCATE` → `BOMBERO`; `ACCIDENTE_VIAL` → las dos; otro tipo → todas). Una unidad sin posición sale desde su estación, y una que no llega por la red vial cargada no aparece. Ordenadas por tiempo estimado de llegada, la más rápida primero:
 
 ```json
 { "success": true, "message": null, "value": [
@@ -541,19 +541,18 @@ El panel puede pedir este resumen solo cada cierto tiempo: esa consulta no cuent
 
 ### 11.2 `GET /api/alerts`
 
-Las alertas del usuario de la sesión, la más reciente primero. Con `?unread=true`, solo las no leídas.
-
+Las alertas del usuario de la sesión, la más reciente primero: las últimas 50, leídas o no. Con `?unread=true`, todas las no leídas. Basta con la sesión: no pide un permiso.
 ```json
 { "success": true, "message": null, "value": [
-  { "id": 21, "emergencyId": 15, "type": "RECALCULO_RUTA",
-    "message": "Se recalculó la ruta de EJEMPLO-AMB-01 por congestión en la Calle 16.",
+   { "id": 21, "emergencyId": 15, "userId": 3, "type": "RECALCULO_RUTA",
+      "message": "Se recalculó la ruta de EJEMPLO-AMB-01 por congestión en la Calle 16.",
     "createdAt": "2026-11-04T09:35:00", "read": false }
 ] }
 ```
 
 ### 11.3 `PATCH /api/alerts/{id}/read`
 
-Sin cuerpo. Marca la alerta como leída. `404` si no existe o es de otro usuario.
+Sin cuerpo. Marca la alerta como leída. Salida `200`: la alerta (forma de 11.2). `404` si no existe o es de otro usuario.
 
 ## 12. Secuencia: registrar y despachar
 
