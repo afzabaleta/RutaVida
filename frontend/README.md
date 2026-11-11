@@ -12,12 +12,14 @@ La aplicación web permite:
 - Consultar los tipos de emergencia disponibles en Oracle.
 - Registrar emergencias y almacenarlas en Oracle.
 - Consultar emergencias registradas.
-- Consultar unidades de atención.
-- Visualizar información geográfica de demostración.
+- Consultar unidades de atención desde la API.
+- Consultar hospitales y estaciones de bomberos desde la API.
+- Visualizar emergencias, unidades y recursos geográficos en el panel principal.
+- Identificar los recursos de demostración mediante la etiqueta `EJEMPLO`.
 
-**Importante:** los recursos identificados como `EJEMPLO` son datos de demostración. No representan unidades operativas reales.
+**Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. Las rutas del mapa continúan siendo rutas de demostración.
 
-El despacho operativo de unidades y la integración definitiva de rutas corresponden a la etapa K7 y continúan pendientes.
+El tiempo promedio de respuesta permanece como «Sin datos» hasta implementar el despacho y el registro de misiones de K7.
 
 ## 2. Estructura del frontend
 
@@ -26,12 +28,14 @@ frontend/
 ├── css/
 │   └── Estilos de la aplicación
 ├── data/
-│   └── Datos geográficos de demostración
+│   └── Datos geográficos y rutas de demostración
 ├── js/
 │   ├── api-client.js
-│   ├── example-data.js
 │   ├── dashboard.js
 │   ├── emergencia.js
+│   ├── page-session.js
+│   ├── route-layer.js
+│   ├── valledupar-data.js
 │   └── Otros módulos JavaScript
 ├── index.html
 ├── dashboard.html
@@ -39,6 +43,10 @@ frontend/
 ├── despacho.html
 └── README.md
 ```
+
+El módulo `api-client.js` centraliza las solicitudes al backend. El módulo `dashboard.js` carga los datos del panel desde la API.
+
+El archivo `example-data.js` fue retirado. Los datos de ejemplo que permanecen en Oracle se identifican mediante el prefijo `EJEMPLO-`.
 
 ## 3. Requisitos
 
@@ -90,7 +98,31 @@ También puedes comprobar el control de acceso abriendo directamente:
 
 Si no existe una sesión válida, la aplicación debe redirigir al inicio de sesión.
 
-## 5. Verificación funcional
+## 5. Datos del panel principal (D5c)
+
+El panel obtiene la información mediante los siguientes endpoints:
+
+| Recurso | Endpoint |
+|---|---|
+| Emergencias | `GET /api/emergencies` |
+| Unidades | `GET /api/units` |
+| Hospitales | `GET /api/hospitals` |
+| Estaciones | `GET /api/stations` |
+
+Las secciones se cargan independientemente. Si una consulta falla, el panel muestra un mensaje de error en esa sección sin impedir necesariamente la carga de las demás.
+
+### Identificación de los datos
+
+- **ORACLE:** información consultada mediante la API.
+- **EJEMPLO:** unidades de demostración identificadas por el prefijo `EJEMPLO-`.
+- **D2:** hospitales y estaciones cuentan con información geográfica y fuentes documentadas en `valledupar-data.js`.
+- **Rutas:** continúan siendo rutas de demostración hasta la integración operativa de K7.
+
+Cuando una unidad, estación u hospital no tiene coordenadas disponibles, se muestra «Sin posición conocida» y no se agrega un marcador al mapa.
+
+El tiempo promedio de respuesta permanece como «Sin datos» porque depende de la implementación del despacho y del registro de misiones.
+
+## 6. Verificación funcional
 
 Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
 
@@ -101,13 +133,15 @@ Para comprobar la conexión entre el frontend, el backend y Oracle, realiza esta
 | Consultar tipos de emergencia | Se muestran los tipos provenientes de Oracle |
 | Registrar una emergencia | La API confirma el registro y lo almacena en Oracle |
 | Consultar emergencias | Se muestran los registros disponibles |
-| Consultar unidades | Se muestran los recursos disponibles y los datos de demostración identificados como `EJEMPLO` |
+| Consultar unidades | Se muestran los recursos disponibles y las unidades `EJEMPLO-` identificadas |
+| Consultar hospitales | Se muestran los hospitales disponibles |
+| Consultar estaciones | Se muestran las estaciones activas |
 | Abrir el panel sin sesión | Se redirige al inicio de sesión |
 | Detener el backend | Se muestra un mensaje de error de conexión |
 
-Para revisar posibles errores, abre las herramientas del navegador con `F12` y consulta la pestaña **Console**.
+Para revisar posibles errores, abre las herramientas del navegador con `F12` y consulta la pestaña **Console** y la pestaña **Network**.
 
-## 6. Detener la aplicación
+## 7. Detener la aplicación
 
 Cuando termines las pruebas:
 
@@ -115,7 +149,7 @@ Cuando termines las pruebas:
 2. Detén la ejecución de `WebServer` mediante el botón **Stop**.
 3. Cierra el navegador si ya no necesitas la aplicación.
 
-## 7. Tecnologías utilizadas
+## 8. Tecnologías utilizadas
 
 - HTML5.
 - CSS3.
@@ -125,7 +159,7 @@ Cuando termines las pruebas:
 - API REST desarrollada en Java.
 - Oracle Database.
 
-## 8. Documentación relacionada
+## 9. Documentación relacionada
 
 - `README.md`: documentación general del proyecto.
 - `backend/README.md`: configuración y ejecución del backend.

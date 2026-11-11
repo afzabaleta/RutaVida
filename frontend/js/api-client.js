@@ -267,4 +267,21 @@ export async function listUnits() {
   }));
 }
 
+/** Active stations and bases (docs/api.md, 7.3), with location as [lat, lng]. */
+export async function listStations() {
+  const stations = await request("GET", "/api/stations");
+  return stations
+    .filter((station) => station.status === "A")
+    .map((station) => ({ ...station, location: toPoint(station.location) }));
+}
+
+/** Active hospitals (docs/api.md, 7.4), with location as [lat, lng]. */
+export async function listHospitals() {
+  const hospitals = await request("GET", "/api/hospitals");
+  return hospitals.map((hospital) => ({
+    ...hospital,
+    location: toPoint(hospital.location),
+  }));
+}
+
 export const DISPATCH_AVAILABLE = false;
