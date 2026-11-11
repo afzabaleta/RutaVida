@@ -21,8 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DispatchServiceTest {
 
     private static final LocalDateTime T = LocalDateTime.of(2026, 10, 28, 10, 0);
-    private final DispatchService service = new DispatchService();
-
+    private final DispatchService service = DispatchTestSupport.rules();
     private static EmergencyAssignment assignment() {
         return new EmergencyAssignment(0, 1, 2, 3, T, null, null, AssignmentStatus.ASSIGNED);
     }

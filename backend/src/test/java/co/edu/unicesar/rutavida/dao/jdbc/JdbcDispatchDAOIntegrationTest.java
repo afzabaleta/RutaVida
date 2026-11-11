@@ -4,6 +4,7 @@ import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.exception.DataAccessException;
 import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.service.DispatchService;
+import co.edu.unicesar.rutavida.service.DispatchTestSupport;
 import co.edu.unicesar.rutavida.model.EmergencyAssignment;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.Route;
@@ -38,7 +39,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  */
 class JdbcDispatchDAOIntegrationTest {
 
-    private static final DispatchService DISPATCH = new DispatchService();
+    /** Only its state rules are used here; the fakes of the support are not touched. */
+    private static final DispatchService DISPATCH = DispatchTestSupport.rules();
 
     /** Whole seconds: Oracle TIMESTAMP keeps them exactly. */
     private static final LocalDateTime T = LocalDateTime.of(2026, 10, 24, 8, 0);

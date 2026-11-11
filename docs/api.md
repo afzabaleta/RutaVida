@@ -245,7 +245,7 @@ Las rutas del historial no traen el trazado: el historial es para leer, no para 
 
 ### 6.1 `GET /api/emergencies/{id}/candidates`
 
-Las unidades que pueden atender la emergencia (CU-09, paso 2): solo `DISPONIBLE` y de un tipo adecuado para la emergencia (regla de `DispatchService` que se define en K7). Ordenadas por tiempo estimado de llegada, la más rápida primero:
+Las unidades que pueden atender la emergencia (CU-09, paso 2): solo `DISPONIBLE` y de un tipo adecuado para la emergencia (regla `DispatchService.suits`, K7: `EMERGENCIA_MEDICA` → `AMBULANCIA`; `INCENDIO` y `RESCATE` → `BOMBERO`; `ACCIDENTE_VIAL` → las dos; otro tipo → todas). Una unidad sin posición sale desde su estación, y una que no llega por la red vial cargada no aparece. Ordenadas por tiempo estimado de llegada, la más rápida primero:
 
 ```json
 { "success": true, "message": null, "value": [

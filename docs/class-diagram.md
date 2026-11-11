@@ -973,7 +973,7 @@ Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la secció
 Cada servicio agrupa las reglas de un área del negocio (*High Cohesion*) y recibe sus dependencias por constructor. Es el único lugar donde viven las reglas: el modelo solo guarda datos y el DAO solo los lee y escribe.
 
 
-Los casos de uso con DAO de emergencias (`register`, S6) e incidentes (`report`, `changeStatus`, S7) ya están programados; los de despacho (`dispatch`…) siguen diseñados (ver sección 9).
+Los casos de uso con DAO de emergencias (`register`, S6), incidentes (`report`, `changeStatus`, S7) y despacho (`candidates`, `preview`, `dispatch`, `advance`, K7) ya están programados; el traslado al hospital, el cierre y el despacho óptimo siguen **diseñados** (ver sección 9).
 
 
 ```mermaid
@@ -1043,27 +1043,32 @@ classDiagram
     }
     class DispatchService {
         -emergencyDao : EmergencyDAO
+        -emergencyTypeDao : EmergencyTypeDAO
         -vehicleDao : EmergencyVehicleDAO
+        -vehicleTypeDao : VehicleTypeDAO
+        -stationDao : EmergencyStationDAO
         -assignmentDao : EmergencyAssignmentDAO
+        -routeDao : RouteDAO
         -routeService : RouteService
-        -hospitalService : HospitalService
-        -transactions : TransactionManager
         -auditService : AuditService
-        -alertService : AlertService
+        -transactions : TransactionManager
         -clock : Clock
+        +candidates(emergencyId: long) List~UnitCandidate~
+        +preview(emergencyId: long, vehicleId: long) List~RouteOption~
+        +dispatch(emergencyId: long, vehicleId: long, session: UserSession) DispatchResult
+        +advance(assignmentId: long, next: AssignmentStatus) EmergencyAssignment
+        +findAssignment(assignmentId: long) EmergencyAssignment
+        +missionRoutes(assignmentId: long) List~Route~
+        +suits(emergencyType: String, vehicleType: String) boolean
         +isDispatchable(vehicle: EmergencyVehicle) boolean
         +validateNew(assignment: EmergencyAssignment) void
         +canChange(from: AssignmentStatus, to: AssignmentStatus) boolean
         +changeStatus(assignment: EmergencyAssignment, next: AssignmentStatus, at: LocalDateTime) void
         +isOpen(assignment: EmergencyAssignment) boolean
         +moveVehicle(vehicle: EmergencyVehicle, point: GeoPoint, at: LocalDateTime) void
-        +suggestUnits(emergencyId: long) List~UnitSuggestion~
-        +dispatch(emergencyId: long, vehicleId: long, session: UserSession) EmergencyAssignment
-        +dispatchOptimal(emergencyIds: List~Long~, session: UserSession) List~EmergencyAssignment~
-        +advanceMission(assignmentId: long, next: AssignmentStatus, session: UserSession) void
         +startTransfer(assignmentId: long, hospitalId: long, session: UserSession) void
-        +cancelAssignment(assignmentId: long, reason: String, session: UserSession) void
         +closeEmergency(emergencyId: long, session: UserSession) void
+        +dispatchOptimal(emergencyIds: List~Long~, session: UserSession) List~EmergencyAssignment~
     }
     class HungarianAlgorithm {
         +solve(cost: double[][]) int[]$
@@ -1126,9 +1131,9 @@ classDiagram
     DispatchService ..> AuditService
     FleetService ..> AuditService
     DispatchService ..> RouteService
-    DispatchService ..> HospitalService
-    DispatchService ..> HungarianAlgorithm
-    DispatchService ..> AlertService : avisa
+    DispatchService ..> HospitalService : K7b
+    DispatchService ..> HungarianAlgorithm : fase 2
+    DispatchService ..> AlertService : avisa (S8)
     HospitalService ..> RouteService
 ```
 
@@ -1154,11 +1159,20 @@ classDiagram
         +severity : Severity
         +description : String
     }
-    class UnitSuggestion {
+    class UnitCandidate {
         <<record>>
-        +vehicle : EmergencyVehicle
-        +etaSeconds : double
+        +vehicleId : long
+        +unitCode : String
+        +vehicleType : String
+        +stationName : String
+        +location : GeoPoint
+        +etaMinutes : double
         +distanceKm : double
+    }
+    class DispatchResult {
+        <<record>>
+        +assignment : EmergencyAssignment
+        +routes : List~Route~
     }
     class HospitalOption {
         <<record>>
@@ -1247,7 +1261,8 @@ class Messages {
     DispatchService ..> HospitalService
     EmergencyService ..> EmergencyRequest
     EmergencyService ..> EmergencyHistory
-    DispatchService ..> UnitSuggestion
+    DispatchService ..> UnitCandidate
+    DispatchService ..> DispatchResult
     HospitalService ..> HospitalOption
     DashboardService ..> DashboardSummary
     RoadMapService ..> IncidentView
@@ -1787,11 +1802,13 @@ classDiagram
     }
     class DispatchController {
         -dispatchService : DispatchService
-        -hospitalService : HospitalService
+        -authService : AuthService
         -session : SessionContext
-        +suggestUnits(emergencyId: long) OperationResult~List~UnitSuggestion~~
-        +dispatch(emergencyId: long, vehicleId: long) OperationResult~EmergencyAssignment~
-        +advance(assignmentId: long, next: AssignmentStatus) OperationResult~Void~
+        +candidates(emergencyId: long) OperationResult~List~UnitCandidate~~
+        +preview(emergencyId: long, vehicleId: long) OperationResult~List~RouteOption~~
+        +dispatch(emergencyId: long, vehicleId: long) OperationResult~DispatchResult~
+        +advance(assignmentId: long, next: AssignmentStatus) OperationResult~EmergencyAssignment~
+        +missionRoutes(assignmentId: long) OperationResult~List~Route~~
         +rankHospitals(assignmentId: long, requiredService: String) OperationResult~List~HospitalOption~~
         +startTransfer(assignmentId: long, hospitalId: long) OperationResult~Void~
         +close(emergencyId: long) OperationResult~Void~
@@ -1902,6 +1919,7 @@ classDiagram
         -loginController : LoginController
         -graphLoader : GraphLoader
         -routeService : RouteService
+        -dispatchController : DispatchController
         -webSessionController : WebSessionController
         -catalogController : CatalogController
         -emergencyController : EmergencyController
@@ -1922,6 +1940,7 @@ classDiagram
         +roadMapController() RoadMapController
         +graphLoader() GraphLoader
         +routeService() RouteService
+        +dispatchController() DispatchController
         +adminBootstrap() AdminBootstrapService
     }
     class Main {
@@ -2164,6 +2183,7 @@ classDiagram
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | `RouteService` y `AppContext.routeService()` | `service`, `app` | **Programado y probado** (K6) con un grafo de prueba, sin Oracle. Guarda las rutas con `RouteDAO` (A6) |
+| Despacho: `DispatchService` (`candidates`, `preview`, `dispatch`, `advance`, `missionRoutes`, `suits`), `DispatchController`, `UnitCandidate`, `DispatchResult`, `AppContext.dispatchController()` | `service`, `controller`, `dto`, `app` | **Programado y probado** (K7) con DAO falsos y una red de prueba, sin Oracle. `startTransfer`, `rankHospitals` (K7b), `closeEmergency`/`close` (CU-12) y `dispatchOptimal` siguen diseñados |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. Se conecta en `AppContext` y en `GET /api/tracking` en A12e; `SimulationEngine` lo llama en cada ciclo (K9) |
 | Demás clases de simulación (`SimulationEngine`, escenarios) | `simulation` | Diseñado |
