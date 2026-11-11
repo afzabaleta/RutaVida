@@ -2,6 +2,8 @@ package co.edu.unicesar.rutavida.app;
 
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.controller.DispatchController;
+import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
@@ -90,7 +92,10 @@ public final class AppContext {
     private final IncidentController incidentController;
     private final RoadMapController roadMapController;
     private final GraphLoader graphLoader;
+    private final AuthService authService;
+    private final AuditService auditService;
     private RouteService routeService;
+    private DispatchController dispatchController;
 
     private AppContext(DatabaseConnection database, Clock clock) {
         this.database = Objects.requireNonNull(database, "database");
@@ -105,9 +110,8 @@ public final class AppContext {
         RoleDAO roleDao = new JdbcRoleDAO(jdbc);
         AuditDAO auditDao = new JdbcAuditDAO(jdbc);
         PasswordHasher passwordHasher = new PasswordHasher();
-        AuditService auditService = new AuditService(auditDao, clock);
-
-        AuthService authService = new AuthService(userDao, roleDao, passwordHasher, auditService, clock);
+        this.auditService = new AuditService(auditDao, clock);
+        this.authService = new AuthService(userDao, roleDao, passwordHasher, auditService, clock);
         this.adminBootstrap = new AdminBootstrapService(
                 userDao, roleDao, passwordHasher, auditService, jdbc, clock);
         this.loginController = new LoginController(authService, session);
@@ -217,6 +221,22 @@ public final class AppContext {
             routeService = new RouteService(graphLoader.load(), new JdbcRouteDAO(jdbc), jdbc, clock);
         }
         return routeService;
+    }
+
+    /**
+     * Dispatch (K7). Created the first time it is used because it needs routeService(),
+     * which loads the road graph from Oracle.
+     */
+    public synchronized DispatchController dispatchController() {
+        if (dispatchController == null) {
+            DispatchService dispatchService = new DispatchService(new JdbcEmergencyDAO(jdbc),
+                    new JdbcEmergencyTypeDAO(jdbc), new JdbcEmergencyVehicleDAO(jdbc),
+                    new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyStationDAO(jdbc),
+                    new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), routeService(),
+                    auditService, jdbc, clock);
+            dispatchController = new DispatchController(dispatchService, authService, session);
+        }
+        return dispatchController;
     }
 
     /** Only for the CreateAdminUser tool: creating users normally needs a session. */
