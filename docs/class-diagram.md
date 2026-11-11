@@ -1114,6 +1114,8 @@ class HospitalService {
         -mapDao : RoadMapDAO
         +describe(incidents: List~RoadIncident~) List~IncidentView~
         +describe(incident: RoadIncident) IncidentView
+        +describeRoutes(routes: List~Route~) List~MissionRoute~
+        +describeDispatch(result: DispatchResult) DispatchedMission
     }
     class AlertService {
         -alertDao : AlertDAO
@@ -1236,6 +1238,27 @@ classDiagram
         +segment : SegmentView
         +of(incident: RoadIncident, segment: SegmentView) IncidentView$
     }
+    class MissionRoute {
+        <<record>>
+        +routeId : long
+        +status : RouteStatus
+        +recommended : boolean
+        +destinationHospitalId : Long
+        +rank : int
+        +type : RouteType
+        +path : List~GeoPoint~
+        +segmentIds : List~Long~
+        +distanceKm : double
+        +estimatedMinutes : double
+        +trafficLights : int
+        +congestedSegments : int
+        +explanation : String
+    }
+    class DispatchedMission {
+        <<record>>
+        +assignment : EmergencyAssignment
+        +routes : List~MissionRoute~
+    }
     class UserRequest {
         <<record>>
         +roleId : long
@@ -1307,6 +1330,9 @@ class Messages {
     DashboardService ..> DashboardSummary
     RoadMapService ..> IncidentView
     IncidentView --> SegmentView
+    RoadMapService ..> MissionRoute
+    RoadMapService ..> DispatchedMission
+    DispatchedMission --> MissionRoute
     UserService ..> UserRequest
     HospitalService ..> HospitalRequest
     EmergencyService ..> ValidationUtil
@@ -1879,6 +1905,8 @@ class IncidentController {
         -mapService : RoadMapService
         +incidentsOnMap(incidents: OperationResult~List~RoadIncident~~) OperationResult~List~IncidentView~~
         +incidentOnMap(incident: OperationResult~RoadIncident~) OperationResult~IncidentView~
+        +routesOnMap(routes: OperationResult~List~Route~~) OperationResult~List~MissionRoute~~
+        +dispatchOnMap(dispatch: OperationResult~DispatchResult~) OperationResult~DispatchedMission~
     }
     class AlertController {
         -alertService : AlertService
