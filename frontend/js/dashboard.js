@@ -1,15 +1,18 @@
 ﻿
 import {
-  STATIONS,
-  HOSPITALS,
+  listEmergencies,
+  listHospitals,
+  listStations,
+  listUnits,
+  typeLabel,
+} from "./api-client.js";
+
+import {
+  STATIONS as D2_STATIONS,
+  HOSPITALS as D2_HOSPITALS,
   ROAD_NETWORK_ZONE,
   SOURCES_CHECKED_ON,
 } from "./valledupar-data.js";
-
-import {
-  EXAMPLE_EMERGENCIES,
-  EXAMPLE_UNITS,
-} from "./example-data.js";
 
 import { showRoutes } from "./route-layer.js";
 import { startPage } from "./page-session.js";
@@ -37,11 +40,92 @@ function addText(parent, tag, text, className = "") {
   return element;
 }
 
-function makeTag(text, isReal = false) {
-  const tag = document.createElement("span");
-  tag.className = isReal ? "data-tag real-tag" : "data-tag";
-  tag.textContent = text;
-  return tag;
+function createMap() {
+  if (typeof L === "undefined") {
+    const container = byId("map");
+
+    if (container) {
+      container.textContent =
+        "No se pudo cargar Leaflet. Comprueba la conexión a internet.";
+    }
+
+    return null;
+  }
+
+  const map = L.map("map").setView([10.4631, -73.2532], 13);
+
+  L.tileLayer(TILE_URL, {
+    attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 19,
+  }).addTo(map);
+
+  if (ROAD_NETWORK_ZONE) {
+    const { south, west, north, east } = ROAD_NETWORK_ZONE;
+
+    const bounds = [
+      [south, west],
+      [north, east],
+    ];
+
+    L.rectangle(bounds, {
+      color: "#79adff",
+      weight: 1,
+      opacity: 0.6,
+      fillOpacity: 0.03,
+      interactive: false,
+    }).addTo(map);
+  }
+
+  return map;
+}
+
+function makePopup(title, description, label) {
+  const wrapper = document.createElement("div");
+
+  const heading = addText(wrapper, "strong", title);
+  heading.style.display = "block";
+
+  addText(wrapper, "p", description || "Sin información");
+  addText(wrapper, "small", label);
+
+  return wrapper;
+}
+
+function addMarker(map, item, color, popup) {
+  if (!map || !Array.isArray(item.location)) {
+    return null;
+  }
+
+  const [lat, lng] = item.location;
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  const marker = L.circleMarker([lat, lng], {
+    radius: 8,
+    color,
+    fillColor: color,
+    fillOpacity: 0.85,
+    weight: 2,
+  }).addTo(map);
+
+  marker.bindPopup(popup);
+
+  return marker;
+}
+
+function focusMarker(map, marker) {
+  if (!map || !marker) {
+    return;
+  }
+
+  map.setView(
+    marker.getLatLng(),
+    Math.max(map.getZoom(), 15),
+  );
+
+  marker.openPopup();
 }
 
 function makeDataCard({
@@ -49,301 +133,375 @@ function makeDataCard({
   label,
   description,
   status,
-  statusClass,
-  isReal,
   action,
 }) {
   const card = document.createElement("article");
   card.className = "data-card";
 
-  const top = document.createElement("div");
-  top.className = "data-card-top";
+  const heading = document.createElement("div");
+  heading.className = "data-card-heading";
 
-  addText(top, "h3", title);
-  top.appendChild(makeTag(label, isReal));
-  card.appendChild(top);
+  addText(heading, "strong", title);
+  addText(heading, "small", label, "data-label");
+
+  card.appendChild(heading);
 
   if (description) {
     addText(card, "p", description);
   }
 
   if (status) {
-    addText(
-      card,
-      "p",
-      status,
-      `status-text ${statusClass || ""}`.trim(),
-    );
+    addText(card, "small", status, "muted");
   }
 
-  if (action) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "map-action";
-    button.textContent = "Ver en el mapa";
-    button.addEventListener("click", action);
-    card.appendChild(button);
+  if (typeof action === "function") {
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute(
+      "aria-label",
+      `Ver ${title} en el mapa`,
+    );
+
+    card.addEventListener("click", action);
+
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        action();
+      }
+    });
   }
 
   return card;
 }
 
-function makePopup({
-  title,
-  description,
-  label,
-  isReal,
-  source,
-  sourceText = "Consultar fuente",
-}) {
-  const popup = document.createElement("div");
-  popup.className = "map-popup";
-
-  addText(popup, "strong", title);
-  addText(popup, "p", description);
-
-  addText(
-    popup,
-    "span",
-    label,
-    `map-popup-label ${isReal ? "real-label" : ""}`.trim(),
-  );
-
-  if (source) {
-    const link = document.createElement("a");
-    link.href = source;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.textContent = sourceText;
-    popup.appendChild(link);
-  }
-
-  return popup;
-}
-
-function addMarker(map, item, color, popupContent) {
-  const marker = L.circleMarker(item.location, {
-    radius: 8,
-    color: "#101923",
-    weight: 2,
-    fillColor: color,
-    fillOpacity: 1,
-  }).addTo(map);
-
-  marker.bindPopup(popupContent);
-  return marker;
-}
-
-function focusMarker(map, marker) {
-  map.setView(
-    marker.getLatLng(),
-    Math.max(map.getZoom(), 15),
-    { animate: true },
-  );
-
-  marker.openPopup();
-}
-
-function initializeMap() {
-  const mapElement = byId("map");
-
-  if (typeof L === "undefined") {
-    if (mapElement) {
-      mapElement.textContent =
-        "No se pudo cargar Leaflet. Comprueba la conexión a internet y recarga la página.";
-    }
+function showFailure(list, error) {
+  if (!list) {
     return;
   }
 
-  byId("emergency-count").textContent = String(
-    EXAMPLE_EMERGENCIES.length,
+  list.replaceChildren();
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(
+          error ??
+          "No fue posible cargar los datos desde la API.",
+        );
+
+  addText(
+    list,
+    "p",
+    `No fue posible cargar los datos: ${message}`,
+    "muted",
   );
+}
 
-  byId("unit-count").textContent = String(
-    EXAMPLE_UNITS.filter(
-      (unit) => unit.status === "DISPONIBLE",
-    ).length,
-  );
+function showEmpty(list, message) {
+  if (list && !list.hasChildNodes()) {
+    addText(list, "p", message, "muted");
+  }
+}
 
-  byId("hospital-count").textContent = String(HOSPITALS.length);
-  byId("response-time").textContent = "Sin datos";
+function findReference(collection, name) {
+  return collection.find((item) => item.name === name);
+}
 
-  byId("emergency-pill").textContent = String(
-    EXAMPLE_EMERGENCIES.length,
-  );
+function renderPlaces(map, stations, hospitals) {
+  const list = byId("hospital-list");
+  list.replaceChildren();
 
-  byId("unit-pill").textContent = String(EXAMPLE_UNITS.length);
-  byId("hospital-pill").textContent = String(HOSPITALS.length);
+  for (const station of stations) {
+    const reference = findReference(
+      D2_STATIONS,
+      station.name,
+    );
 
-  byId("source-date").textContent =
-    `Fecha de revisión de fuentes: ${SOURCES_CHECKED_ON}`;
+    const item = {
+      ...station,
+      location:
+        station.location ||
+        reference?.location ||
+        null,
+    };
 
-  const zone = L.latLngBounds(
-    [ROAD_NETWORK_ZONE.south, ROAD_NETWORK_ZONE.west],
-    [ROAD_NETWORK_ZONE.north, ROAD_NETWORK_ZONE.east],
-  );
-
-  const map = L.map("map", {
-    maxBounds: zone.pad(0.5),
-    maxBoundsViscosity: 0.5,
-  });
-
-  L.tileLayer(TILE_URL, {
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>',
-    maxZoom: 19,
-  }).addTo(map);
-
-  map.fitBounds(zone);
-
-  L.rectangle(zone, {
-    color: COLORS.hospital,
-    weight: 2,
-    dashArray: "6 6",
-    fill: false,
-    interactive: false,
-  }).addTo(map);
-
-  const emergencyList = byId("emergency-list");
-  const unitList = byId("unit-list");
-  const hospitalList = byId("hospital-list");
-
-  emergencyList.replaceChildren();
-  unitList.replaceChildren();
-  hospitalList.replaceChildren();
-
-  // Estaciones de bomberos.
-  for (const station of STATIONS) {
     const marker = addMarker(
       map,
-      station,
+      item,
       COLORS.station,
-      makePopup({
-        title: station.name,
-        description: station.address,
-        label: "Real (D2) · Ubicación referencial",
-        isReal: true,
-        source: station.source,
-      }),
+      makePopup(
+        station.name,
+        station.address || "Dirección no disponible",
+        "ORACLE · Estación activa",
+      ),
     );
 
-    const card = makeDataCard({
-      title: station.name,
-      label: "REAL (D2)",
-      description: station.address,
-      isReal: true,
-      action: () => focusMarker(map, marker),
-    });
-
-    hospitalList.insertBefore(card, hospitalList.firstChild);
+    list.appendChild(
+      makeDataCard({
+        title: station.name,
+        label: "ORACLE · ESTACIÓN",
+        description:
+          station.address || "Dirección no disponible",
+        status: marker
+          ? ""
+          : "Sin posición conocida",
+        action: marker
+          ? () => focusMarker(map, marker)
+          : null,
+      }),
+    );
   }
 
-  // Hospitales.
-  for (const hospital of HOSPITALS) {
+  for (const hospital of hospitals) {
+    const reference = findReference(
+      D2_HOSPITALS,
+      hospital.name,
+    );
+
+    const item = {
+      ...hospital,
+      location:
+        hospital.location ||
+        reference?.location ||
+        null,
+    };
+
+    const description =
+      `${hospital.address || "Dirección no disponible"} · ` +
+      `Nivel ${hospital.level || "Sin datos"}`;
+
     const marker = addMarker(
       map,
-      hospital,
+      item,
       COLORS.hospital,
-      makePopup({
-        title: hospital.name,
-        description:
-          `${hospital.address}. Nivel registrado: ${hospital.level}.`,
-        label: "Real (D2) · Verificar datos",
-        isReal: true,
-        source: hospital.source,
-      }),
+      makePopup(
+        hospital.name,
+        description,
+        "ORACLE · Hospital",
+      ),
     );
 
-    const card = makeDataCard({
-      title: hospital.name,
-      label: "REAL (D2)",
-      description:
-        `${hospital.address} · Nivel ${hospital.level}.` +
-        `${hospital.note ? ` ${hospital.note}.` : ""}`,
-      isReal: true,
-      action: () => focusMarker(map, marker),
-    });
-
-    hospitalList.appendChild(card);
+    list.appendChild(
+      makeDataCard({
+        title: hospital.name,
+        label: "ORACLE · HOSPITAL",
+        description,
+        status: marker
+          ? ""
+          : "Sin posición conocida",
+        action: marker
+          ? () => focusMarker(map, marker)
+          : null,
+      }),
+    );
   }
 
-  // Emergencias de ejemplo.
-  for (const emergency of EXAMPLE_EMERGENCIES) {
+  showEmpty(
+    list,
+    "No hay hospitales ni estaciones disponibles.",
+  );
+}
+
+function renderEmergencies(map, emergencies) {
+  const list = byId("emergency-list");
+  list.replaceChildren();
+
+  for (const emergency of emergencies) {
+    const title =
+      emergency.code ||
+      `Emergencia ${emergency.id ?? ""}`;
+
+    const description =
+      `${typeLabel(emergency.type)} · ` +
+      `${emergency.severity || "Sin severidad"} · ` +
+      `${emergency.status || "Sin estado"}`;
+
     const marker = addMarker(
       map,
       emergency,
       COLORS.emergency,
-      makePopup({
-        title: `${emergency.code} · ${emergency.type}`,
-        description:
-          `${emergency.place}. Severidad: ${emergency.severity}. Estado: ${emergency.status}.`,
-        label: "EJEMPLO · No es un reporte real",
-        isReal: false,
-      }),
+      makePopup(
+        title,
+        description,
+        "ORACLE · Emergencia",
+      ),
     );
 
-    emergencyList.appendChild(
+    list.appendChild(
       makeDataCard({
-        title:
-          `${emergency.code} · ${emergency.type.replaceAll("_", " ")}`,
-        label: "EJEMPLO",
-        description:
-          `${emergency.place} · Severidad: ${emergency.severity}`,
-        status: emergency.status.replaceAll("_", " "),
-        statusClass:
-          emergency.status === "REPORTADA"
-            ? "status-critical"
-            : "status-assigned",
-        action: () => focusMarker(map, marker),
+        title,
+        label: "ORACLE",
+        description,
+        status:
+          emergency.place ||
+          (marker ? "" : "Sin posición conocida"),
+        action: marker
+          ? () => focusMarker(map, marker)
+          : null,
       }),
     );
   }
 
-  // Unidades de ejemplo.
-  for (const unit of EXAMPLE_UNITS) {
+  showEmpty(
+    list,
+    "No hay emergencias registradas.",
+  );
+}
+
+function renderUnits(map, units) {
+  const list = byId("unit-list");
+  list.replaceChildren();
+
+  for (const unit of units) {
+    const title =
+      unit.code ||
+      unit.name ||
+      `Unidad ${unit.id ?? ""}`;
+
+    const isExample =
+      unit.isExample === true ||
+      unit.example === true ||
+      String(unit.code || "").startsWith("EJEMPLO-");
+
+    const label = isExample
+      ? "EJEMPLO"
+      : "ORACLE";
+
+    const description =
+      `${unit.type || "Unidad"} · ` +
+      `${unit.status || "Sin estado"}`;
+
     const marker = addMarker(
       map,
       unit,
       COLORS.unit,
-      makePopup({
-        title: `${unit.code} · ${unit.type}`,
-        description: `${unit.place}. Estado: ${unit.status}.`,
-        label: "EJEMPLO · No es una unidad operativa real",
-        isReal: false,
-      }),
+      makePopup(
+        title,
+        description,
+        label,
+      ),
     );
 
-    unitList.appendChild(
+    list.appendChild(
       makeDataCard({
-        title: `${unit.code} · ${unit.type}`,
-        label: "EJEMPLO",
-        description: unit.place,
-        status: unit.status,
-        statusClass:
-          unit.status === "DISPONIBLE" ? "status-available" : "",
-        action: () => focusMarker(map, marker),
+        title,
+        label,
+        description,
+        status: marker
+          ? ""
+          : "Sin posición conocida",
+        action: marker
+          ? () => focusMarker(map, marker)
+          : null,
       }),
     );
   }
 
-  // Rutas de demostración.
-  requestAnimationFrame(() => {
-    map.invalidateSize();
-
-    showRoutes(map, window.RUTAVIDA_RUTAS_DEMO, {
-      tabs: byId("route-tabs"),
-      list: byId("route-list"),
-      note: byId("route-note"),
-    });
-  });
+  showEmpty(
+    list,
+    "No hay unidades disponibles.",
+  );
 }
 
 async function initializeDashboard() {
   const session = await startPage();
 
-  if (!session) return;
+  if (!session) {
+    return;
+  }
 
-  initializeMap();
+  const map = createMap();
+
+  byId("response-time").textContent = "Sin datos";
+  byId("hospital-count").textContent = "—";
+  byId("hospital-pill").textContent = "—";
+
+  byId("source-date").textContent =
+    `Fecha de revisión de fuentes: ${SOURCES_CHECKED_ON}`;
+
+  byId("emergency-list").replaceChildren();
+  byId("unit-list").replaceChildren();
+  byId("hospital-list").replaceChildren();
+
+  const results = await Promise.allSettled([
+    listEmergencies(),
+    listUnits(),
+    listStations(),
+    listHospitals(),
+  ]);
+
+  const [
+    emergencies,
+    units,
+    stations,
+    hospitals,
+  ] = results;
+
+  if (emergencies.status === "fulfilled") {
+    renderEmergencies(
+      map,
+      emergencies.value,
+    );
+  } else {
+    showFailure(
+      byId("emergency-list"),
+      emergencies.reason,
+    );
+  }
+
+  if (units.status === "fulfilled") {
+    renderUnits(
+      map,
+      units.value,
+    );
+  } else {
+    showFailure(
+      byId("unit-list"),
+      units.reason,
+    );
+  }
+
+  if (
+    stations.status === "fulfilled" &&
+    hospitals.status === "fulfilled"
+  ) {
+    renderPlaces(
+      map,
+      stations.value,
+      hospitals.value,
+    );
+
+    byId("hospital-count").textContent =
+      String(hospitals.value.length);
+
+    byId("hospital-pill").textContent =
+      String(hospitals.value.length);
+  } else {
+    showFailure(
+      byId("hospital-list"),
+      stations.status === "rejected"
+        ? stations.reason
+        : hospitals.reason,
+    );
+  }
+
+  // Rutas D4: demostración hasta integrar K7.
+  if (map) {
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+
+      showRoutes(
+        map,
+        window.RUTAVIDA_RUTAS_DEMO,
+        {
+          tabs: byId("route-tabs"),
+          list: byId("route-list"),
+          note: byId("route-note"),
+        },
+      );
+    });
+  }
 }
 
 if (document.readyState === "loading") {

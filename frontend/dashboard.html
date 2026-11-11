@@ -17,23 +17,27 @@
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
-    <script defer src="./data/rutas-demo.js"></script>
+  <script defer src="./data/rutas-demo.js"></script>
   <script type="module" src="./js/dashboard.js"></script>
 </head>
+
 <body class="dashboard-body">
   <header class="dashboard-header">
-    <a class="dashboard-brand" href="./index.html" aria-label="RutaVida, volver al inicio">
+    <a class="dashboard-brand" href="./dashboard.html" aria-label="RutaVida, panel principal">
       <img src="./img/logo.svg" alt="" width="42" height="42">
-      <span><strong>RutaVida</strong><small>Centro de operaciones</small></span>
+      <span>
+        <strong>RutaVida</strong>
+        <small>Centro de operaciones</small>
+      </span>
     </a>
-      <div class="header-user">
-          <span class="example-badge">MODO DEMOSTRACIÓN</span>
-          <div>
-              <strong id="user-name">Cargando…</strong>
-              <small id="user-role">Cargando…</small>
-          </div>
-          <a class="logout-link" href="./index.html">Salir</a>
+
+    <div class="header-user">
+      <div>
+        <strong id="user-name">Cargando…</strong>
+        <small id="user-role"></small>
       </div>
+      <a class="logout-link" href="./index.html">Salir</a>
+    </div>
   </header>
 
   <main class="dashboard-main">
@@ -41,114 +45,179 @@
       <div>
         <p class="eyebrow">GESTIÓN DE EMERGENCIAS</p>
         <h1>Panel de control</h1>
-        <p class="muted">Vista demostrativa del sistema para Valledupar, Cesar.</p>
+        <p class="muted">
+          Emergencias activas y recursos de Valledupar, Cesar, con los datos de Oracle.
+        </p>
       </div>
-        <div class="welcome-actions">
-            <a class="button" href="./emergencia.html">Registrar emergencia</a>
-            <a class="button button-secondary" href="./despacho.html">Despachar unidad</a>
-            <span class="demo-notice">Los datos operativos son ejemplos, no reportes reales.</span>
-        </div>
+
+      <div class="welcome-actions">
+        <a class="button" href="./emergencia.html">Registrar emergencia</a>
+        <a class="button button-secondary" href="./despacho.html">Despachar unidad</a>
+        <span class="demo-notice">
+          Prototipo académico. Las unidades EJEMPLO-… y las rutas de la demo están identificadas.
+        </span>
+      </div>
     </section>
 
     <section class="kpi-grid" aria-label="Indicadores del sistema">
       <article class="kpi-card">
         <span class="kpi-icon red-icon" aria-hidden="true">!</span>
-        <div><p>Emergencias activas</p><strong id="emergency-count">—</strong><small>Ejemplo</small></div>
+        <div>
+          <p>Emergencias activas</p>
+          <strong id="emergency-count">—</strong>
+          <small>Oracle</small>
+        </div>
       </article>
+
       <article class="kpi-card">
         <span class="kpi-icon green-icon" aria-hidden="true">✓</span>
-        <div><p>Unidades disponibles</p><strong id="unit-count">—</strong><small>Ejemplo</small></div>
+        <div>
+          <p>Unidades disponibles</p>
+          <strong id="unit-count">—</strong>
+          <small>Oracle (incluye EJEMPLO)</small>
+        </div>
       </article>
+
       <article class="kpi-card">
         <span class="kpi-icon blue-icon" aria-hidden="true">+</span>
-        <div><p>Hospitales registrados</p><strong id="hospital-count">—</strong><small>Datos de referencia D2</small></div>
+        <div>
+          <p>Hospitales activos</p>
+          <strong id="hospital-count">—</strong>
+          <small>Oracle (datos de D2)</small>
+        </div>
       </article>
+
       <article class="kpi-card">
         <span class="kpi-icon amber-icon" aria-hidden="true">◷</span>
-        <div><p>Tiempo promedio de respuesta</p><strong id="response-time">Sin datos</strong><small>No calculado</small></div>
+        <div>
+          <p>Tiempo promedio de respuesta</p>
+          <strong id="response-time">Sin datos</strong>
+          <small>Se calcula con el despacho (K7)</small>
+        </div>
       </article>
     </section>
 
     <section class="workspace" aria-label="Mapa y recursos">
       <aside class="side-panel emergency-panel">
         <div class="panel-heading">
-          <div><p class="eyebrow">SEGUIMIENTO</p><h2>Emergencias</h2></div>
+          <div>
+            <p class="eyebrow">SEGUIMIENTO</p>
+            <h2>Emergencias</h2>
+          </div>
           <span class="count-pill" id="emergency-pill">0</span>
         </div>
+
         <div id="emergency-list" class="item-list">
-          <p class="empty-state">Cargando ejemplos…</p>
+          <p class="empty-state">Cargando…</p>
         </div>
+
         <div class="panel-divider"></div>
+
         <div class="panel-heading">
-          <div><p class="eyebrow">RECURSOS</p><h2>Unidades</h2></div>
+          <div>
+            <p class="eyebrow">RECURSOS</p>
+            <h2>Unidades</h2>
+          </div>
           <span class="count-pill" id="unit-pill">0</span>
         </div>
+
         <div id="unit-list" class="item-list">
-          <p class="empty-state">Cargando ejemplos…</p>
+          <p class="empty-state">Cargando…</p>
         </div>
       </aside>
 
       <section class="map-panel">
         <div class="map-heading">
-          <div><p class="eyebrow">UBICACIÓN GEOGRÁFICA</p><h2>Mapa de Valledupar</h2></div>
+          <div>
+            <p class="eyebrow">UBICACIÓN GEOGRÁFICA</p>
+            <h2>Mapa de Valledupar</h2>
+          </div>
           <span class="map-status"><span></span> Mapa de referencia</span>
         </div>
-        <div id="map" role="application" aria-label="Mapa interactivo con estaciones, hospitales y ubicaciones de ejemplo"></div>
+
+        <div
+          id="map"
+          role="application"
+          aria-label="Mapa interactivo con emergencias, unidades, estaciones y hospitales">
+        </div>
+
         <div class="map-legend" aria-label="Leyenda del mapa">
           <span><i class="legend-dot station-dot"></i> Estación</span>
           <span><i class="legend-dot hospital-dot"></i> Hospital</span>
-          <span><i class="legend-dot emergency-dot"></i> Emergencia (ejemplo)</span>
-          <span><i class="legend-dot unit-dot"></i> Unidad (ejemplo)</span>
+          <span><i class="legend-dot emergency-dot"></i> Emergencia</span>
+          <span><i class="legend-dot unit-dot"></i> Unidad</span>
           <span><i class="legend-zone"></i> Zona vial K4</span>
         </div>
-        <p class="map-footnote">Cartografía © OpenStreetMap contributors. Las ubicaciones son referenciales; consulta la fuente de cada sitio en su marcador.</p>
 
-          <section class="route-panel" aria-labelledby="route-title">
-              <div class="map-heading">
-                  <div>
-                      <p class="eyebrow">MOTOR DE RUTAS</p>
-                      <h2 id="route-title">Rutas calculadas por RutaVida</h2>
-                  </div>
-                  <span class="data-tag real-tag">CALCULADAS</span>
-              </div>
+        <p class="map-footnote">
+          Cartografía © OpenStreetMap contributors. Las ubicaciones son referenciales;
+          consulta la fuente de cada sitio en su marcador.
+        </p>
 
-              <div
-                      id="route-tabs"
-                      class="route-tabs"
-                      role="tablist"
-                      aria-label="Escenario de la demostración">
-              </div>
+        <section class="route-panel" aria-labelledby="route-title">
+          <div class="map-heading">
+            <div>
+              <p class="eyebrow">MOTOR DE RUTAS</p>
+              <h2 id="route-title">Rutas calculadas por RutaVida</h2>
+            </div>
+            <span class="data-tag real-tag">CALCULADAS</span>
+          </div>
 
-              <div id="route-list" class="route-list"></div>
-              <p id="route-note" class="map-footnote"></p>
-          </section>
+          <div
+            id="route-tabs"
+            class="route-tabs"
+            role="tablist"
+            aria-label="Escenario de la demostración">
+          </div>
+
+          <div id="route-list" class="route-list"></div>
+          <p id="route-note" class="map-footnote"></p>
+        </section>
       </section>
 
       <aside class="side-panel hospital-panel">
         <div class="panel-heading">
-          <div><p class="eyebrow">RED DE ATENCIÓN</p><h2>Hospitales</h2></div>
+          <div>
+            <p class="eyebrow">RED DE ATENCIÓN</p>
+            <h2>Hospitales</h2>
+          </div>
           <span class="count-pill" id="hospital-pill">0</span>
         </div>
+
         <div id="hospital-list" class="item-list">
-          <p class="empty-state">Cargando referencias…</p>
+          <p class="empty-state">Cargando…</p>
         </div>
+
         <div class="panel-divider"></div>
+
         <div class="source-note">
           <strong>Sobre estos datos</strong>
-          <p>Los hospitales y la estación provienen de la referencia de datos de D2. Verifica las fuentes y direcciones antes de usarlos en una operación real.</p>
+          <p>
+            Los hospitales y las estaciones vienen de Oracle (script
+            <code>03_datos_valledupar.sql</code>, D2). Verifica las fuentes y direcciones
+            antes de usarlos en una operación real.
+          </p>
           <p id="source-date">Fecha de revisión de fuentes: —</p>
         </div>
+
         <div class="panel-divider"></div>
+
         <div class="source-note">
-            <p>La sesión de usuario está conectada a la API. Sin embargo, las emergencias, unidades, estados e indicadores de este panel siguen siendo datos de ejemplo y no representan operaciones reales.</p>
-          <p>Este panel no está conectado a Oracle ni a servicios de despacho. Emergencias, unidades, estados e indicadores operativos son datos ilustrativos.</p>
+          <strong>Alcance del panel</strong>
+          <p>
+            Emergencias, unidades, estaciones y hospitales se leen de Oracle a través
+            de la API. Las unidades <code>EJEMPLO-…</code> son datos de ejemplo
+            (<code>06_unidades_ejemplo.sql</code>). Las rutas son las de la demo del
+            Parque La Popa hasta que se conecte el despacho (K7), y el tiempo promedio
+            de respuesta se calcula cuando haya misiones cerradas.
+          </p>
         </div>
       </aside>
     </section>
 
     <footer class="dashboard-footer">
-      <span>RutaVida · Maqueta web D3</span>
-      <span>Datos de demostración claramente identificados</span>
+      <span>RutaVida · Panel principal (D5c)</span>
+      <span>Datos de Oracle; EJEMPLO identificado</span>
     </footer>
   </main>
 </body>
