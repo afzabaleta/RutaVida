@@ -163,3 +163,25 @@ Invoke-RestMethod -Uri http://localhost:8080/api/units -Headers $auth | ConvertT
 - Nadie hace commit ni push directo a `main` ni a `develop`: todo entra por Pull Request hacia `develop`, revisado por otra persona.
 - **Las ramas no se eliminan**, ni después del merge. Detalles en [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - Las credenciales nunca se suben al repositorio.
+
+## Actualización D5c — Panel principal conectado a la API
+
+El panel principal (`frontend/dashboard.html`) consulta los datos mediante la API REST:
+
+| Recurso | Endpoint |
+|---|---|
+| Emergencias | `GET /api/emergencies` |
+| Unidades | `GET /api/units` |
+| Hospitales | `GET /api/hospitals` |
+| Estaciones y bases | `GET /api/stations` |
+
+- Las emergencias se identifican como datos de Oracle.
+- Las unidades con códigos `EJEMPLO-` se identifican como datos de EJEMPLO.
+- Las unidades sin coordenadas muestran "Sin posición conocida" y no generan marcadores en el mapa.
+- Hospitales y estaciones se consultan desde la API.
+- Las rutas demostrativas de D4 se conservan y se identifican como ejemplos.
+- El tiempo de respuesta permanece como "Sin datos" hasta implementar el despacho K7.
+- Cada sección del panel puede cargarse independientemente si falla otra consulta.
+- El despacho de unidades y el cálculo de tiempos reales siguen pendientes de K7.
+
+La documentación específica del frontend está en [`frontend/README.md`](frontend/README.md).

@@ -2,7 +2,7 @@
 
 Responsable: Andrés (líder, DAO e integración).
 Fecha: 14 de octubre de 2026 · actualizado el 30 de octubre de 2026 (refactorización de capas).
-Estado: **capas, modelo, DAO principales, motor de rutas y reglas de estado programados y probados**; despacho completo, simulación y API REST pendientes (sección 10).
+Estado: **capas, modelo, DAO principales, motor de rutas, reglas de estado, API REST y panel principal conectado a Oracle programados y probados**; despacho completo y simulación pendientes (sección 10).
 
 Paquete raíz: `co.edu.unicesar.rutavida` · Java 21 · Maven · Oracle XE local (`XEPDB1`).
 
@@ -228,7 +228,8 @@ Ejemplo: *consultar los hospitales operativos*.
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
 | API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
-| Rutas de despacho, seguimiento y simulación (K7) y panel principal con datos de Oracle | **Pendiente** |
+| Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
+| Rutas de despacho, seguimiento y simulación (K7) | **Pendiente** |
 
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
 
