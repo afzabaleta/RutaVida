@@ -79,7 +79,7 @@ function createMap() {
   return map;
 }
 
-function makePopup(title, description, label) {
+function makePopup(title, description, label, source = null) {
   const wrapper = document.createElement("div");
 
   const heading = addText(wrapper, "strong", title);
@@ -87,6 +87,16 @@ function makePopup(title, description, label) {
 
   addText(wrapper, "p", description || "Sin información");
   addText(wrapper, "small", label);
+
+  if (source) {
+    const link = document.createElement("a");
+    link.href = source;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Consultar fuente";
+    link.style.display = "block";
+    wrapper.appendChild(link);
+  }
 
   return wrapper;
 }
@@ -139,10 +149,15 @@ function makeDataCard({
   card.className = "data-card";
 
   const heading = document.createElement("div");
-  heading.className = "data-card-heading";
+  heading.className = "data-card-top";
 
   addText(heading, "strong", title);
-  addText(heading, "small", label, "data-label");
+  addText(
+    heading,
+    "span",
+    label,
+    label.startsWith("EJEMPLO") ? "data-tag" : "data-tag real-tag",
+  );
 
   card.appendChild(heading);
 
@@ -234,6 +249,7 @@ function renderPlaces(map, stations, hospitals) {
         station.name,
         station.address || "Dirección no disponible",
         "ORACLE · Estación activa",
+        reference?.source,
       ),
     );
 
@@ -279,6 +295,7 @@ function renderPlaces(map, stations, hospitals) {
         hospital.name,
         description,
         "ORACLE · Hospital",
+        reference?.source,
       ),
     );
 
@@ -306,6 +323,9 @@ function renderPlaces(map, stations, hospitals) {
 function renderEmergencies(map, emergencies) {
   const list = byId("emergency-list");
   list.replaceChildren();
+
+  byId("emergency-count").textContent = String(emergencies.length);
+  byId("emergency-pill").textContent = String(emergencies.length);
 
   for (const emergency of emergencies) {
     const title =
@@ -352,6 +372,10 @@ function renderEmergencies(map, emergencies) {
 function renderUnits(map, units) {
   const list = byId("unit-list");
   list.replaceChildren();
+
+  const available = units.filter((unit) => unit.status === "DISPONIBLE");
+  byId("unit-count").textContent = String(available.length);
+  byId("unit-pill").textContent = String(units.length);
 
   for (const unit of units) {
     const title =
