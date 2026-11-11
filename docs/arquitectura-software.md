@@ -230,6 +230,8 @@ Ejemplo: *consultar los hospitales operativos*.
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
 | Rutas de despacho, seguimiento y simulación (K7) | **Pendiente** |
+| Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado; falta la API |
+
 
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
 

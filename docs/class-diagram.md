@@ -995,17 +995,22 @@ classDiagram
         +hasPermission(session: UserSession, module: String, action: String) boolean
         +requirePermission(session: UserSession, module: String, action: String) void
     }
-    class UserService {
-        -userDao : UserDAO
-        -roleDao : RoleDAO
-        -passwordHasher : PasswordHasher
-        -transactions : TransactionManager
-        -auditService : AuditService
-        +create(request: UserRequest, session: UserSession) User
-        +listAll(session: UserSession) List~User~
-        +deactivate(userId: long, session: UserSession) void
-        +changePassword(userId: long, current: char[], next: char[]) void
-    }
+
+class UserService {
+    -userDao : UserDAO
+    -roleDao : RoleDAO
+    -passwordHasher : PasswordHasher
+    -auditService : AuditService
+    -transactions : TransactionManager
+    -clock : Clock
+    +create(request: UserRequest, session: UserSession) User
+    +listAll() List~User~
+    +findById(id: long) User
+    +deactivate(userId: long, session: UserSession) User
+    +activate(userId: long, session: UserSession) User
+    +changeOwnPassword(session: UserSession, current: char[], next: char[]) void
+}
+
     class AuditService {
         -auditDao : AuditDAO
         -clock : Clock
@@ -1079,13 +1084,22 @@ classDiagram
         +register(vehicle: EmergencyVehicle, session: UserSession) EmergencyVehicle
         +changeStatus(vehicleId: long, status: VehicleOperationalStatus, session: UserSession) void
     }
-    class HospitalService {
-        -hospitalDao : HospitalDAO
-        -routeService : RouteService
-        +listOperational() List~Hospital~
-        +rankForTransfer(from: GeoPoint, requiredService: String, vehicleTypeId: long) List~HospitalOption~
-        +updateServiceAvailability(offering: HospitalServiceOffering, session: UserSession) void
-    }
+
+class HospitalService {
+    -hospitalDao : HospitalDAO
+    -auditService : AuditService
+    -transactions : TransactionManager
+    -routeService : RouteService
+    +listOperational() List~Hospital~
+    +findById(id: long) Hospital
+    +register(request: HospitalRequest, session: UserSession) Hospital
+    +update(id: long, request: HospitalRequest, session: UserSession) Hospital
+    +changeStatus(id: long, status: RecordStatus, session: UserSession) Hospital
+    +rankForTransfer(from: GeoPoint, requiredService: String, vehicleTypeId: long) List~HospitalOption~
+    +updateServiceAvailability(offering: HospitalServiceOffering, session: UserSession) void
+}
+
+
     class DashboardService {
         -dashboardDao : DashboardDAO
         -clock : Clock
@@ -1125,6 +1139,7 @@ classDiagram
     EmergencyService ..> AuditService
     DispatchService ..> AuditService
     FleetService ..> AuditService
+    HospitalService ..> AuditService
     DispatchService ..> RouteService
     DispatchService ..> HospitalService
     DispatchService ..> HungarianAlgorithm
@@ -1217,6 +1232,31 @@ classDiagram
         +username : String
         +password : char[]
     }
+
+class UserView {
+    <<record>>
+    +id : long
+    +roleId : long
+    +document : String
+    +firstNames : String
+    +lastNames : String
+    +email : String
+    +username : String
+    +status : RecordStatus
+    +registeredAt : LocalDateTime
+    +of(user: User) UserView$
+}
+
+class HospitalRequest {
+    <<record>>
+    +name : String
+    +level : HospitalLevel
+    +address : String
+    +phone : String
+    +location : GeoPoint
+    +emergencyCapacity : Integer
+}
+
 class ValidationUtil {
     +requireText(value: String, field: String, maxLength: int) String$
     +optionalText(value: String, field: String, maxLength: int) String$
@@ -1253,6 +1293,7 @@ class Messages {
     RoadMapService ..> IncidentView
     IncidentView --> SegmentView
     UserService ..> UserRequest
+    HospitalService ..> HospitalRequest
     EmergencyService ..> ValidationUtil
 ```
 
@@ -1837,25 +1878,36 @@ class IncidentController {
         +scenarioNames() List~String~
         +run(scenarioName: String) OperationResult~Void~
     }
-    class UserController {
-        -userService : UserService
-        -session : SessionContext
-        +create(request: UserRequest) OperationResult~User~
-        +list() List~User~
-        +deactivate(userId: long) OperationResult~Void~
-    }
+
+class UserController {
+    -userService : UserService
+    -authService : AuthService
+    -session : SessionContext
+    +create(request: UserRequest) OperationResult~UserView~
+    +list() OperationResult~List~UserView~~
+    +deactivate(userId: long) OperationResult~UserView~
+    +activate(userId: long) OperationResult~UserView~
+    +changeOwnPassword(current: char[], next: char[]) OperationResult~Void~
+}
+
     class FleetController {
         -fleetService : FleetService
         -session : SessionContext
         +listAll() List~EmergencyVehicle~
         +changeStatus(vehicleId: long, status: VehicleOperationalStatus) OperationResult~Void~
     }
-    class HospitalController {
-        -hospitalService : HospitalService
-        -session : SessionContext
-        +listOperational() List~Hospital~
-        +updateService(offering: HospitalServiceOffering) OperationResult~Void~
-    }
+
+class HospitalController {
+    -hospitalService : HospitalService
+    -authService : AuthService
+    -session : SessionContext
+    +listOperational() OperationResult~List~Hospital~~
+    +register(request: HospitalRequest) OperationResult~Hospital~
+    +update(hospitalId: long, request: HospitalRequest) OperationResult~Hospital~
+    +changeStatus(hospitalId: long, status: RecordStatus) OperationResult~Hospital~
+    +updateService(offering: HospitalServiceOffering) OperationResult~Void~
+}
+
 
     LoginController --> SessionContext
     LoginController --> AuthService
@@ -2175,5 +2227,6 @@ classDiagram
 | Vista web | `frontend/` | **Programada y probada (D5b y D5c)**. Inicio de sesión, registro de emergencias y panel principal conectados a la API REST. El panel consulta emergencias, unidades, hospitales y estaciones desde Oracle. Las unidades de demostración se identifican como `EJEMPLO`. Las rutas del mapa siguen siendo demostrativas (D4); el despacho real depende de K7. |
 | `IncidentService`, `IncidentRequest`, `IncidentController`, `RoadSegmentDAO.findById` | `service`, `dto`, `controller`, `dao` | **Programado y probado (S7)** con DAO falsos; `findById`, contra Oracle. Aplicar el incidente al grafo y recalcular rutas corresponde a K7 |
 | `Alert`, `AlertDAO`, `JdbcAlertDAO`, `AlertService`, `AlertController` | `model`, `dao`, `dao.jdbc`, `service`, `controller` | **Programado y probado** (S8): servicio y controlador con DAO falsos; `JdbcAlertDAO`, contra Oracle. Se conecta en `AppContext` y en `/api/alerts` en A12f; K7, K8 y K9 llaman al servicio. `Notification` y `NotificationDAO` siguen diseñados |
+| `UserService`, `UserController`, `UserRequest`, `UserView`, `HospitalService`, `HospitalController`, `HospitalRequest` | `service`, `controller`, `dto` | **Programado y probado** (S9) con DAO falsos: crear, listar, desactivar y activar usuarios, y cambiar la propia contraseña (CU-03); registrar, editar, activar y desactivar hospitales (CU-05). Falta conectarlos en `AppContext` y en la API (Andrés). `HospitalService.rankForTransfer` (K7b), `updateServiceAvailability` y `HospitalController.updateService` siguen diseñados |
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
