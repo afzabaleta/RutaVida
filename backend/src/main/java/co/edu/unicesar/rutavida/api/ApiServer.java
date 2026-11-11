@@ -1,6 +1,7 @@
 package co.edu.unicesar.rutavida.api;
 
 import co.edu.unicesar.rutavida.controller.CatalogController;
+import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
@@ -38,8 +39,9 @@ import java.util.logging.Logger;
  * {@code Authorization: Bearer} token, checks the permission of the route and runs the
  * handler with that session (so the controllers and the audit triggers see that user).
  *
- * <p>Routes: session (A12a), emergencies and catalogs (A12b), dashboard (A14) and road incidents
- * (A12c). Dispatch, routes, tracking and simulation are added when their controllers exist (K7).
+ * <p>Routes: session (A12a), emergencies and catalogs (A12b), dashboard (A14), road incidents
+ * (A12c) and alerts (A12f). Dispatch, routes, tracking and simulation are added when their
+ * controllers exist (K7).
  */
 public final class ApiServer {
 
@@ -66,6 +68,7 @@ public final class ApiServer {
     private final DashboardController dashboard;
     private final IncidentController incidents;
     private final RoadMapController roadMap;
+    private final AlertController alerts;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -75,13 +78,15 @@ public final class ApiServer {
      */
     public ApiServer(WebSessionController sessions, CatalogController catalogs,
                      EmergencyController emergencies, DashboardController dashboard,
-                     IncidentController incidents, RoadMapController roadMap, Path frontendDirectory) {
+                     IncidentController incidents, RoadMapController roadMap, AlertController alerts,
+                     Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
         this.dashboard = Objects.requireNonNull(dashboard, "dashboard");
         this.incidents = Objects.requireNonNull(incidents, "incidents");
         this.roadMap = Objects.requireNonNull(roadMap, "roadMap");
+        this.alerts = Objects.requireNonNull(alerts, "alerts");
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -154,6 +159,13 @@ public final class ApiServer {
                 ctx -> send(ctx, roadMap.incidentOnMap(incidents.changeStatus(pathId(ctx), readStatus(ctx))),
                         ApiStatus.OK)));
 
+        // 11. Alerts of the user of the session: any valid token, no permission (docs/api.md 3).
+        // The bell refreshes them by itself, so reading them does not keep the session alive.
+        config.routes.get("/api/alerts", authenticated(AUTOMATIC,
+                ctx -> send(ctx, alerts.list("true".equalsIgnoreCase(ctx.queryParam("unread"))), ApiStatus.OK)));
+        config.routes.patch("/api/alerts/{id}/read", authenticated(USER_ACTION,
+                ctx -> send(ctx, alerts.markAsRead(pathId(ctx)), ApiStatus.OK)));
+
         config.routes.exception(Exception.class, this::onError);
     }
 
@@ -178,6 +190,21 @@ public final class ApiServer {
             OperationResult<Void> allowed = sessions.authorize(session.value(), module, action);
             if (!allowed.success()) {
                 send(ctx, allowed, ApiStatus.OK);
+                return;
+            }
+            sessions.runAs(session.value(), () -> handler.handle(ctx));
+        };
+    }
+
+    /**
+     * Like {@link #secured}, for the routes that only need a valid session ("Sesión" in
+     * docs/api.md 3): 401 without a valid token, otherwise the handler runs with that session.
+     */
+    Handler authenticated(boolean countsAsUse, Handler handler) {
+        return ctx -> {
+            OperationResult<UserSession> session = sessions.authenticate(ctx.header(AUTHORIZATION), countsAsUse);
+            if (!session.success()) {
+                send(ctx, session, ApiStatus.OK);
                 return;
             }
             sessions.runAs(session.value(), () -> handler.handle(ctx));

@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.app;
 
+import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
@@ -17,6 +18,7 @@ import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.UserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.ClientIdentifierConnectionFactory;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcAuditDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcAlertDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyAssignmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyStationDAO;
@@ -36,6 +38,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditService;
+import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.DashboardService;
@@ -91,6 +94,8 @@ public final class AppContext {
     private final DashboardController dashboardController;
     private final IncidentController incidentController;
     private final RoadMapController roadMapController;
+    private final AlertService alertService;
+    private final AlertController alertController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
     private final AuditService auditService;
@@ -137,6 +142,11 @@ public final class AppContext {
                 new JdbcRoadSegmentDAO(jdbc), auditService, jdbc, clock);
         this.incidentController = new IncidentController(incidentService, authService, session);
         this.roadMapController = new RoadMapController(new RoadMapService(new JdbcRoadMapDAO(jdbc)));
+
+        // Alerts of each user (S8, A12f). Dispatch, recalculation and simulation (K7, K8, K9)
+        // create them through alertService(), so everyone shares this instance.
+        this.alertService = new AlertService(new JdbcAlertDAO(jdbc), userDao, roleDao, jdbc, clock);
+        this.alertController = new AlertController(alertService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
@@ -205,6 +215,17 @@ public final class AppContext {
     /** Road data for the map: incidents with their segments (A12c). */
     public RoadMapController roadMapController() {
         return roadMapController;
+    }
+
+
+    /** Creates the alerts of the users; K7, K8 and K9 receive this one (S8, A12f). */
+    public AlertService alertService() {
+        return alertService;
+    }
+
+    /** Alerts of the user of the session (A12f). */
+    public AlertController alertController() {
+        return alertController;
     }
 
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */

@@ -1926,6 +1926,8 @@ classDiagram
         -dashboardController : DashboardController
         -incidentController : IncidentController
         -roadMapController : RoadMapController
+        -alertService : AlertService
+        -alertController : AlertController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -1938,6 +1940,8 @@ classDiagram
         +dashboardController() DashboardController
         +incidentController() IncidentController
         +roadMapController() RoadMapController
+        +alertService() AlertService
+        +alertController() AlertController
         +graphLoader() GraphLoader
         +routeService() RouteService
         +dispatchController() DispatchController
@@ -2026,11 +2030,13 @@ classDiagram
         -dashboard : DashboardController
         -incidents : IncidentController
         -roadMap : RoadMapController
+        -alerts : AlertController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
         +stop() void
         ~secured(module: String, action: String, countsAsUse: boolean, handler: Handler) Handler
+        ~authenticated(countsAsUse: boolean, handler: Handler) Handler
         ~send(ctx: Context, result: OperationResult, successStatus: int) void
         ~pathId(ctx: Context) long$
     }
@@ -2122,6 +2128,7 @@ classDiagram
     ApiServer --> DashboardController
     ApiServer --> IncidentController
     ApiServer --> RoadMapController
+    ApiServer --> AlertController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
@@ -2178,6 +2185,7 @@ classDiagram
 | `EmergencyService` (registro, activas, historial), `EmergencyRequest`, `EmergencyHistory` | `service`, `dto` | **Programado y probado** (S6) con DAO falsos. Conectado en `AppContext` (A7d) y publicado en la API (A12b) |
 | `DashboardDAO`, `JdbcDashboardDAO`, `DashboardService`, `DashboardSummary`, `DashboardController`, `AppContext.dashboardController()` y `GET /api/dashboard/summary` | `dao`, `dao.jdbc`, `service`, `dto`, `controller`, `app`, `api` | **Programado y probado** (A14): una consulta sobre las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` con 3 pruebas de integración contra Oracle XE 18c; servicio, controlador y ruta probados sin Oracle |
 | `SegmentView`, `IncidentView`, `RoadMapDAO`, `JdbcRoadMapDAO`, `RoadMapService`, `RoadMapController`, `IncidentStatusRequest`, `AppContext.incidentController()`/`roadMapController()` y las rutas `/api/incidents` | `dto`, `dao`, `dao.jdbc`, `service`, `controller`, `app`, `api` | **Programado y probado** (A12c): `IncidentController` (S7) publicado en la API, con el tramo de cada incidente para el mapa; `JdbcRoadMapDAO`, contra Oracle XE 18c. Aplicar el incidente al grafo es de K8 y K9 |
+| `AppContext.alertService()`/`alertController()`, `ApiServer.authenticated` y las rutas `/api/alerts` | `app`, `api` | **Programado y probado** (A12f): `AlertController` (S8) publicado en la API con solo la sesión, sin permiso; `GET` no mantiene viva la sesión (DT-08). Las alertas las crean K7, K8 y K9 con `alertService()` |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
