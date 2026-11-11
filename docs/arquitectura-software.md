@@ -2,8 +2,7 @@
 
 Responsable: Andrés (líder, DAO e integración).
 Fecha: 14 de octubre de 2026 · actualizado el 30 de octubre de 2026 (refactorización de capas).
-Estado: **capas, modelo, DAO principales, motor de rutas y reglas de estado programados y probados**; despacho completo, simulación y API REST pendientes (sección 10).
-
+Estado: **capas, modelo, DAO principales, motor de rutas, reglas de estado, API REST y panel principal conectado a Oracle programados y probados**; despacho completo y simulación pendientes (sección 10).
 Paquete raíz: `co.edu.unicesar.rutavida` · Java 21 · Maven · Oracle XE local (`XEPDB1`).
 
 ---
@@ -225,8 +224,8 @@ Ejemplo: *consultar los hospitales operativos*.
 | Simulación (`simulation`) | **Pendiente** |
 | Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
-| Rutas de despacho, seguimiento y simulación (K7) y panel principal con datos de Oracle | **Pendiente** |
-
+| Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
+| Rutas de despacho, seguimiento y simulación (K7) | **Pendiente** |
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
 
 ## 11. Decisiones tomadas y pendientes
