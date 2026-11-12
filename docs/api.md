@@ -127,16 +127,16 @@ Salida `200`:
 
 ```json
 {
-   "success": true,
-   "message": null,
-   "value": {
-      "token": "3f9c2a7e0b5d4c18a6e2f9d1b7c4a0e53f9c2a7e0b5d4c18a6e2f9d1b7c4a0e5",
-      "expiresAt": "2026-11-04T17:30:00",
-      "idleTimeoutMinutes": 30,
-      "user": { "id": 3, "username": "operador1", "firstNames": "Ana", "lastNames": "Pérez" },
-      "role": "OPERADOR_CENTRAL",
-      "permissions": ["EMERGENCIAS:CONSULTAR", "EMERGENCIAS:GESTIONAR", "RUTAS:GESTIONAR"]
-   }
+  "success": true,
+  "message": null,
+  "value": {
+    "token": "3f9c2a7e0b5d4c18a6e2f9d1b7c4a0e53f9c2a7e0b5d4c18a6e2f9d1b7c4a0e5",
+    "expiresAt": "2026-11-04T17:30:00",
+    "idleTimeoutMinutes": 30,
+    "user": { "id": 3, "username": "operador1", "firstNames": "Ana", "lastNames": "Pérez" },
+    "role": "OPERADOR_CENTRAL",
+    "permissions": ["EMERGENCIAS:CONSULTAR", "EMERGENCIAS:GESTIONAR", "RUTAS:GESTIONAR"]
+  }
 }
 ```
 
@@ -158,8 +158,8 @@ Devuelve el mismo `value` del login, sin `token`. La web lo llama al abrir una p
 
 ```json
 { "success": true, "message": null, "value": [
-   { "id": 1, "name": "EMERGENCIA_MEDICA", "priority": 9, "description": "Urgencia medica sin accidente de transito" },
-   { "id": 3, "name": "ACCIDENTE_VIAL", "priority": 8, "description": "Accidente de transito con posibles lesionados" }
+  { "id": 1, "name": "EMERGENCIA_MEDICA", "priority": 9, "description": "Urgencia medica sin accidente de transito" },
+  { "id": 3, "name": "ACCIDENTE_VIAL", "priority": 8, "description": "Accidente de transito con posibles lesionados" }
 ] }
 ```
 
@@ -171,18 +171,18 @@ Las emergencias que no están `CERRADA`, la más reciente primero (`EmergencyDAO
 
 ```json
 { "success": true, "message": null, "value": [
-   {
-      "id": 15,
-      "emergencyTypeId": 3,
-      "reportedByUserId": 3,
-      "addressReference": "Frente al Parque La Popa",
-      "location": { "latitude": 10.467172, "longitude": -73.265099 },
-      "reportedAt": "2026-11-04T09:30:15",
-      "severity": "CRITICA",
-      "description": "Choque entre dos vehículos",
-      "status": "REPORTADA",
-      "closedAt": null
-   }
+  {
+    "id": 15,
+    "emergencyTypeId": 3,
+    "reportedByUserId": 3,
+    "addressReference": "Frente al Parque La Popa",
+    "location": { "latitude": 10.467172, "longitude": -73.265099 },
+    "reportedAt": "2026-11-04T09:30:15",
+    "severity": "CRITICA",
+    "description": "Choque entre dos vehículos",
+    "status": "REPORTADA",
+    "closedAt": null
+  }
 ] }
 ```
 
@@ -194,11 +194,11 @@ Registra una emergencia (CU-06). Entrada, igual al DTO `EmergencyRequest`:
 
 ```json
 {
-   "emergencyTypeId": 3,
-   "addressReference": "Frente al Parque La Popa",
-   "location": { "latitude": 10.467172, "longitude": -73.265099 },
-   "severity": "CRITICA",
-   "description": "Choque entre dos vehículos"
+  "emergencyTypeId": 3,
+  "addressReference": "Frente al Parque La Popa",
+  "location": { "latitude": 10.467172, "longitude": -73.265099 },
+  "severity": "CRITICA",
+  "description": "Choque entre dos vehículos"
 }
 ```
 
@@ -219,23 +219,23 @@ Todo lo que pasó con una emergencia (CU-15), igual al DTO `EmergencyHistory`:
 
 ```json
 { "success": true, "message": null, "value": {
-   "emergency": { "id": 15, "status": "CERRADA", "...": "misma forma de 5.2" },
-   "assignments": [
-      { "id": 8, "emergencyId": 15, "vehicleId": 1, "coordinatorUserId": 4,
-         "assignedAt": "2026-11-04T09:32:00", "departedAt": "2026-11-04T09:33:10",
-         "arrivedAt": "2026-11-04T09:41:45", "status": "FINALIZADA" }
-   ],
-   "routes": [
-      { "id": 30, "emergencyId": 15, "vehicleId": 1, "destinationHospitalId": null,
-         "type": "PRINCIPAL", "distanceKm": 2.84, "estimatedMinutes": 6.9, "totalCost": 414.0,
-         "generatedAt": "2026-11-04T09:32:00", "recommended": true, "status": "FINALIZADA" }
-   ],
-   "auditTrail": [
-      { "id": 101, "userId": 3, "module": "EMERGENCIAS", "operation": "REGISTRAR", "recordId": 15,
-         "occurredAt": "2026-11-04T09:30:15", "result": "EXITO", "detail": "Emergencia registrada" },
-      { "id": 102, "userId": 4, "module": "EMERGENCIAS", "operation": "CAMBIO_ESTADO", "recordId": 15,
-         "occurredAt": "2026-11-04T09:32:00", "result": "EXITO", "detail": "REPORTADA -> ASIGNADA" }
-   ]
+  "emergency": { "id": 15, "status": "CERRADA", "...": "misma forma de 5.2" },
+  "assignments": [
+    { "id": 8, "emergencyId": 15, "vehicleId": 1, "coordinatorUserId": 4,
+      "assignedAt": "2026-11-04T09:32:00", "departedAt": "2026-11-04T09:33:10",
+      "arrivedAt": "2026-11-04T09:41:45", "status": "FINALIZADA" }
+  ],
+  "routes": [
+    { "id": 30, "emergencyId": 15, "vehicleId": 1, "destinationHospitalId": null,
+      "type": "PRINCIPAL", "distanceKm": 2.84, "estimatedMinutes": 6.9, "totalCost": 414.0,
+      "generatedAt": "2026-11-04T09:32:00", "recommended": true, "status": "FINALIZADA" }
+  ],
+  "auditTrail": [
+    { "id": 101, "userId": 3, "module": "EMERGENCIAS", "operation": "REGISTRAR", "recordId": 15,
+      "occurredAt": "2026-11-04T09:30:15", "result": "EXITO", "detail": "Emergencia registrada" },
+    { "id": 102, "userId": 4, "module": "EMERGENCIAS", "operation": "CAMBIO_ESTADO", "recordId": 15,
+      "occurredAt": "2026-11-04T09:32:00", "result": "EXITO", "detail": "REPORTADA -> ASIGNADA" }
+  ]
 } }
 ```
 
@@ -243,11 +243,9 @@ Las rutas del historial no traen el trazado: el historial es para leer, no para 
 
 ## 6. Despacho y rutas
 
-Estado (A12d): 6.1, 6.2, 6.3, 6.4 y 6.6 están programadas. 6.5 y el paso a `TRASLADANDO` esperan el traslado al hospital (CU-11, K7b) y 6.7 espera el cierre (CU-12).
-
 ### 6.1 `GET /api/emergencies/{id}/candidates`
 
-Las unidades que pueden atender la emergencia (CU-09, paso 2): solo `DISPONIBLE` y de un tipo adecuado para la emergencia (regla `DispatchService.suits`, K7: `EMERGENCIA_MEDICA` → `AMBULANCIA`; `INCENDIO` y `RESCATE` → `BOMBERO`; `ACCIDENTE_VIAL` → las dos; otro tipo → todas). Una unidad sin posición sale desde su estación, y una que no llega por la red vial cargada no aparece. Ordenadas por tiempo estimado de llegada, la más rápida primero:
+Las unidades que pueden atender la emergencia (CU-09, paso 2): solo `DISPONIBLE` y de un tipo adecuado para la emergencia (regla de `DispatchService` que se define en K7). Ordenadas por tiempo estimado de llegada, la más rápida primero:
 
 ```json
 { "success": true, "message": null, "value": [
@@ -321,13 +319,13 @@ Salida `201`:
 } }
 ```
 
-Errores `409`: la emergencia no está `REPORTADA`; la unidad no está `DISPONIBLE` (por ejemplo, otro coordinador la asignó un instante antes); no hay ruta. `400` si falta `emergencyId` o `vehicleId` (también en 6.2).
+Errores `409`: la emergencia no está `REPORTADA`; la unidad no está `DISPONIBLE` (por ejemplo, otro coordinador la asignó un instante antes); no hay ruta.
 
 Las rutas se calculan otra vez al despachar: pueden ser distintas de la vista previa si el tráfico cambió en ese tiempo.
 
 ### 6.4 `GET /api/dispatches/{id}/routes`
 
-Las rutas vigentes de una misión (`id` = id de la asignación): la `ACTIVA` y las `PROPUESTA`. Es la forma de `RouteOption` más el id y el estado guardados en Oracle (DTO `MissionRoute`, A12d). La recomendada va primero (`rank` 1) y luego las alternativas, de la más rápida a la más lenta. Los números y la `explanation` son los que se guardaron al calcular la ruta: no cambian con el tráfico de ahora, y la `explanation` es un resumen más corto que el de 6.2:
+Las rutas vigentes de una misión (`id` = id de la asignación): la `ACTIVA` y las `PROPUESTA`. Es la forma de `RouteOption` más el id y el estado guardados en Oracle (DTO `MissionRoute`, nuevo en A12):
 
 ```json
 { "success": true, "message": null, "value": [
@@ -335,7 +333,7 @@ Las rutas vigentes de una misión (`id` = id de la asignación): la `ACTIVA` y l
     "rank": 1, "type": "PRINCIPAL", "path": [ { "latitude": 10.469330, "longitude": -73.254520 } ],
     "segmentIds": [412, 413, 977], "distanceKm": 2.84, "estimatedMinutes": 6.9,
     "trafficLights": 2, "congestedSegments": 0,
-    "explanation": "Ruta recomendada: 6,9 min y 2,8 km con el tráfico de cuando se calculó. Tiene 2 semáforos y 0 tramos congestionados." }
+    "explanation": "Ruta recomendada: 2,8 km en 6,9 min, con 2 semáforos y sin tramos congestionados." }
 ] }
 ```
 
@@ -373,7 +371,7 @@ Para pasar a `TRASLADANDO` se envía también el hospital (CU-11):
 
 Salida `200`: la asignación actualizada (forma de 6.3). Con `TRASLADANDO`, el servidor calcula y guarda las rutas al hospital, y la web las lee con 6.4.
 
-Errores: `409` con `"No se puede cambiar la asignación de ASIGNADA a TRASLADANDO."` si la transición no está permitida; `400` si falta `hospitalId` al pasar a `TRASLADANDO`. Mientras no esté CU-11 (K7b), `TRASLADANDO` responde `400` con `"El traslado necesita el hospital de destino (CU-11, pendiente)."`.
+Errores: `409` con `"No se puede cambiar la asignación de ASIGNADA a TRASLADANDO."` si la transición no está permitida; `400` si falta `hospitalId` al pasar a `TRASLADANDO`.
 
 La llegada al sitio (`EN_SITIO`) también la puede marcar el simulador por su cuenta.
 
@@ -462,7 +460,7 @@ La web los consulta **cada 15 segundos** (DT-07): cambian menos que las posicion
 
 ### 9.1 `GET /api/incidents`
 
-Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO` (o cualquier otro estado), solo los de ese estado; un estado que no existe responde `400`. Es la entidad `RoadIncident` más el tramo para dibujarlo:
+Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO`, solo esos. Es la entidad `RoadIncident` más el tramo para dibujarlo:
 
 ```json
 { "success": true, "message": null, "value": [
@@ -488,7 +486,7 @@ Salida `201`: el incidente (forma de 9.1). `400` si el tramo no existe o el tipo
 
 ### 9.3 `PATCH /api/incidents/{id}/status`
 
-Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RECHAZADO" }` o `{ "status": "CERRADO" }`. Al pasar a `ACTIVO` o `CERRADO`, el motor de rutas lo tiene en cuenta en el siguiente ciclo de la simulación (unos segundos) y se revisan las rutas activas (CU-17, K8 y K9). Salida `200`: el incidente (forma de 9.1). `400` si falta `status`; `404` si el incidente no existe. `409` si la transición no está permitida (`IncidentService`).
+Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RECHAZADO" }` o `{ "status": "CERRADO" }`. Al pasar a `ACTIVO` o `CERRADO`, el motor de rutas lo tiene en cuenta y se revisan las rutas activas (CU-17). Salida `200`: el incidente. `409` si la transición no está permitida (`IncidentService`).
 
 ## 10. Simulación (CU-19)
 
@@ -525,36 +523,23 @@ Salida `200`: el tramo con la forma de 8.2. `404` si el tramo no existe.
 } }
 ```
 
-Qué cuenta cada campo (A14, una sola consulta en Oracle):
-
-| Campo | Qué cuenta |
-|---|---|
-| `activeEmergencies` | Emergencias que no están `CERRADA` (`vw_emergencias_activas`) |
-| `availableUnits` / `busyUnits` | Unidades `DISPONIBLE` (`vw_unidades_disponibles`) / `OCUPADO`. Las de `MANTENIMIENTO` o `FUERA_SERVICIO` no están en ninguna |
-| `operationalHospitals` | Hospitales activos (`vw_hospitales_operativos`) |
-| `activeIncidents` | Incidentes `ACTIVO`, los que cambian las rutas. Los `PENDIENTE` no cuentan |
-| `congestedSegments` | Tramos cuya última lectura de `TRAFICO` de los últimos 15 minutos es `CONGESTIONADO` |
-| `closedToday` | Emergencias `CERRADA` hoy, de 00:00 a 24:00 en la hora del servidor (Colombia) |
-| `averageResponseMinutes` | Promedio de `fn_tiempo_respuesta` (reporte → llegada) de las emergencias con una llegada hoy, contando solo la primera unidad que llegó a cada una. Un decimal |
-
-`averageResponseMinutes` es `null` si hoy no ha llegado ninguna unidad. La web muestra "Sin datos" en ese caso, nunca un 0. Se mide por la llegada y no por el cierre para que el indicador funcione desde el despacho (K7), antes de que exista el cierre (CU-12).
-
-El panel puede pedir este resumen solo cada cierto tiempo: esa consulta no cuenta como uso de la sesión (DT-08).
+`averageResponseMinutes` es el promedio de `fn_tiempo_respuesta` (reporte → llegada) de las emergencias cerradas hoy, o `null` si todavía no hay ninguna. La web muestra "Sin datos" en ese caso, nunca un 0.
 
 ### 11.2 `GET /api/alerts`
 
-Las alertas del usuario de la sesión, la más reciente primero: las últimas 50, leídas o no. Con `?unread=true`, todas las no leídas. Basta con la sesión: no pide un permiso.
+Las alertas del usuario de la sesión, la más reciente primero. Con `?unread=true`, solo las no leídas.
+
 ```json
 { "success": true, "message": null, "value": [
-   { "id": 21, "emergencyId": 15, "userId": 3, "type": "RECALCULO_RUTA",
-      "message": "Se recalculó la ruta de EJEMPLO-AMB-01 por congestión en la Calle 16.",
+  { "id": 21, "emergencyId": 15, "type": "RECALCULO_RUTA",
+    "message": "Se recalculó la ruta de EJEMPLO-AMB-01 por congestión en la Calle 16.",
     "createdAt": "2026-11-04T09:35:00", "read": false }
 ] }
 ```
 
 ### 11.3 `PATCH /api/alerts/{id}/read`
 
-Sin cuerpo. Marca la alerta como leída. Salida `200`: la alerta (forma de 11.2). `404` si no existe o es de otro usuario.
+Sin cuerpo. Marca la alerta como leída. `404` si no existe o es de otro usuario.
 
 ## 12. Secuencia: registrar y despachar
 
