@@ -1417,6 +1417,8 @@ classDiagram
         +isWithinNetwork(point: GeoPoint) boolean
         +calculateOptions(from: GeoPoint, to: GeoPoint, vehicle: VehicleProfile) List~RouteOption~
         +estimateSeconds(from: GeoPoint, to: GeoPoint, vehicle: VehicleProfile) OptionalDouble
+        +remainingSeconds(route: Route, position: GeoPoint, vehicle: VehicleProfile) OptionalDouble
+        +destinationOf(route: Route) GeoPoint
         +saveForMission(emergencyId: long, vehicleId: long, hospitalId: Long, vehicle: VehicleProfile, options: List~RouteOption~) List~Route~
     }
     class RouteExplanationBuilder {
@@ -1438,14 +1440,12 @@ classDiagram
     }
     class RoadConditionService {
         -graph : RoadGraph
-        -trafficProvider : TrafficProvider
         -incidentDao : RoadIncidentDAO
-        -readingDao : TrafficReadingDAO
         -clock : Clock
-        +loadActiveIncidents() void
-        +refreshTraffic() Set~Long~
-        +applyIncident(incident: RoadIncident) void
-        +removeIncident(incident: RoadIncident) void
+        -applied : Map~Integer, Applied~
+        +syncIncidents() Set~Long~
+        +applyTraffic(updates: List~EdgeUpdate~) Set~Long~
+        ~penaltyFor(severity: Severity) double$
     }
     class TrafficProvider {
         <<interface>>
@@ -1502,16 +1502,20 @@ classDiagram
 }
 
 
-    class RouteMonitor {
-        -routeDao : RouteDAO
-        -routeService : RouteService
-        -trackingService : TrackingService
-        -alertService : AlertService
-        -improvementThreshold : double
-        -minimumSecondsSaved : double
-        +checkActiveRoutes(changedSegmentIds: Set~Long~) List~Route~
-        +recalculate(route: Route) Optional~Route~
-    }
+class RouteMonitor {
+~MIN_IMPROVEMENT : double$
+~MIN_SECONDS_SAVED : double$
+-routeDao : RouteDAO
+-routeService : RouteService
+-vehicleDao : EmergencyVehicleDAO
+-vehicleTypeDao : VehicleTypeDAO
+-assignmentDao : EmergencyAssignmentDAO
+-alertService : AlertService
+-transactions : TransactionManager
++checkActiveRoutes(changedSegmentIds: Set~Long~) List~Route~
++recalculate(route: Route) Optional~Route~
+~shouldReplace(remainingSeconds: double, newSeconds: double) boolean$
+}
     class RoadGraph
     class AlternativeRouteFinder
     class TrackingService
@@ -1521,24 +1525,23 @@ classDiagram
     TrafficProvider ..> EdgeUpdate
     GraphLoader ..> RoadGraph : builds
     RoadConditionService --> RoadGraph : único que escribe
-    RoadConditionService --> TrafficProvider
+RoadConditionService ..> EdgeUpdate : applyTraffic
+RoadConditionService ..> RoadIncidentDAO : lee los ACTIVO
     RouteService --> RoadGraph : lee
     RouteService --> AlternativeRouteFinder
     RouteService --> RouteExplanationBuilder
     RouteService ..> RouteOption
-    IncidentService ..> RoadConditionService : K7
-    IncidentService --> RouteMonitor : revisa rutas activas
-    IncidentService ..> IncidentRequest
-    RouteMonitor --> RouteService
-    RouteMonitor --> TrackingService
+IncidentService ..> IncidentRequest
+RouteMonitor --> RouteService
+RouteMonitor ..> AlertService : avisa (S8)
 ```
 
 **Cómo se detecta que una ruta se afectó (sin eventos).** Las llamadas son directas y se pueden seguir con el depurador:
 
-1. `SimulationEngine.tick()` llama a `RoadConditionService.refreshTraffic()`, que devuelve los ids de los tramos cuyo tráfico cambió.
-2. `SimulationEngine` le pasa esos ids a `RouteMonitor.checkActiveRoutes(...)`, que busca las rutas activas que los usan (`RouteDAO.findActiveUsingSegments`) y las recalcula.
-3. Si la ruta nueva ahorra suficiente tiempo, `RouteMonitor` la guarda y llama a `AlertService.routeRecalculated(...)`.
-4. Cuando se activa un incidente, `IncidentService` hace lo mismo con el tramo afectado.
+1. En cada ciclo, `SimulationEngine` (K9) le pasa el tráfico nuevo a `RoadConditionService.applyTraffic(...)` y llama a `RoadConditionService.syncIncidents()`, que pone el grafo al día con los incidentes `ACTIVO` de Oracle. Los dos devuelven los ids de los tramos que cambiaron.
+2. `SimulationEngine` le pasa esos ids a `RouteMonitor.checkActiveRoutes(...)`, que busca las rutas activas que los usan (`RouteDAO.findActiveUsingSegments`) y las recalcula desde la posición actual de la unidad (K8).
+3. Si un tramo de adelante quedó cerrado, o si la ruta nueva ahorra más del 15 % o más de 30 s (RN-09), `RouteMonitor` la guarda y llama a `AlertService.routeRecalculated(...)`.
+4. Un incidente que el operador activa entra al grafo en el siguiente ciclo (unos segundos), sin que `IncidentService` llame al motor de rutas: así S7 no depende del grafo y un incidente activado por cualquier camino se aplica igual.
 
 La página web recibe el estado nuevo a través de la API REST (consultas periódicas o *Server-Sent Events*: decisión pendiente en `docs/decisiones-tecnicas.md`). Si más adelante varias partes necesitan reaccionar al mismo cambio, se puede volver a introducir un bus de eventos; hoy no hace falta.
 
@@ -2192,6 +2195,7 @@ classDiagram
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | `RouteService` y `AppContext.routeService()` | `service`, `app` | **Programado y probado** (K6) con un grafo de prueba, sin Oracle. Guarda las rutas con `RouteDAO` (A6) |
 | Despacho: `DispatchService` (`candidates`, `preview`, `dispatch`, `advance`, `missionRoutes`, `suits`), `DispatchController`, `UnitCandidate`, `DispatchResult`, `AppContext.dispatchController()` | `service`, `controller`, `dto`, `app` | **Programado y probado** (K7) con DAO falsos y una red de prueba, sin Oracle. `startTransfer`, `rankHospitals` (K7b), `closeEmergency`/`close` (CU-12) y `dispatchOptimal` siguen diseñados |
+| Recálculo de rutas: `RoadConditionService` (`syncIncidents`, `applyTraffic`), `RouteMonitor` y `RouteService.remainingSeconds`/`destinationOf` | `service` | **Programado y probado** (K8) con DAO falsos y una red de prueba, sin Oracle. Se conecta en `AppContext` y lo llama el ciclo de la simulación en K9 |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. Se conecta en `AppContext` y en `GET /api/tracking` en A12e; `SimulationEngine` lo llama en cada ciclo (K9) |
 | Demás clases de simulación (`SimulationEngine`, escenarios) | `simulation` | Diseñado |
