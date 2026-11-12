@@ -127,16 +127,16 @@ Salida `200`:
 
 ```json
 {
-  "success": true,
-  "message": null,
-  "value": {
-    "token": "3f9c2a7e0b5d4c18a6e2f9d1b7c4a0e53f9c2a7e0b5d4c18a6e2f9d1b7c4a0e5",
-    "expiresAt": "2026-11-04T17:30:00",
-    "idleTimeoutMinutes": 30,
-    "user": { "id": 3, "username": "operador1", "firstNames": "Ana", "lastNames": "Pérez" },
-    "role": "OPERADOR_CENTRAL",
-    "permissions": ["EMERGENCIAS:CONSULTAR", "EMERGENCIAS:GESTIONAR", "RUTAS:GESTIONAR"]
-  }
+   "success": true,
+   "message": null,
+   "value": {
+      "token": "3f9c2a7e0b5d4c18a6e2f9d1b7c4a0e53f9c2a7e0b5d4c18a6e2f9d1b7c4a0e5",
+      "expiresAt": "2026-11-04T17:30:00",
+      "idleTimeoutMinutes": 30,
+      "user": { "id": 3, "username": "operador1", "firstNames": "Ana", "lastNames": "Pérez" },
+      "role": "OPERADOR_CENTRAL",
+      "permissions": ["EMERGENCIAS:CONSULTAR", "EMERGENCIAS:GESTIONAR", "RUTAS:GESTIONAR"]
+   }
 }
 ```
 
@@ -158,8 +158,8 @@ Devuelve el mismo `value` del login, sin `token`. La web lo llama al abrir una p
 
 ```json
 { "success": true, "message": null, "value": [
-  { "id": 1, "name": "EMERGENCIA_MEDICA", "priority": 9, "description": "Urgencia medica sin accidente de transito" },
-  { "id": 3, "name": "ACCIDENTE_VIAL", "priority": 8, "description": "Accidente de transito con posibles lesionados" }
+   { "id": 1, "name": "EMERGENCIA_MEDICA", "priority": 9, "description": "Urgencia medica sin accidente de transito" },
+   { "id": 3, "name": "ACCIDENTE_VIAL", "priority": 8, "description": "Accidente de transito con posibles lesionados" }
 ] }
 ```
 
@@ -171,18 +171,18 @@ Las emergencias que no están `CERRADA`, la más reciente primero (`EmergencyDAO
 
 ```json
 { "success": true, "message": null, "value": [
-  {
-    "id": 15,
-    "emergencyTypeId": 3,
-    "reportedByUserId": 3,
-    "addressReference": "Frente al Parque La Popa",
-    "location": { "latitude": 10.467172, "longitude": -73.265099 },
-    "reportedAt": "2026-11-04T09:30:15",
-    "severity": "CRITICA",
-    "description": "Choque entre dos vehículos",
-    "status": "REPORTADA",
-    "closedAt": null
-  }
+   {
+      "id": 15,
+      "emergencyTypeId": 3,
+      "reportedByUserId": 3,
+      "addressReference": "Frente al Parque La Popa",
+      "location": { "latitude": 10.467172, "longitude": -73.265099 },
+      "reportedAt": "2026-11-04T09:30:15",
+      "severity": "CRITICA",
+      "description": "Choque entre dos vehículos",
+      "status": "REPORTADA",
+      "closedAt": null
+   }
 ] }
 ```
 
@@ -194,11 +194,11 @@ Registra una emergencia (CU-06). Entrada, igual al DTO `EmergencyRequest`:
 
 ```json
 {
-  "emergencyTypeId": 3,
-  "addressReference": "Frente al Parque La Popa",
-  "location": { "latitude": 10.467172, "longitude": -73.265099 },
-  "severity": "CRITICA",
-  "description": "Choque entre dos vehículos"
+   "emergencyTypeId": 3,
+   "addressReference": "Frente al Parque La Popa",
+   "location": { "latitude": 10.467172, "longitude": -73.265099 },
+   "severity": "CRITICA",
+   "description": "Choque entre dos vehículos"
 }
 ```
 
@@ -219,29 +219,31 @@ Todo lo que pasó con una emergencia (CU-15), igual al DTO `EmergencyHistory`:
 
 ```json
 { "success": true, "message": null, "value": {
-  "emergency": { "id": 15, "status": "CERRADA", "...": "misma forma de 5.2" },
-  "assignments": [
-    { "id": 8, "emergencyId": 15, "vehicleId": 1, "coordinatorUserId": 4,
-      "assignedAt": "2026-11-04T09:32:00", "departedAt": "2026-11-04T09:33:10",
-      "arrivedAt": "2026-11-04T09:41:45", "status": "FINALIZADA" }
-  ],
-  "routes": [
-    { "id": 30, "emergencyId": 15, "vehicleId": 1, "destinationHospitalId": null,
-      "type": "PRINCIPAL", "distanceKm": 2.84, "estimatedMinutes": 6.9, "totalCost": 414.0,
-      "generatedAt": "2026-11-04T09:32:00", "recommended": true, "status": "FINALIZADA" }
-  ],
-  "auditTrail": [
-    { "id": 101, "userId": 3, "module": "EMERGENCIAS", "operation": "REGISTRAR", "recordId": 15,
-      "occurredAt": "2026-11-04T09:30:15", "result": "EXITO", "detail": "Emergencia registrada" },
-    { "id": 102, "userId": 4, "module": "EMERGENCIAS", "operation": "CAMBIO_ESTADO", "recordId": 15,
-      "occurredAt": "2026-11-04T09:32:00", "result": "EXITO", "detail": "REPORTADA -> ASIGNADA" }
-  ]
+   "emergency": { "id": 15, "status": "CERRADA", "...": "misma forma de 5.2" },
+   "assignments": [
+      { "id": 8, "emergencyId": 15, "vehicleId": 1, "coordinatorUserId": 4,
+         "assignedAt": "2026-11-04T09:32:00", "departedAt": "2026-11-04T09:33:10",
+         "arrivedAt": "2026-11-04T09:41:45", "status": "FINALIZADA" }
+   ],
+   "routes": [
+      { "id": 30, "emergencyId": 15, "vehicleId": 1, "destinationHospitalId": null,
+         "type": "PRINCIPAL", "distanceKm": 2.84, "estimatedMinutes": 6.9, "totalCost": 414.0,
+         "generatedAt": "2026-11-04T09:32:00", "recommended": true, "status": "FINALIZADA" }
+   ],
+   "auditTrail": [
+      { "id": 101, "userId": 3, "module": "EMERGENCIAS", "operation": "REGISTRAR", "recordId": 15,
+         "occurredAt": "2026-11-04T09:30:15", "result": "EXITO", "detail": "Emergencia registrada" },
+      { "id": 102, "userId": 4, "module": "EMERGENCIAS", "operation": "CAMBIO_ESTADO", "recordId": 15,
+         "occurredAt": "2026-11-04T09:32:00", "result": "EXITO", "detail": "REPORTADA -> ASIGNADA" }
+   ]
 } }
 ```
 
 Las rutas del historial no traen el trazado: el historial es para leer, no para dibujar. Los tramos de cada ruta no se incluyen.
 
 ## 6. Despacho y rutas
+
+Estado (A12d): 6.1, 6.2, 6.3, 6.4 y 6.6 están programadas. 6.5 y el paso a `TRASLADANDO` esperan el traslado al hospital (CU-11, K7b) y 6.7 espera el cierre (CU-12).
 
 ### 6.1 `GET /api/emergencies/{id}/candidates`
 
@@ -319,13 +321,13 @@ Salida `201`:
 } }
 ```
 
-Errores `409`: la emergencia no está `REPORTADA`; la unidad no está `DISPONIBLE` (por ejemplo, otro coordinador la asignó un instante antes); no hay ruta.
+Errores `409`: la emergencia no está `REPORTADA`; la unidad no está `DISPONIBLE` (por ejemplo, otro coordinador la asignó un instante antes); no hay ruta. `400` si falta `emergencyId` o `vehicleId` (también en 6.2).
 
 Las rutas se calculan otra vez al despachar: pueden ser distintas de la vista previa si el tráfico cambió en ese tiempo.
 
 ### 6.4 `GET /api/dispatches/{id}/routes`
 
-Las rutas vigentes de una misión (`id` = id de la asignación): la `ACTIVA` y las `PROPUESTA`. Es la forma de `RouteOption` más el id y el estado guardados en Oracle (DTO `MissionRoute`, nuevo en A12):
+Las rutas vigentes de una misión (`id` = id de la asignación): la `ACTIVA` y las `PROPUESTA`. Es la forma de `RouteOption` más el id y el estado guardados en Oracle (DTO `MissionRoute`, A12d). La recomendada va primero (`rank` 1) y luego las alternativas, de la más rápida a la más lenta. Los números y la `explanation` son los que se guardaron al calcular la ruta: no cambian con el tráfico de ahora, y la `explanation` es un resumen más corto que el de 6.2:
 
 ```json
 { "success": true, "message": null, "value": [
@@ -333,7 +335,7 @@ Las rutas vigentes de una misión (`id` = id de la asignación): la `ACTIVA` y l
     "rank": 1, "type": "PRINCIPAL", "path": [ { "latitude": 10.469330, "longitude": -73.254520 } ],
     "segmentIds": [412, 413, 977], "distanceKm": 2.84, "estimatedMinutes": 6.9,
     "trafficLights": 2, "congestedSegments": 0,
-    "explanation": "Ruta recomendada: 2,8 km en 6,9 min, con 2 semáforos y sin tramos congestionados." }
+    "explanation": "Ruta recomendada: 6,9 min y 2,8 km con el tráfico de cuando se calculó. Tiene 2 semáforos y 0 tramos congestionados." }
 ] }
 ```
 
@@ -371,7 +373,7 @@ Para pasar a `TRASLADANDO` se envía también el hospital (CU-11):
 
 Salida `200`: la asignación actualizada (forma de 6.3). Con `TRASLADANDO`, el servidor calcula y guarda las rutas al hospital, y la web las lee con 6.4.
 
-Errores: `409` con `"No se puede cambiar la asignación de ASIGNADA a TRASLADANDO."` si la transición no está permitida; `400` si falta `hospitalId` al pasar a `TRASLADANDO`.
+Errores: `409` con `"No se puede cambiar la asignación de ASIGNADA a TRASLADANDO."` si la transición no está permitida; `400` si falta `hospitalId` al pasar a `TRASLADANDO`. Mientras no esté CU-11 (K7b), `TRASLADANDO` responde `400` con `"El traslado necesita el hospital de destino (CU-11, pendiente)."`.
 
 La llegada al sitio (`EN_SITIO`) también la puede marcar el simulador por su cuenta.
 

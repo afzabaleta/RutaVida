@@ -2,7 +2,7 @@
 
 Responsable: Andrés (líder, DAO e integración).
 Fecha: 14 de octubre de 2026 · actualizado el 30 de octubre de 2026 (refactorización de capas).
-Estado: **capas, modelo, DAO principales, motor de rutas, reglas de estado, API REST y panel principal conectado a Oracle programados y probados**; casos de uso del despacho programados (K7); traslado al hospital, cierre, motor de la simulación y parte de la API REST pendientes (sección 10).
+Estado: **capas, modelo, DAO principales, motor de rutas, reglas de estado, API REST y panel principal conectado a Oracle programados y probados**; casos de uso del despacho programados y publicados en la API (K7, A12d); traslado al hospital, cierre, motor de la simulación y parte de la API REST pendientes (sección 10).
 
 Paquete raíz: `co.edu.unicesar.rutavida` · Java 21 · Maven · Oracle XE local (`XEPDB1`).
 
@@ -232,7 +232,8 @@ Ejemplo: *consultar los hospitales operativos*.
 | API de alertas: las del usuario de la sesión y marcarlas como leídas (`/api/alerts`, A12f) | Programado y probado |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
-| Rutas de despacho de la API (A12d) y seguimiento (A12e) | **Pendiente** |
+| API de despacho: unidades candidatas, vista previa, despachar, rutas de la misión y avance (`/api/dispatches`, A12d) | Programado y probado |
+| Seguimiento en la API (`/api/tracking`, A12e) | **Pendiente** |
 | Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado; falta la API |
 
 
