@@ -24,7 +24,8 @@ import java.util.Set;
  * <ul>
  *   <li>{@code ana.perez} / {@link #PASSWORD}: OPERADOR_CENTRAL with EMERGENCIAS consult and manage.</li>
  *   <li>{@code luis.gomez} / {@link #PASSWORD}: BOMBERO_PARAMEDICO without permissions.</li>
- *   <li>{@code marta.ruiz} / {@link #PASSWORD}: COORDINADOR with EMERGENCIAS, UNIDADES and HOSPITALES.</li>
+ *   <li>{@code marta.ruiz} / {@link #PASSWORD}: COORDINADOR with EMERGENCIAS, UNIDADES, HOSPITALES,
+ *       REPORTES, INCIDENTES, RUTAS and DESPACHO.</li>
  * </ul>
  */
 public final class WebTestSupport {
@@ -53,7 +54,11 @@ public final class WebTestSupport {
                 new Permission(7L, "HOSPITALES", "CONSULTAR", "Ver hospitales"),
                 new Permission(15L, "REPORTES", "CONSULTAR", "Ver dashboard y reportes"),
                 new Permission(13L, "INCIDENTES", "CONSULTAR", "Ver incidentes viales"),
-                new Permission(14L, "INCIDENTES", "GESTIONAR", "Registrar, validar y cerrar incidentes"))));
+                new Permission(14L, "INCIDENTES", "GESTIONAR", "Registrar, validar y cerrar incidentes"),
+                new Permission(11L, "RUTAS", "CONSULTAR", "Ver rutas calculadas"),
+                new Permission(12L, "RUTAS", "GESTIONAR", "Calcular y recalcular rutas"),
+                new Permission(17L, "DESPACHO", "CONSULTAR", "Ver asignaciones"),
+                new Permission(18L, "DESPACHO", "GESTIONAR", "Asignar unidades y actualizar el estado de la mision"))));
         String hash = hasher.hash(PASSWORD.toCharArray());
         LocalDateTime registered = LocalDateTime.now(clock);
         userDao.insert(new User(0L, 2L, "1000000001", "Ana", "Pérez", "ana.perez@ejemplo.com",

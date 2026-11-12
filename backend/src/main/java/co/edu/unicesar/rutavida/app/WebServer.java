@@ -1,6 +1,7 @@
 package co.edu.unicesar.rutavida.app;
 
 import co.edu.unicesar.rutavida.api.ApiServer;
+import co.edu.unicesar.rutavida.controller.DispatchController;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,6 +10,9 @@ import java.nio.file.Path;
  * Starts RutaVida for the browser: the pages of {@code frontend/} and the REST API on
  * {@code http://localhost:8080} (decision DT-06). Run it from IntelliJ with backend/ as
  * working directory, with Oracle running. An optional argument changes the port.
+ *
+ * <p>The road graph is loaded from Oracle when the server starts (dispatch and routes, A12d),
+ * so without Oracle or without the road network it stops with a message.
  */
 public final class WebServer {
 
@@ -25,9 +29,18 @@ public final class WebServer {
         }
 
         AppContext context = AppContext.create();
+        DispatchController dispatch;
+        try {
+            dispatch = context.dispatchController();
+        } catch (RuntimeException e) {
+            System.out.println("[ERROR] No se pudo cargar la red vial desde Oracle. Revise que Oracle esté"
+                    + " encendido y que se ejecutó database/05_red_vial_valledupar.sql.");
+            System.out.println("Detalle: " + e.getMessage());
+            return;
+        }
         ApiServer server = new ApiServer(context.webSessionController(), context.catalogController(),
                 context.emergencyController(), context.dashboardController(), context.incidentController(),
-                context.roadMapController(), context.alertController(), frontend);
+                context.roadMapController(), context.alertController(), dispatch, frontend);
         try {
             server.start(port);
         } catch (RuntimeException e) {

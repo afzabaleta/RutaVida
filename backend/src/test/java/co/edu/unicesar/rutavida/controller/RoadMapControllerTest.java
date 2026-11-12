@@ -1,7 +1,9 @@
 package co.edu.unicesar.rutavida.controller;
 
+import co.edu.unicesar.rutavida.dto.DispatchedMission;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.IncidentView;
+import co.edu.unicesar.rutavida.dto.MissionRoute;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.exception.DataAccessException;
 import co.edu.unicesar.rutavida.model.RoadIncident;
@@ -38,6 +40,21 @@ class RoadMapControllerTest {
         assertEquals("No tiene permiso para realizar esta operación.", denied.message());
         assertEquals(ErrorKind.AUTHENTICATION, controller.incidentsOnMap(
                 OperationResult.error(ErrorKind.AUTHENTICATION, Messages.SESSION_REQUIRED)).error());
+    }
+
+    @Test
+    void anErrorOfDispatchControllerPassesThroughUnchanged() {
+        RoadMapController controller = new RoadMapController(new RoadMapService(ids -> List.of()));
+
+        OperationResult<DispatchedMission> busy = controller.dispatchOnMap(
+                OperationResult.error(ErrorKind.BUSINESS_RULE, "La unidad EJEMPLO-AMB-01 no está disponible (OCUPADO)."));
+        OperationResult<List<MissionRoute>> missing = controller.routesOnMap(
+                OperationResult.error(ErrorKind.NOT_FOUND, "No se encontró Asignación con id 999."));
+
+        assertEquals(ErrorKind.BUSINESS_RULE, busy.error(), "409 in the API");
+        assertEquals("La unidad EJEMPLO-AMB-01 no está disponible (OCUPADO).", busy.message());
+        assertEquals(ErrorKind.NOT_FOUND, missing.error(), "404 in the API");
+        assertTrue(controller.routesOnMap(OperationResult.ok(List.of())).value().isEmpty());
     }
 
     @Test
