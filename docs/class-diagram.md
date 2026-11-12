@@ -1114,6 +1114,8 @@ class HospitalService {
         -mapDao : RoadMapDAO
         +describe(incidents: List~RoadIncident~) List~IncidentView~
         +describe(incident: RoadIncident) IncidentView
+        +describeRoutes(routes: List~Route~) List~MissionRoute~
+        +describeDispatch(result: DispatchResult) DispatchedMission
     }
     class AlertService {
         -alertDao : AlertDAO
@@ -1236,6 +1238,27 @@ classDiagram
         +segment : SegmentView
         +of(incident: RoadIncident, segment: SegmentView) IncidentView$
     }
+    class MissionRoute {
+        <<record>>
+        +routeId : long
+        +status : RouteStatus
+        +recommended : boolean
+        +destinationHospitalId : Long
+        +rank : int
+        +type : RouteType
+        +path : List~GeoPoint~
+        +segmentIds : List~Long~
+        +distanceKm : double
+        +estimatedMinutes : double
+        +trafficLights : int
+        +congestedSegments : int
+        +explanation : String
+    }
+    class DispatchedMission {
+        <<record>>
+        +assignment : EmergencyAssignment
+        +routes : List~MissionRoute~
+    }
     class UserRequest {
         <<record>>
         +roleId : long
@@ -1307,6 +1330,9 @@ class Messages {
     DashboardService ..> DashboardSummary
     RoadMapService ..> IncidentView
     IncidentView --> SegmentView
+    RoadMapService ..> MissionRoute
+    RoadMapService ..> DispatchedMission
+    DispatchedMission --> MissionRoute
     UserService ..> UserRequest
     HospitalService ..> HospitalRequest
     EmergencyService ..> ValidationUtil
@@ -1879,6 +1905,8 @@ class IncidentController {
         -mapService : RoadMapService
         +incidentsOnMap(incidents: OperationResult~List~RoadIncident~~) OperationResult~List~IncidentView~~
         +incidentOnMap(incident: OperationResult~RoadIncident~) OperationResult~IncidentView~
+        +routesOnMap(routes: OperationResult~List~Route~~) OperationResult~List~MissionRoute~~
+        +dispatchOnMap(dispatch: OperationResult~DispatchResult~) OperationResult~DispatchedMission~
     }
     class AlertController {
         -alertService : AlertService
@@ -2083,6 +2111,7 @@ classDiagram
         -incidents : IncidentController
         -roadMap : RoadMapController
         -alerts : AlertController
+        -dispatch : DispatchController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
@@ -2111,6 +2140,15 @@ classDiagram
     class IncidentStatusRequest {
         <<record>>
         +status : IncidentStatus
+    }
+    class DispatchRequest {
+        <<record>>
+        +emergencyId : Long
+        +vehicleId : Long
+    }
+    class AssignmentStatusRequest {
+        <<record>>
+        +status : AssignmentStatus
     }
     class JsonMapperFactory {
         +create() ObjectMapper$
@@ -2181,10 +2219,13 @@ classDiagram
     ApiServer --> IncidentController
     ApiServer --> RoadMapController
     ApiServer --> AlertController
+    ApiServer --> DispatchController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
     ApiServer ..> IncidentStatusRequest
+    ApiServer ..> DispatchRequest
+    ApiServer ..> AssignmentStatusRequest
     ApiServer ..> JsonMapperFactory
     ApiStatus ..> ErrorKind
     WebSessionController --> AuthService
@@ -2238,6 +2279,7 @@ classDiagram
 | `DashboardDAO`, `JdbcDashboardDAO`, `DashboardService`, `DashboardSummary`, `DashboardController`, `AppContext.dashboardController()` y `GET /api/dashboard/summary` | `dao`, `dao.jdbc`, `service`, `dto`, `controller`, `app`, `api` | **Programado y probado** (A14): una consulta sobre las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` con 3 pruebas de integración contra Oracle XE 18c; servicio, controlador y ruta probados sin Oracle |
 | `SegmentView`, `IncidentView`, `RoadMapDAO`, `JdbcRoadMapDAO`, `RoadMapService`, `RoadMapController`, `IncidentStatusRequest`, `AppContext.incidentController()`/`roadMapController()` y las rutas `/api/incidents` | `dto`, `dao`, `dao.jdbc`, `service`, `controller`, `app`, `api` | **Programado y probado** (A12c): `IncidentController` (S7) publicado en la API, con el tramo de cada incidente para el mapa; `JdbcRoadMapDAO`, contra Oracle XE 18c. Aplicar el incidente al grafo es de K8 y K9 |
 | `AppContext.alertService()`/`alertController()`, `ApiServer.authenticated` y las rutas `/api/alerts` | `app`, `api` | **Programado y probado** (A12f): `AlertController` (S8) publicado en la API con solo la sesión, sin permiso; `GET` no mantiene viva la sesión (DT-08). Las alertas las crean K7, K8 y K9 con `alertService()` |
+| `MissionRoute`, `DispatchedMission`, `RoadMapService.describeRoutes`/`describeDispatch`, `RoadMapController.routesOnMap`/`dispatchOnMap`, `DispatchRequest`, `AssignmentStatusRequest` y las rutas de despacho (`/api/emergencies/{id}/candidates`, `/api/routes/preview`, `/api/dispatches`) | `dto`, `service`, `controller`, `api`, `app` | **Programado y probado** (A12d): `DispatchController` (K7) publicado en la API, con la línea de cada ruta guardada para el mapa; sin Oracle. `WebServer` carga la red vial al arrancar. El traslado (K7b) y el cierre (CU-12) siguen pendientes |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |

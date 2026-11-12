@@ -3,18 +3,22 @@ package co.edu.unicesar.rutavida.api;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
+import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.WebTestSupport;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.SegmentView;
+import co.edu.unicesar.rutavida.graph.Edge;
+import co.edu.unicesar.rutavida.graph.Node;
 import co.edu.unicesar.rutavida.model.Alert;
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.enums.AlertType;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.service.AuditService;
+import co.edu.unicesar.rutavida.service.DispatchTestSupport;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
 import co.edu.unicesar.rutavida.service.InMemoryAlertDAO;
@@ -44,6 +48,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,9 +59,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The real HTTP server on a free port of this computer, with the EXAMPLE users of
  * WebTestSupport, the in-memory catalogs of CatalogTestSupport and EmergencyService on
- * in-memory DAOs, a dashboard with fixed counts and the incidents of IncidentTestSupport.
- * Checks the contract of docs/api.md (sections 1, 2, 4, 5, 7, 9 and 11) as the web will see
- * it. Does not need Oracle.
+ * in-memory DAOs, a dashboard with fixed counts, the incidents of IncidentTestSupport and the
+ * dispatch on the small city of DispatchTestSupport. Checks the contract of docs/api.md
+ * (sections 1, 2, 4, 5, 6, 7, 9 and 11) as the web will see it. Does not need Oracle.
  */
 class ApiServerTest {
 
@@ -82,6 +88,7 @@ class ApiServerTest {
     private final CatalogTestSupport catalogs = new CatalogTestSupport();
     private InMemoryEmergencyDAO emergencyDao;
     private WebTestSupport support;
+    private DispatchTestSupport city;
     private long martaFirstAlert;
     private long anaAlert;
     private ApiServer server;
@@ -106,11 +113,15 @@ class ApiServerTest {
         DashboardController dashboard = new DashboardController(new DashboardService(
                 (since, start, end) -> new DashboardSummary(3, 3, 1, 2, 1, 4, 0, null), support.clock));
 
-        // Incidents on in-memory DAOs (S7); the map knows only CALLE_16.
+        // Dispatch on the small city of DispatchTestSupport (K7): 3 x 3 test streets, EXAMPLE units.
+        city = new DispatchTestSupport();
+        DispatchController dispatch = new DispatchController(city.service(), support.authService,
+                support.sessionContext);
+
+        // Incidents on in-memory DAOs (S7); the map knows CALLE_16 and the streets of the city.
         IncidentController incidents = new IncidentController(new IncidentTestSupport().service(),
                 support.authService, support.sessionContext);
-        RoadMapController roadMap = new RoadMapController(new RoadMapService(
-                ids -> ids.contains(CALLE_16.segmentId()) ? List.of(CALLE_16) : List.of()));
+        RoadMapController roadMap = new RoadMapController(new RoadMapService(this::segmentViews));
 
         // EXAMPLE alerts: two for marta.ruiz (user 3) and one for ana.perez (user 1).
         InMemoryAlertDAO alertDao = new InMemoryAlertDAO();
@@ -126,7 +137,7 @@ class ApiServerTest {
                 support.sessionContext);
 
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
-                dashboard, incidents, roadMap, alerts, frontend);
+                dashboard, incidents, roadMap, alerts, dispatch, frontend);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -135,6 +146,25 @@ class ApiServerTest {
     @AfterEach
     void stop() {
         server.stop();
+    }
+
+    /** The fake RoadMapDAO: CALLE_16 and the segments of the small city of the dispatch tests. */
+    private List<SegmentView> segmentViews(Collection<Long> ids) {
+        List<SegmentView> views = new ArrayList<>();
+        for (long id : ids) {
+            if (id == CALLE_16.segmentId()) {
+                views.add(CALLE_16);
+            }
+            int index = city.graph.edgeIndexOf(id);
+            if (index >= 0) {
+                Edge edge = city.graph.edge(index);
+                Node from = city.graph.node(edge.from());
+                Node to = city.graph.node(edge.to());
+                views.add(new SegmentView(id, edge.name(), new GeoPoint(from.lat(), from.lon()),
+                        new GeoPoint(to.lat(), to.lon())));
+            }
+        }
+        return views;
     }
 
     private static int freePort() throws IOException {
@@ -415,6 +445,107 @@ class ApiServerTest {
         assertEquals(401, send("GET", "/api/incidents", null, null).statusCode());
     }
 
+
+    // ------------------------------------------------------------ dispatch and routes (A12d)
+
+    @Test
+    void aUnitIsDispatchedAndFollowsItsMissionWithTheRoutesOnTheMap() throws Exception {
+        String token = login("marta.ruiz");
+        long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
+        String body = "{\"emergencyId\": " + emergency + ", \"vehicleId\": " + DispatchTestSupport.AMBULANCE + "}";
+
+        HttpResponse<String> listed = send("GET", "/api/emergencies/" + emergency + "/candidates", token, null);
+        assertEquals(200, listed.statusCode(), listed.body());
+        JsonNode candidates = value(listed);
+        assertEquals(DispatchTestSupport.AMBULANCE, candidates.get(0).get("vehicleId").asLong(), "the fastest first");
+        assertEquals("AMBULANCIA", candidates.get(0).get("vehicleType").asText());
+        assertTrue(candidates.get(0).get("etaMinutes").asDouble() > 0);
+
+        HttpResponse<String> preview = send("POST", "/api/routes/preview", token, body);
+        assertEquals(200, preview.statusCode(), preview.body());
+        JsonNode option = value(preview).get(0);
+        assertEquals(1, option.get("rank").asInt());
+        assertEquals("PRINCIPAL", option.get("type").asText());
+        assertEquals(option.get("segmentIds").size() + 1, option.get("path").size());
+        assertTrue(city.routes.findByEmergency(emergency).isEmpty(), "the preview saves nothing");
+
+        HttpResponse<String> dispatched = send("POST", "/api/dispatches", token, body);
+        assertEquals(201, dispatched.statusCode(), dispatched.body());
+        JsonNode assignment = value(dispatched).get("assignment");
+        long mission = assignment.get("id").asLong();
+        assertEquals("ASIGNADA", assignment.get("status").asText());
+        assertEquals(3, assignment.get("coordinatorUserId").asLong(), "marta.ruiz, the user of the token");
+        JsonNode routes = value(dispatched).get("routes");
+        JsonNode main = routes.get(0);
+        assertEquals("ACTIVA", main.get("status").asText());
+        assertTrue(main.get("recommended").asBoolean());
+        assertEquals(1, main.get("rank").asInt());
+        assertEquals(main.get("segmentIds").size() + 1, main.get("path").size(), "the line to draw");
+        assertEquals(10.462, main.get("path").get(0).get("latitude").asDouble(), 1e-9, "it starts at the unit");
+        assertTrue(main.get("explanation").asText().startsWith("Ruta recomendada"));
+        assertFalse(main.has("segments"), "the RUTA_TRAMO rows do not travel");
+        for (int i = 1; i < routes.size(); i++) {
+            assertEquals("PROPUESTA", routes.get(i).get("status").asText());
+            assertEquals(i + 1, routes.get(i).get("rank").asInt());
+        }
+
+        HttpResponse<String> current = send("GET", "/api/dispatches/" + mission + "/routes", token, null);
+        assertEquals(200, current.statusCode(), current.body());
+        assertEquals(routes.size(), value(current).size());
+        assertEquals(main.get("routeId").asLong(), value(current).get(0).get("routeId").asLong());
+
+        HttpResponse<String> enRoute = send("PATCH", "/api/dispatches/" + mission + "/status", token,
+                "{\"status\": \"EN_RUTA\"}");
+        assertEquals(200, enRoute.statusCode(), enRoute.body());
+        assertEquals("EN_RUTA", value(enRoute).get("status").asText());
+        assertFalse(value(enRoute).get("departedAt").isNull());
+
+        HttpResponse<String> onScene = send("PATCH", "/api/dispatches/" + mission + "/status", token,
+                "{\"status\": \"EN_SITIO\"}");
+        assertEquals("EN_SITIO", value(onScene).get("status").asText());
+        assertTrue(value(send("GET", "/api/dispatches/" + mission + "/routes", token, null)).isEmpty(),
+                "the routes to the scene ended when the unit arrived");
+    }
+
+    @Test
+    void wrongDispatchRequestsAre400403404And409() throws Exception {
+        String token = login("marta.ruiz");
+        long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
+
+        assertEquals(400, send("POST", "/api/dispatches", token, "{}").statusCode(), "no ids");
+        assertEquals(400, send("POST", "/api/routes/preview", token,
+                "{\"emergencyId\": " + emergency + "}").statusCode(), "no unit");
+        assertEquals(400, send("POST", "/api/dispatches", token, "{\"emergencyId\":").statusCode(), "malformed");
+        assertEquals(404, send("GET", "/api/emergencies/999/candidates", token, null).statusCode());
+        assertEquals(409, send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                + ", \"vehicleId\": " + DispatchTestSupport.BUSY_AMBULANCE + "}").statusCode(), "a busy unit");
+        assertEquals(409, send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                + ", \"vehicleId\": " + DispatchTestSupport.FIRE_TRUCK + "}").statusCode(), "a fire truck to a medical one");
+
+        HttpResponse<String> dispatched = send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                + ", \"vehicleId\": " + DispatchTestSupport.AMBULANCE + "}");
+        assertEquals(201, dispatched.statusCode(), dispatched.body());
+        long mission = value(dispatched).get("assignment").get("id").asLong();
+        assertEquals(409, send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                        + ", \"vehicleId\": " + DispatchTestSupport.NO_POSITION_AMBULANCE + "}").statusCode(),
+                "the emergency is no longer REPORTADA");
+
+        String path = "/api/dispatches/" + mission + "/status";
+        assertEquals(409, send("PATCH", path, token, "{\"status\": \"FINALIZADA\"}").statusCode(),
+                "ASIGNADA cannot jump to FINALIZADA");
+        assertEquals(400, send("PATCH", path, token, "{\"status\": \"TRASLADANDO\"}").statusCode(),
+                "the transfer needs CU-11 (K7b)");
+        assertEquals(400, send("PATCH", path, token, "{\"status\": \"VOLANDO\"}").statusCode());
+        assertEquals(400, send("PATCH", path, token, "{}").statusCode(), "no status");
+        assertEquals(404, send("GET", "/api/dispatches/999/routes", token, null).statusCode());
+
+        String ana = login("ana.perez");
+        assertEquals(403, send("GET", "/api/emergencies/" + emergency + "/candidates", ana, null).statusCode(),
+                "the test operator has no DESPACHO permission");
+        assertEquals(403, send("GET", "/api/dispatches/" + mission + "/routes", ana, null).statusCode(),
+                "nor RUTAS");
+        assertEquals(401, send("POST", "/api/dispatches", null, "{}").statusCode());
+    }
 
     // ------------------------------------------------------------ alerts (A12f)
 
