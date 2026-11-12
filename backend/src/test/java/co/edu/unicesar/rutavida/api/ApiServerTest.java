@@ -547,6 +547,32 @@ class ApiServerTest {
         assertEquals(401, send("POST", "/api/dispatches", null, "{}").statusCode());
     }
 
+    // ------------------------------------------------------------ close an emergency (A16)
+
+    @Test
+    void anEmergencyIsClosedOnlyWhenItsUnitArrived() throws Exception {
+        String token = login("marta.ruiz");
+        long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
+        String close = "/api/emergencies/" + emergency + "/close";
+        HttpResponse<String> dispatched = send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                + ", \"vehicleId\": " + DispatchTestSupport.AMBULANCE + "}");
+        String status = "/api/dispatches/" + value(dispatched).get("assignment").get("id").asLong() + "/status";
+
+        assertEquals(409, send("POST", close, token, null).statusCode(), "the unit is still on its way");
+        send("PATCH", status, token, "{\"status\": \"EN_RUTA\"}");
+        send("PATCH", status, token, "{\"status\": \"EN_SITIO\"}");
+
+        HttpResponse<String> closed = send("POST", close, token, null);
+        assertEquals(200, closed.statusCode(), closed.body());
+        assertEquals("CERRADA", value(closed).get("status").asText());
+        assertFalse(value(closed).get("closedAt").isNull());
+        assertEquals(409, send("POST", close, token, null).statusCode(), "already closed");
+        assertEquals(404, send("POST", "/api/emergencies/999/close", token, null).statusCode());
+        assertEquals(403, send("POST", close, login("ana.perez"), null).statusCode(),
+                "the test operator has no DESPACHO permission");
+        assertEquals(401, send("POST", close, null, null).statusCode());
+    }
+
     // ------------------------------------------------------------ alerts (A12f)
 
     @Test

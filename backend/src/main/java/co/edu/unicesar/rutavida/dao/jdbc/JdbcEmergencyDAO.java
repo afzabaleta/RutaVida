@@ -32,6 +32,9 @@ public class JdbcEmergencyDAO extends AbstractJdbcDAO implements EmergencyDAO {
     private static final String UPDATE_STATUS =
             "UPDATE emergencia SET estado = ?, fecha_hora_cierre = ? WHERE id_emergencia = ?";
 
+    /** The whole closing is done by Oracle in one call (04_plsql.sql). */
+    private static final String CLOSE = "{call sp_cerrar_emergencia(?, ?)}";
+
     private static final RowMapper<Emergency> MAPPER = row -> new Emergency(
             row.getLong("id_emergencia"),
             row.getLong("id_tipo_emergencia"),
@@ -90,4 +93,11 @@ public class JdbcEmergencyDAO extends AbstractJdbcDAO implements EmergencyDAO {
             throw new NotFoundException("Emergencia", id);
         }
     }
+
+    @Override
+    public void close(long id, LocalDateTime closedAt) {
+        Objects.requireNonNull(closedAt, "closedAt");
+        callProcedure(CLOSE, id, closedAt);
+    }
+
 }

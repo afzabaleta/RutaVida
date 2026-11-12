@@ -42,8 +42,8 @@ import java.util.logging.Logger;
  * handler with that session (so the controllers and the audit triggers see that user).
  *
  * <p>Routes: session (A12a), emergencies and catalogs (A12b), dashboard (A14), road incidents
- * (A12c), alerts (A12f) and dispatch and routes (A12d). Tracking and simulation are added
- * when their controllers exist (K9, A12e).
+ * (A12c), alerts (A12f), dispatch and routes (A12d) and closing an emergency (A16). Tracking
+ * and simulation are added when their controllers exist (K9, A12e).
  */
 public final class ApiServer {
 
@@ -156,6 +156,8 @@ public final class ApiServer {
                 ctx -> send(ctx, roadMap.routesOnMap(dispatch.missionRoutes(pathId(ctx))), ApiStatus.OK)));
         config.routes.patch("/api/dispatches/{id}/status", secured("DESPACHO", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, dispatch.advance(pathId(ctx), readMissionStatus(ctx)), ApiStatus.OK)));
+        config.routes.post("/api/emergencies/{id}/close", secured("DESPACHO", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, dispatch.close(pathId(ctx)), ApiStatus.OK)));
 
         // 7. Resources: units, stations and hospitals
         config.routes.get("/api/vehicle-types", secured("UNIDADES", "CONSULTAR", USER_ACTION,

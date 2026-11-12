@@ -641,6 +641,7 @@ classDiagram
         +findActive() List~Emergency~
         +findByPeriod(from: LocalDateTime, to: LocalDateTime) List~Emergency~
         +updateStatus(id: long, status: EmergencyStatus, closedAt: LocalDateTime) void
+        +close(id: long, closedAt: LocalDateTime) void
     }
     class EmergencyAssignmentDAO {
         <<interface>>
@@ -1072,7 +1073,7 @@ class UserService {
         +isOpen(assignment: EmergencyAssignment) boolean
         +moveVehicle(vehicle: EmergencyVehicle, point: GeoPoint, at: LocalDateTime) void
         +startTransfer(assignmentId: long, hospitalId: long, session: UserSession) void
-        +closeEmergency(emergencyId: long, session: UserSession) void
+        +closeEmergency(emergencyId: long, session: UserSession) Emergency
         +dispatchOptimal(emergencyIds: List~Long~, session: UserSession) List~EmergencyAssignment~
     }
     class HungarianAlgorithm {
@@ -1878,7 +1879,7 @@ classDiagram
         +missionRoutes(assignmentId: long) OperationResult~List~Route~~
         +rankHospitals(assignmentId: long, requiredService: String) OperationResult~List~HospitalOption~~
         +startTransfer(assignmentId: long, hospitalId: long) OperationResult~Void~
-        +close(emergencyId: long) OperationResult~Void~
+        +close(emergencyId: long) OperationResult~Emergency~
     }
     class RouteController {
         -routeService : RouteService

@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.dao.jdbc;
 
+import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.model.Emergency;
 import co.edu.unicesar.rutavida.model.EmergencyType;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * JdbcEmergencyTypeDAO and JdbcEmergencyDAO against the local Oracle. The types come from
@@ -128,6 +130,34 @@ class JdbcEmergencyDAOIntegrationTest {
                             + " AND operacion = 'CAMBIO_ESTADO' AND registro_id = ? AND detalle = 'REPORTADA -> ASIGNADA'",
                     open.getId()), "the trigger audits the status change");
         });
+    }
+
+    @Test
+    void anEmergencyIsClosedByTheProcedure() {
+        assumeTrue(number(jdbc, "SELECT COUNT(*) FROM user_objects WHERE object_name = 'SP_CERRAR_EMERGENCIA'"
+                + " AND status = 'VALID'") == 1, "Run database/04_plsql.sql first: test skipped");
+        inRolledBackTransaction(jdbc, () -> {
+            long user = insertTestUser();
+            Emergency falseAlarm = newEmergency(user, "Calle de prueba 3", REPORTED);
+            Emergency onItsWay = newEmergency(user, "Calle de prueba 4", REPORTED);
+            emergencyDao.insert(falseAlarm);
+            emergencyDao.insert(onItsWay);
+            emergencyDao.updateStatus(onItsWay.getId(), EmergencyStatus.ASSIGNED, null);
+
+            emergencyDao.close(falseAlarm.getId(), REPORTED.plusMinutes(30));
+
+            Emergency closed = emergencyDao.findById(falseAlarm.getId()).orElseThrow();
+            assertEquals(EmergencyStatus.CLOSED, closed.getStatus());
+            assertEquals(REPORTED.plusMinutes(30), closed.getClosedAt());
+            assertEquals("La emergencia " + falseAlarm.getId() + " ya esta cerrada", assertThrows(
+                    BusinessRuleException.class, () -> emergencyDao.close(falseAlarm.getId(), REPORTED.plusMinutes(31)))
+                    .getMessage());
+            assertEquals("No se puede cerrar una emergencia en estado ASIGNADA", assertThrows(
+                    BusinessRuleException.class, () -> emergencyDao.close(onItsWay.getId(), REPORTED.plusMinutes(30)))
+                    .getMessage());
+        });
+        assertEquals("La emergencia -1 no existe", assertThrows(BusinessRuleException.class,
+                () -> emergencyDao.close(-1, REPORTED)).getMessage());
     }
 
     @Test

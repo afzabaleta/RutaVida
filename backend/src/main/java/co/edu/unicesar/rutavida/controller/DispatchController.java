@@ -5,6 +5,7 @@ import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.dto.RouteOption;
 import co.edu.unicesar.rutavida.dto.UnitCandidate;
+import co.edu.unicesar.rutavida.model.Emergency;
 import co.edu.unicesar.rutavida.model.EmergencyAssignment;
 import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.model.UserSession;
@@ -20,8 +21,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Use cases of the dispatch for the view (CU-08, CU-09, CU-10). It checks the session and
- * the permission of each action, delegates to DispatchService and turns every error into a
+ * Use cases of the dispatch for the view (CU-08, CU-09, CU-10, CU-12). It checks the session and * the permission of each action, delegates to DispatchService and turns every error into a
  * message in Spanish with its kind (the web API uses it for the HTTP status code).
  */
 public class DispatchController {
@@ -62,6 +62,11 @@ public class DispatchController {
     /** CU-10: the mission advances. Needs DESPACHO / GESTIONAR. */
     public OperationResult<EmergencyAssignment> advance(long assignmentId, AssignmentStatus next) {
         return run(DISPATCH, MANAGE, user -> dispatchService.advance(assignmentId, next));
+    }
+
+    /** CU-12: closes the emergency and frees its units. Needs DESPACHO / GESTIONAR. */
+    public OperationResult<Emergency> close(long emergencyId) {
+        return run(DISPATCH, MANAGE, user -> dispatchService.closeEmergency(emergencyId, user));
     }
 
     /** Routes still in use by a mission. Needs RUTAS / CONSULTAR. */
