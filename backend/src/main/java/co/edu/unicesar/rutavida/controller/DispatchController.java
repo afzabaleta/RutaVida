@@ -21,7 +21,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Use cases of the dispatch for the view (CU-08, CU-09, CU-10, CU-12). It checks the session and * the permission of each action, delegates to DispatchService and turns every error into a
+ * Use cases of the dispatch for the view (CU-08, CU-09, CU-10, CU-12). It checks the session and
+ * the permission of each action, delegates to DispatchService and turns every error into a
  * message in Spanish with its kind (the web API uses it for the HTTP status code).
  */
 public class DispatchController {

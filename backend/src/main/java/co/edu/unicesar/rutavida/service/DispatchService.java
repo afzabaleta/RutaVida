@@ -49,7 +49,8 @@ import java.util.Set;
  * the assignment and of the emergency is audited by the triggers of 04_plsql.sql.
  *
  * <p>Closing the emergency (CU-12) is done by Oracle with sp_cerrar_emergencia; here are its
- * rules and its audit. Not here yet: the hospital for a transfer (CU-11, K7b). */
+ * rules and its audit. Not here yet: the hospital for a transfer (CU-11, K7b).
+ */
 public class DispatchService {
 
     static final String AUDIT_MODULE = "DESPACHO";
