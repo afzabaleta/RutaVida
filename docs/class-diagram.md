@@ -2111,6 +2111,7 @@ classDiagram
         -incidents : IncidentController
         -roadMap : RoadMapController
         -alerts : AlertController
+        -dispatch : DispatchController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
@@ -2139,6 +2140,15 @@ classDiagram
     class IncidentStatusRequest {
         <<record>>
         +status : IncidentStatus
+    }
+    class DispatchRequest {
+        <<record>>
+        +emergencyId : Long
+        +vehicleId : Long
+    }
+    class AssignmentStatusRequest {
+        <<record>>
+        +status : AssignmentStatus
     }
     class JsonMapperFactory {
         +create() ObjectMapper$
@@ -2209,10 +2219,13 @@ classDiagram
     ApiServer --> IncidentController
     ApiServer --> RoadMapController
     ApiServer --> AlertController
+    ApiServer --> DispatchController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
     ApiServer ..> IncidentStatusRequest
+    ApiServer ..> DispatchRequest
+    ApiServer ..> AssignmentStatusRequest
     ApiServer ..> JsonMapperFactory
     ApiStatus ..> ErrorKind
     WebSessionController --> AuthService

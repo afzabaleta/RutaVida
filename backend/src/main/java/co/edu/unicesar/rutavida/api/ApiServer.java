@@ -2,6 +2,7 @@ package co.edu.unicesar.rutavida.api;
 
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.AlertController;
+import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
@@ -14,6 +15,7 @@ import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.UserSession;
+import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
 import co.edu.unicesar.rutavida.model.enums.IncidentStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,8 +42,8 @@ import java.util.logging.Logger;
  * handler with that session (so the controllers and the audit triggers see that user).
  *
  * <p>Routes: session (A12a), emergencies and catalogs (A12b), dashboard (A14), road incidents
- * (A12c) and alerts (A12f). Dispatch, routes, tracking and simulation are added when their
- * controllers exist (K7).
+ * (A12c), alerts (A12f) and dispatch and routes (A12d). Tracking and simulation are added
+ * when their controllers exist (K9, A12e).
  */
 public final class ApiServer {
 
@@ -53,6 +55,8 @@ public final class ApiServer {
     private static final String BAD_REQUEST = "La solicitud no tiene el formato esperado.";
     private static final String BAD_ID = "El identificador debe ser un número entero positivo.";
     private static final String BAD_STATUS = "El estado del incidente no es válido.";
+    private static final String BAD_DISPATCH = "Indique la emergencia y la unidad (emergencyId y vehicleId).";
+    private static final String BAD_MISSION_STATUS = "El estado de la misión no es válido.";
 
     /**
      * Second argument of {@link #secured}: a request made by the user counts as use of the
@@ -69,6 +73,7 @@ public final class ApiServer {
     private final IncidentController incidents;
     private final RoadMapController roadMap;
     private final AlertController alerts;
+    private final DispatchController dispatch;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -79,7 +84,7 @@ public final class ApiServer {
     public ApiServer(WebSessionController sessions, CatalogController catalogs,
                      EmergencyController emergencies, DashboardController dashboard,
                      IncidentController incidents, RoadMapController roadMap, AlertController alerts,
-                     Path frontendDirectory) {
+                     DispatchController dispatch, Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
@@ -87,6 +92,7 @@ public final class ApiServer {
         this.incidents = Objects.requireNonNull(incidents, "incidents");
         this.roadMap = Objects.requireNonNull(roadMap, "roadMap");
         this.alerts = Objects.requireNonNull(alerts, "alerts");
+        this.dispatch = Objects.requireNonNull(dispatch, "dispatch");
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -133,6 +139,23 @@ public final class ApiServer {
                 ctx -> send(ctx, emergencies.find(pathId(ctx)), ApiStatus.OK)));
         config.routes.get("/api/emergencies/{id}/history", secured("EMERGENCIAS", "CONSULTAR", USER_ACTION,
                 ctx -> send(ctx, emergencies.history(pathId(ctx)), ApiStatus.OK)));
+
+        // 6. Dispatch and routes (K7). The permission is checked here and again in DispatchController.
+        config.routes.get("/api/emergencies/{id}/candidates", secured("DESPACHO", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, dispatch.candidates(pathId(ctx)), ApiStatus.OK)));
+        config.routes.post("/api/routes/preview", secured("RUTAS", "GESTIONAR", USER_ACTION, ctx -> {
+            DispatchRequest request = readDispatch(ctx);
+            send(ctx, dispatch.preview(request.emergencyId(), request.vehicleId()), ApiStatus.OK);
+        }));
+        config.routes.post("/api/dispatches", secured("DESPACHO", "GESTIONAR", USER_ACTION, ctx -> {
+            DispatchRequest request = readDispatch(ctx);
+            send(ctx, roadMap.dispatchOnMap(dispatch.dispatch(request.emergencyId(), request.vehicleId())),
+                    ApiStatus.CREATED);
+        }));
+        config.routes.get("/api/dispatches/{id}/routes", secured("RUTAS", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, roadMap.routesOnMap(dispatch.missionRoutes(pathId(ctx))), ApiStatus.OK)));
+        config.routes.patch("/api/dispatches/{id}/status", secured("DESPACHO", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, dispatch.advance(pathId(ctx), readMissionStatus(ctx)), ApiStatus.OK)));
 
         // 7. Resources: units, stations and hospitals
         config.routes.get("/api/vehicle-types", secured("UNIDADES", "CONSULTAR", USER_ACTION,
@@ -229,6 +252,25 @@ public final class ApiServer {
         IncidentStatus status = readBody(ctx, IncidentStatusRequest.class).status();
         if (status == null) {
             throw new ValidationException(BAD_STATUS);
+        }
+        return status;
+    }
+
+    /** The body of 6.2 and 6.3; without one of the two ids, a 400. */
+    private DispatchRequest readDispatch(Context ctx) {
+        DispatchRequest request = readBody(ctx, DispatchRequest.class);
+        if (request.emergencyId() == null || request.vehicleId() == null
+                || request.emergencyId() <= 0 || request.vehicleId() <= 0) {
+            throw new ValidationException(BAD_DISPATCH);
+        }
+        return request;
+    }
+
+    /** The new status of PATCH /api/dispatches/{id}/status; without it, a 400. */
+    private AssignmentStatus readMissionStatus(Context ctx) {
+        AssignmentStatus status = readBody(ctx, AssignmentStatusRequest.class).status();
+        if (status == null) {
+            throw new ValidationException(BAD_MISSION_STATUS);
         }
         return status;
     }
