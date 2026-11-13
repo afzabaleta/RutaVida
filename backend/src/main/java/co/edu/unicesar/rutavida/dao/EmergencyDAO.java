@@ -30,4 +30,13 @@ public interface EmergencyDAO {
      * the emergency does not exist.
      */
     void updateStatus(long id, EmergencyStatus status, LocalDateTime closedAt);
+
+    /**
+     * Closes the emergency with sp_cerrar_emergencia (CU-12), in the caller's transaction: its
+     * open assignments end (FINALIZADA if the unit arrived, CANCELADA if not), their units
+     * become DISPONIBLE, its ACTIVA routes FINALIZADA and its PROPUESTA routes DESCARTADA, and
+     * the emergency CERRADA at {@code closedAt}. Only from REPORTADA, EN_SITIO or TRASLADANDO;
+     * otherwise, or if it does not exist, a BusinessRuleException with the procedure's message.
+     */
+    void close(long id, LocalDateTime closedAt);
 }

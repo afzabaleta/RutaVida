@@ -243,7 +243,7 @@ Las rutas del historial no traen el trazado: el historial es para leer, no para 
 
 ## 6. Despacho y rutas
 
-Estado (A12d): 6.1, 6.2, 6.3, 6.4 y 6.6 están programadas. 6.5 y el paso a `TRASLADANDO` esperan el traslado al hospital (CU-11, K7b) y 6.7 espera el cierre (CU-12).
+Estado: 6.1, 6.2, 6.3, 6.4 y 6.6 (A12d) y 6.7 (A16) están programadas. 6.5 y el paso a `TRASLADANDO` esperan el traslado al hospital (CU-11, K7b).
 
 ### 6.1 `GET /api/emergencies/{id}/candidates`
 
@@ -379,7 +379,9 @@ La llegada al sitio (`EN_SITIO`) también la puede marcar el simulador por su cu
 
 ### 6.7 `POST /api/emergencies/{id}/close`
 
-Cierra la emergencia (CU-12) con `sp_cerrar_emergencia`: finaliza las asignaciones abiertas, libera las unidades (`DISPONIBLE`) y cierra las rutas. Sin cuerpo. Salida `200`: la emergencia con `status` = `CERRADA` y `closedAt`. `409` si ya estaba cerrada.
+Cierra la emergencia (CU-12) con `sp_cerrar_emergencia`: finaliza las asignaciones abiertas, libera las unidades (`DISPONIBLE`) y cierra las rutas. Permiso `DESPACHO / GESTIONAR`. Sin cuerpo. Salida `200`: la emergencia con `status` = `CERRADA` y `closedAt`.
+
+Solo se cierra una emergencia `REPORTADA` (falsa alarma), `EN_SITIO` o `TRASLADANDO`. Errores: `409` si ya estaba cerrada o si tiene una unidad en camino (`ASIGNADA` o `EN_RUTA`: primero llega o se cancela la misión); `404` si no existe. El cierre queda en el historial de la emergencia (5.5) como `CERRAR`.
 
 ## 7. Recursos: unidades, estaciones y hospitales
 
@@ -387,8 +389,8 @@ Cierra la emergencia (CU-12) con `sp_cerrar_emergencia`: finaliza las asignacion
 
 ```json
 { "success": true, "message": null, "value": [
-  { "id": 1, "name": "AMBULANCIA", "priority": 8, "description": "Unidad de atencion medica y traslado" },
-  { "id": 2, "name": "BOMBERO", "priority": 8, "description": "Vehiculo del cuerpo de bomberos" }
+   { "id": 1, "name": "AMBULANCIA", "priority": 8, "description": "Unidad de atencion medica y traslado" },
+   { "id": 2, "name": "BOMBERO", "priority": 8, "description": "Vehiculo del cuerpo de bomberos" }
 ] }
 ```
 
@@ -398,10 +400,10 @@ Todas las unidades (`EmergencyVehicleDAO.findAll`), con la entidad `EmergencyVeh
 
 ```json
 { "success": true, "message": null, "value": [
-  { "id": 1, "vehicleTypeId": 1, "stationId": 2, "unitCode": "EJEMPLO-AMB-01", "plate": null,
-    "operationalStatus": "DISPONIBLE",
-    "lastLocation": { "latitude": 10.469330, "longitude": -73.254520 },
-    "lastLocationAt": "2026-11-04T08:00:00" }
+   { "id": 1, "vehicleTypeId": 1, "stationId": 2, "unitCode": "EJEMPLO-AMB-01", "plate": null,
+      "operationalStatus": "DISPONIBLE",
+      "lastLocation": { "latitude": 10.469330, "longitude": -73.254520 },
+      "lastLocationAt": "2026-11-04T08:00:00" }
 ] }
 ```
 
@@ -423,19 +425,19 @@ La web lo consulta **cada 5 segundos** (DT-07) mientras la página del mapa est�
 
 ```json
 { "success": true, "message": null, "value": {
-  "serverTime": "2026-11-04T09:35:02",
-  "simulation": { "running": true, "source": "SIMULACION" },
-  "units": [
-    { "vehicleId": 1, "unitCode": "EJEMPLO-AMB-01", "vehicleType": "AMBULANCIA",
-      "operationalStatus": "OCUPADO",
-      "location": { "latitude": 10.468901, "longitude": -73.258004 },
-      "updatedAt": "2026-11-04T09:35:01", "source": "SIMULACION" }
-  ],
-  "missions": [
-    { "assignmentId": 8, "emergencyId": 15, "vehicleId": 1, "status": "EN_RUTA",
-      "activeRouteId": 30, "routesVersion": 2 }
-  ],
-  "unreadAlerts": 1
+   "serverTime": "2026-11-04T09:35:02",
+   "simulation": { "running": true, "source": "SIMULACION" },
+   "units": [
+      { "vehicleId": 1, "unitCode": "EJEMPLO-AMB-01", "vehicleType": "AMBULANCIA",
+         "operationalStatus": "OCUPADO",
+         "location": { "latitude": 10.468901, "longitude": -73.258004 },
+         "updatedAt": "2026-11-04T09:35:01", "source": "SIMULACION" }
+   ],
+   "missions": [
+      { "assignmentId": 8, "emergencyId": 15, "vehicleId": 1, "status": "EN_RUTA",
+         "activeRouteId": 30, "routesVersion": 2 }
+   ],
+   "unreadAlerts": 1
 } }
 ```
 
@@ -449,10 +451,10 @@ Los tramos con tráfico `MODERADO` o `CONGESTIONADO` (la última medición de ca
 
 ```json
 { "success": true, "message": null, "value": [
-  { "segmentId": 413, "streetName": "Calle 16", "level": "CONGESTIONADO", "congestionFactor": 2.6,
-    "measuredAt": "2026-11-04T09:34:50", "source": "SIMULACION",
-    "from": { "latitude": 10.468901, "longitude": -73.258004 },
-    "to": { "latitude": 10.468377, "longitude": -73.260112 } }
+   { "segmentId": 413, "streetName": "Calle 16", "level": "CONGESTIONADO", "congestionFactor": 2.6,
+      "measuredAt": "2026-11-04T09:34:50", "source": "SIMULACION",
+      "from": { "latitude": 10.468901, "longitude": -73.258004 },
+      "to": { "latitude": 10.468377, "longitude": -73.260112 } }
 ] }
 ```
 
@@ -466,12 +468,12 @@ Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO` (o cualquier otro es
 
 ```json
 { "success": true, "message": null, "value": [
-  { "id": 4, "segmentId": 413, "type": "ACCIDENTE", "severity": "ALTA", "blocksSegment": false,
-    "description": "Choque en la Calle 16", "startedAt": "2026-11-04T09:34:00", "endedAt": null,
-    "status": "PENDIENTE", "origin": "OPERADOR",
-    "segment": { "streetName": "Calle 16",
-      "from": { "latitude": 10.468901, "longitude": -73.258004 },
-      "to": { "latitude": 10.468377, "longitude": -73.260112 } } }
+   { "id": 4, "segmentId": 413, "type": "ACCIDENTE", "severity": "ALTA", "blocksSegment": false,
+      "description": "Choque en la Calle 16", "startedAt": "2026-11-04T09:34:00", "endedAt": null,
+      "status": "PENDIENTE", "origin": "OPERADOR",
+      "segment": { "streetName": "Calle 16",
+         "from": { "latitude": 10.468901, "longitude": -73.258004 },
+         "to": { "latitude": 10.468377, "longitude": -73.260112 } } }
 ] }
 ```
 
@@ -481,7 +483,7 @@ Registra un incidente (CU-13). Entra `PENDIENTE` y **no afecta las rutas** hasta
 
 ```json
 { "segmentId": 413, "type": "ACCIDENTE", "severity": "ALTA", "blocksSegment": false,
-  "description": "Choque en la Calle 16" }
+   "description": "Choque en la Calle 16" }
 ```
 
 Salida `201`: el incidente (forma de 9.1). `400` si el tramo no existe o el tipo o la severidad no son válidos.
@@ -496,7 +498,7 @@ Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RE
 
 ```json
 { "success": true, "message": null, "value": {
-  "running": true, "startedAt": "2026-11-04T09:31:00", "tickSeconds": 1, "source": "SIMULACION" } }
+   "running": true, "startedAt": "2026-11-04T09:31:00", "tickSeconds": 1, "source": "SIMULACION" } }
 ```
 
 ### 10.2 `POST /api/simulation/start` y `POST /api/simulation/stop`
@@ -519,9 +521,9 @@ Salida `200`: el tramo con la forma de 8.2. `404` si el tramo no existe.
 
 ```json
 { "success": true, "message": null, "value": {
-  "activeEmergencies": 3, "availableUnits": 3, "busyUnits": 1, "operationalHospitals": 2,
-  "activeIncidents": 1, "congestedSegments": 4, "closedToday": 2,
-  "averageResponseMinutes": 9.4
+   "activeEmergencies": 3, "availableUnits": 3, "busyUnits": 1, "operationalHospitals": 2,
+   "activeIncidents": 1, "congestedSegments": 4, "closedToday": 2,
+   "averageResponseMinutes": 9.4
 } }
 ```
 
@@ -548,7 +550,7 @@ Las alertas del usuario de la sesión, la más reciente primero: las últimas 50
 { "success": true, "message": null, "value": [
    { "id": 21, "emergencyId": 15, "userId": 3, "type": "RECALCULO_RUTA",
       "message": "Se recalculó la ruta de EJEMPLO-AMB-01 por congestión en la Calle 16.",
-    "createdAt": "2026-11-04T09:35:00", "read": false }
+      "createdAt": "2026-11-04T09:35:00", "read": false }
 ] }
 ```
 

@@ -641,6 +641,7 @@ classDiagram
         +findActive() List~Emergency~
         +findByPeriod(from: LocalDateTime, to: LocalDateTime) List~Emergency~
         +updateStatus(id: long, status: EmergencyStatus, closedAt: LocalDateTime) void
+        +close(id: long, closedAt: LocalDateTime) void
     }
     class EmergencyAssignmentDAO {
         <<interface>>
@@ -1072,7 +1073,7 @@ class UserService {
         +isOpen(assignment: EmergencyAssignment) boolean
         +moveVehicle(vehicle: EmergencyVehicle, point: GeoPoint, at: LocalDateTime) void
         +startTransfer(assignmentId: long, hospitalId: long, session: UserSession) void
-        +closeEmergency(emergencyId: long, session: UserSession) void
+        +closeEmergency(emergencyId: long, session: UserSession) Emergency
         +dispatchOptimal(emergencyIds: List~Long~, session: UserSession) List~EmergencyAssignment~
     }
     class HungarianAlgorithm {
@@ -1914,7 +1915,7 @@ classDiagram
         +missionRoutes(assignmentId: long) OperationResult~List~Route~~
         +rankHospitals(assignmentId: long, requiredService: String) OperationResult~List~HospitalOption~~
         +startTransfer(assignmentId: long, hospitalId: long) OperationResult~Void~
-        +close(emergencyId: long) OperationResult~Void~
+        +close(emergencyId: long) OperationResult~Emergency~
     }
     class RouteController {
         -routeService : RouteService
@@ -2323,6 +2324,7 @@ classDiagram
 | `SegmentView`, `IncidentView`, `RoadMapDAO`, `JdbcRoadMapDAO`, `RoadMapService`, `RoadMapController`, `IncidentStatusRequest`, `AppContext.incidentController()`/`roadMapController()` y las rutas `/api/incidents` | `dto`, `dao`, `dao.jdbc`, `service`, `controller`, `app`, `api` | **Programado y probado** (A12c): `IncidentController` (S7) publicado en la API, con el tramo de cada incidente para el mapa; `JdbcRoadMapDAO`, contra Oracle XE 18c. Aplicar el incidente al grafo es de K8 y K9 |
 | `AppContext.alertService()`/`alertController()`, `ApiServer.authenticated` y las rutas `/api/alerts` | `app`, `api` | **Programado y probado** (A12f): `AlertController` (S8) publicado en la API con solo la sesión, sin permiso; `GET` no mantiene viva la sesión (DT-08). Las alertas las crean K7, K8 y K9 con `alertService()` |
 | `MissionRoute`, `DispatchedMission`, `RoadMapService.describeRoutes`/`describeDispatch`, `RoadMapController.routesOnMap`/`dispatchOnMap`, `DispatchRequest`, `AssignmentStatusRequest` y las rutas de despacho (`/api/emergencies/{id}/candidates`, `/api/routes/preview`, `/api/dispatches`) | `dto`, `service`, `controller`, `api`, `app` | **Programado y probado** (A12d): `DispatchController` (K7) publicado en la API, con la línea de cada ruta guardada para el mapa; sin Oracle. `WebServer` carga la red vial al arrancar. El traslado (K7b) y el cierre (CU-12) siguen pendientes |
+| Cerrar emergencia (CU-12): `EmergencyDAO.close` y `JdbcEmergencyDAO.close` (con `sp_cerrar_emergencia`), `DispatchService.closeEmergency`, `DispatchController.close` y `POST /api/emergencies/{id}/close` | `dao`, `dao.jdbc`, `service`, `controller`, `api` | **Programado y probado** (A16): reglas, auditoría y ruta sin Oracle; `JdbcEmergencyDAO.close` contra Oracle XE 18c. Reemplaza a `closeEmergency`/`close` de la fila de K7 |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
