@@ -222,7 +222,8 @@ Ejemplo: *consultar los hospitales operativos*.
 | Motor de rutas (`graph`) y tráfico simulado (`traffic`) | Programado y probado |
 | `LoginController`, `SessionContext` | Programado y probado |
 | Casos de uso con DAO de emergencias (`register`, S6) y de despacho (`candidates`, `preview`, `dispatch`, `advance`, K7), y `RouteService` (K6) | Programado y probado (sin Oracle) |
-| Traslado al hospital (K7b), cierre de la emergencia (CU-12), `RouteMonitor` y recálculo de rutas (K8) | **Pendiente** |
+| Recálculo de rutas con tráfico e incidentes (`RoadConditionService`, `RouteMonitor`, K8) | Programado y probado (sin Oracle) |
+| Traslado al hospital (K7b) y cierre de la emergencia (CU-12) | **Pendiente** |
 | DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones | **Pendiente** (Sprint 3) |
 | Movimiento simulado de las unidades y seguimiento (`VehicleMovementSimulator`, `TrackingService`, A13) | Programado y probado |
 | Motor de la simulación y escenarios (`SimulationEngine`, K9) | **Pendiente** |
