@@ -1,6 +1,7 @@
 ﻿
 import {
   getDashboardSummary,
+  hasPermission,
   listEmergencies,
   listHospitals,
   listStations,
@@ -328,8 +329,10 @@ function renderEmergencies(map, emergencies) {
   list.replaceChildren();
 
 
-  byId("emergency-pill").textContent = String(emergencies.length);
-
+ byId("emergency-pill").textContent = String(emergencies.length);
+if (!usesSummary) {
+  byId("emergency-count").textContent = String(emergencies.length);
+}
   for (const emergency of emergencies) {
     const title =
       emergency.code ||
@@ -379,6 +382,9 @@ function renderUnits(map, units) {
   const available = units.filter((unit) => unit.status === "DISPONIBLE");
   byId("unit-pill").textContent = String(units.length);
 
+    if (!usesSummary) {
+      byId("unit-count").textContent = String(available.length);
+    }
   for (const unit of units) {
     const title =
       unit.code ||
@@ -430,12 +436,11 @@ function renderUnits(map, units) {
   );
 }
 
+let usesSummary = false;
 
 async function refreshDashboardSummary() {
   try {
     const summary = await getDashboardSummary();
-
-    console.log("Indicadores de Oracle:", summary);
 
     byId("emergency-count").textContent =
       String(summary.activeEmergencies ?? "—");
@@ -446,10 +451,10 @@ async function refreshDashboardSummary() {
     byId("hospital-count").textContent =
       String(summary.operationalHospitals ?? "—");
 
-    byId("response-time").textContent =
-      summary.averageResponseMinutes == null
-        ? "Sin datos"
-        : `${summary.averageResponseMinutes} min`;
+  byId("response-time").textContent =
+    summary.averageResponseMinutes == null
+      ? "Sin datos"
+      : `${summary.averageResponseMinutes.toLocaleString("es-CO")} min`;
   } catch (error) {
     console.error("No fue posible actualizar los indicadores:", error);
   }
@@ -464,8 +469,12 @@ async function initializeDashboard() {
   }
 
 
-refreshDashboardSummary();
-setInterval(refreshDashboardSummary, 30000);
+  usesSummary = hasPermission(session, "REPORTES:CONSULTAR");
+
+  if (usesSummary) {
+    refreshDashboardSummary();
+    setInterval(refreshDashboardSummary, 30000);
+  }
 
 
   const map = createMap();
@@ -478,7 +487,11 @@ startIncidents(
     pill: byId("incident-pill"),
     message: byId("incident-message"),
   },
-  refreshDashboardSummary
+   () => {
+     if (usesSummary) {
+       refreshDashboardSummary();
+     }
+   }
 );
 
 
@@ -540,7 +553,9 @@ startIncidents(
       stations.value,
       hospitals.value,
     );
-
+if (!usesSummary) {
+  byId("hospital-count").textContent = String(hospitals.value.length);
+}
     byId("hospital-pill").textContent =
       String(hospitals.value.length);
   } else {
