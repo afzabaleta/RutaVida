@@ -92,7 +92,7 @@
         <div>
           <p>Tiempo promedio de respuesta</p>
           <strong id="response-time">Sin datos</strong>
-          <small>Se calcula con el despacho (K7)</small>
+          <small>Reporte → llegada, hoy (Oracle)</small>
         </div>
       </article>
     </section>
@@ -187,6 +187,29 @@
         <div id="hospital-list" class="item-list">
           <p class="empty-state">Cargando…</p>
         </div>
+
+          <div class="panel-divider"></div>
+
+          <section class="incidents-panel" aria-labelledby="incidents-title">
+              <div class="panel-heading">
+                  <div>
+                      <p class="eyebrow">ESTADO DE LAS VÍAS</p>
+                      <h2 id="incidents-title">Incidentes viales</h2>
+                  </div>
+                  <span class="count-pill" id="incident-pill">0</span>
+              </div>
+
+              <p class="incident-description">
+                  Incidentes reportados en Oracle. Los pendientes requieren
+                  validación antes de afectar las rutas.
+              </p>
+
+              <div id="incident-list" class="item-list">
+                  <p class="empty-state">Cargando incidentes…</p>
+              </div>
+
+              <p id="incident-message" class="incident-message" role="status"></p>
+          </section>
 
         <div class="panel-divider"></div>
 

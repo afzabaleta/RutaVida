@@ -284,4 +284,57 @@ export async function listHospitals() {
   }));
 }
 
+/** Indicators of the main panel, counted in Oracle (docs/api.md, 11.1). */
+export function getDashboardSummary() {
+  return request("GET", "/api/dashboard/summary");
+}
+
+const INCIDENT_LABELS = {
+  ACCIDENTE: "Accidente",
+  OBRA: "Obra",
+  CIERRE: "Cierre de vía",
+  MANIFESTACION: "Manifestación",
+  OTRO: "Incidente",
+};
+
+export function incidentLabel(code) {
+  return INCIDENT_LABELS[code] ?? String(code ?? "").replaceAll("_", " ");
+}
+
+/** A road incident with its segment as two [lat, lng] ends (docs/api.md, 9.1). */
+function toIncident(incident) {
+  const segment = incident.segment;
+
+  return {
+    id: incident.id,
+    segmentId: incident.segmentId,
+    type: incident.type,
+    severity: incident.severity,
+    blocksSegment: incident.blocksSegment,
+    description: incident.description,
+    startedAt: incident.startedAt,
+    status: incident.status,
+    origin: incident.origin,
+    streetName: segment?.streetName ?? null,
+    path: segment ? [toPoint(segment.from), toPoint(segment.to)] : null,
+  };
+}
+
+/** Open road incidents: PENDIENTE and ACTIVO (docs/api.md, 9.1). */
+export async function listIncidents() {
+  const incidents = await request("GET", "/api/incidents");
+  return incidents.map(toIncident);
+}
+
+/** Validates (ACTIVO), rejects (RECHAZADO) or closes (CERRADO) an incident (docs/api.md, 9.3). */
+export async function changeIncidentStatus(id, status) {
+  const incident = await request(
+    "PATCH",
+    `/api/incidents/${encodeURIComponent(id)}/status`,
+    { status }
+  );
+
+  return toIncident(incident);
+}
+
 export const DISPATCH_AVAILABLE = false;

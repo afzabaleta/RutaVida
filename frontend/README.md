@@ -16,10 +16,12 @@ La aplicación web permite:
 - Consultar hospitales y estaciones de bomberos desde la API.
 - Visualizar emergencias, unidades y recursos geográficos en el panel principal.
 - Identificar los recursos de demostración mediante la etiqueta `EJEMPLO`.
+- Ver los indicadores del panel contados en Oracle (`GET /api/dashboard/summary`).
+- Ver los incidentes viales abiertos sobre su tramo en el mapa, y validarlos, rechazarlos o cerrarlos (`/api/incidents`).
 
 **Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. Las rutas del mapa continúan siendo rutas de demostración.
 
-El tiempo promedio de respuesta permanece como «Sin datos» hasta implementar el despacho y el registro de misiones de K7.
+El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad haya llegado al sitio hoy (las llegadas las registra el despacho, K7). Nunca se muestra un 0 inventado.
 
 ## 2. Estructura del frontend
 
@@ -120,8 +122,21 @@ Las secciones se cargan independientemente. Si una consulta falla, el panel mues
 
 Cuando una unidad, estación u hospital no tiene coordenadas disponibles, se muestra «Sin posición conocida» y no se agrega un marcador al mapa.
 
-El tiempo promedio de respuesta permanece como «Sin datos» porque depende de la implementación del despacho y del registro de misiones.
+El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad haya llegado al sitio hoy (las llegadas las registra el despacho, K7). Nunca se muestra un 0 inventado.
 
+### Indicadores e incidentes viales (D6)
+
+| Parte del panel | De dónde sale | Cada cuánto |
+|---|---|---|
+| Las 4 tarjetas de indicadores | `GET /api/dashboard/summary`: Oracle los cuenta en una sola consulta (A14) | 30 s |
+| Incidentes viales (lista y líneas en el mapa) | `GET /api/incidents`: los `PENDIENTE` y `ACTIVO`, con su tramo (A12c) | 15 s |
+| Validar, rechazar o cerrar un incidente | `PATCH /api/incidents/{id}/status` | Al hacer clic |
+
+- **Línea punteada:** incidente `PENDIENTE`, todavía no afecta las rutas. **Línea continua:** `ACTIVO`. El color es la severidad.
+- Los botones solo aparecen si el rol tiene `INCIDENTES:GESTIONAR`. Sin `REPORTES:CONSULTAR`, las tarjetas muestran los conteos de las listas.
+- Las consultas automáticas no mantienen viva la sesión (DT-08). Si la sesión vence, el panel vuelve al inicio de sesión.
+- Validar un incidente no recalcula nada en la página: el motor de rutas lo tiene en cuenta en el siguiente ciclo de la simulación (K8 y K9).
+- Reportar un incidente nuevo desde la página queda para cuando la API pueda ubicar el tramo de un punto del mapa.
 ## 6. Verificación funcional
 
 Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
@@ -136,6 +151,8 @@ Para comprobar la conexión entre el frontend, el backend y Oracle, realiza esta
 | Consultar unidades | Se muestran los recursos disponibles y las unidades `EJEMPLO-` identificadas |
 | Consultar hospitales | Se muestran los hospitales disponibles |
 | Consultar estaciones | Se muestran las estaciones activas |
+| Ver los indicadores | Las 4 tarjetas muestran los conteos de Oracle; el tiempo promedio dice «Sin datos» si nadie ha llegado hoy |
+| Validar un incidente `PENDIENTE` | Pasa a `ACTIVO`, la línea deja de ser punteada y aparece el botón Cerrar |
 | Abrir el panel sin sesión | Se redirige al inicio de sesión |
 | Detener el backend | Se muestra un mensaje de error de conexión |
 

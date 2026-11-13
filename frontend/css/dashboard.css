@@ -1,4 +1,4 @@
-﻿
+
 
 :root {
   --red: #ff6674;
@@ -605,4 +605,67 @@
 @media (max-width: 390px) {
   .kpi-grid { grid-template-columns: minmax(0, 1fr); }
   .header-user { justify-content: flex-start; }
+}
+
+/* D6 — Incidentes viales */
+
+.incidents-panel {
+  min-width: 0;
+}
+
+.incident-description,
+.incident-message {
+  color: var(--muted, #9aabba);
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.incident-message:empty {
+  display: none;
+}
+
+.incident-message.is-error {
+  color: #ff6674;
+}
+
+.incident-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.incident-actions .map-action {
+  cursor: pointer;
+}
+
+.incident-actions .map-action:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.incidents-panel .data-card {
+  overflow-wrap: anywhere;
+}
+
+.incidents-panel .data-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.incidents-panel .active-tag {
+  color: #4bd6a0;
+}
+
+@media (max-width: 700px) {
+  .incident-actions {
+    gap: 6px;
+  }
+
+  .incident-actions .map-action {
+    min-height: 36px;
+  }
 }
