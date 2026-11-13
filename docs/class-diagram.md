@@ -1078,17 +1078,27 @@ class UserService {
     class HungarianAlgorithm {
         +solve(cost: double[][]) int[]$
     }
-    class FleetService {
-        -vehicleDao : EmergencyVehicleDAO
-        -stationDao : EmergencyStationDAO
-        -vehicleTypeDao : VehicleTypeDAO
-        -transactions : TransactionManager
-        -auditService : AuditService
-        +listAvailable() List~EmergencyVehicle~
-        +listAll() List~EmergencyVehicle~
-        +register(vehicle: EmergencyVehicle, session: UserSession) EmergencyVehicle
-        +changeStatus(vehicleId: long, status: VehicleOperationalStatus, session: UserSession) void
-    }
+
+
+class FleetService {
+    -vehicleDao : EmergencyVehicleDAO
+    -stationDao : EmergencyStationDAO
+    -vehicleTypeDao : VehicleTypeDAO
+    -alertService : AlertService
+    -auditService : AuditService
+    -transactions : TransactionManager
+    +listAll() List~EmergencyVehicle~
+    +listAvailable() List~EmergencyVehicle~
+    +findVehicle(id: long) EmergencyVehicle
+    +registerVehicle(request: VehicleRequest, session: UserSession) EmergencyVehicle
+    +updateVehicle(id: long, request: VehicleRequest, session: UserSession) EmergencyVehicle
+    +changeVehicleStatus(id: long, status: VehicleOperationalStatus, session: UserSession) EmergencyVehicle
+    +listStations() List~EmergencyStation~
+    +findStation(id: long) EmergencyStation
+    +registerStation(request: StationRequest, session: UserSession) EmergencyStation
+    +updateStation(id: long, request: StationRequest, session: UserSession) EmergencyStation
+    +changeStationStatus(id: long, status: RecordStatus, session: UserSession) EmergencyStation
+}
 
 class HospitalService {
     -hospitalDao : HospitalDAO
@@ -1146,6 +1156,7 @@ class HospitalService {
     EmergencyService ..> AuditService
     DispatchService ..> AuditService
     FleetService ..> AuditService
+    FleetService ..> AlertService : avisa (S8)
     HospitalService ..> AuditService
     DispatchService ..> RouteService
     DispatchService ..> HospitalService : K7b
@@ -1294,6 +1305,25 @@ class HospitalRequest {
     +emergencyCapacity : Integer
 }
 
+
+class VehicleRequest {
+    <<record>>
+    +vehicleTypeId : long
+    +stationId : long
+    +unitCode : String
+    +plate : String
+}
+
+class StationRequest {
+    <<record>>
+    +name : String
+    +address : String
+    +neighborhood : String
+    +phone : String
+    +location : GeoPoint
+}
+
+
 class ValidationUtil {
     +requireText(value: String, field: String, maxLength: int) String$
     +optionalText(value: String, field: String, maxLength: int) String$
@@ -1319,6 +1349,7 @@ class Messages {
     class EmergencyService
     class DispatchService
     class HospitalService
+    class FleetService
     class DashboardService
 
     DispatchService ..> HospitalService
@@ -1335,6 +1366,8 @@ class Messages {
     DispatchedMission --> MissionRoute
     UserService ..> UserRequest
     HospitalService ..> HospitalRequest
+    FleetService ..> VehicleRequest
+    FleetService ..> StationRequest
     EmergencyService ..> ValidationUtil
 ```
 
@@ -1938,12 +1971,19 @@ class UserController {
     +changeOwnPassword(current: char[], next: char[]) OperationResult~Void~
 }
 
-    class FleetController {
-        -fleetService : FleetService
-        -session : SessionContext
-        +listAll() List~EmergencyVehicle~
-        +changeStatus(vehicleId: long, status: VehicleOperationalStatus) OperationResult~Void~
-    }
+class FleetController {
+    -fleetService : FleetService
+    -authService : AuthService
+    -session : SessionContext
+    +listAll() OperationResult~List~EmergencyVehicle~~
+    +registerVehicle(request: VehicleRequest) OperationResult~EmergencyVehicle~
+    +updateVehicle(vehicleId: long, request: VehicleRequest) OperationResult~EmergencyVehicle~
+    +changeVehicleStatus(vehicleId: long, status: VehicleOperationalStatus) OperationResult~EmergencyVehicle~
+    +listStations() OperationResult~List~EmergencyStation~~
+    +registerStation(request: StationRequest) OperationResult~EmergencyStation~
+    +updateStation(stationId: long, request: StationRequest) OperationResult~EmergencyStation~
+    +changeStationStatus(stationId: long, status: RecordStatus) OperationResult~EmergencyStation~
+}
 
 class HospitalController {
     -hospitalService : HospitalService
