@@ -1,11 +1,14 @@
 ﻿
 import {
+  getDashboardSummary,
   listEmergencies,
   listHospitals,
   listStations,
   listUnits,
   typeLabel,
 } from "./api-client.js";
+
+import { startIncidents } from "./incident-panel.js";
 
 import {
   STATIONS as D2_STATIONS,
@@ -324,7 +327,7 @@ function renderEmergencies(map, emergencies) {
   const list = byId("emergency-list");
   list.replaceChildren();
 
-  byId("emergency-count").textContent = String(emergencies.length);
+
   byId("emergency-pill").textContent = String(emergencies.length);
 
   for (const emergency of emergencies) {
@@ -374,7 +377,6 @@ function renderUnits(map, units) {
   list.replaceChildren();
 
   const available = units.filter((unit) => unit.status === "DISPONIBLE");
-  byId("unit-count").textContent = String(available.length);
   byId("unit-pill").textContent = String(units.length);
 
   for (const unit of units) {
@@ -428,6 +430,32 @@ function renderUnits(map, units) {
   );
 }
 
+
+async function refreshDashboardSummary() {
+  try {
+    const summary = await getDashboardSummary();
+
+    console.log("Indicadores de Oracle:", summary);
+
+    byId("emergency-count").textContent =
+      String(summary.activeEmergencies ?? "—");
+
+    byId("unit-count").textContent =
+      String(summary.availableUnits ?? "—");
+
+    byId("hospital-count").textContent =
+      String(summary.operationalHospitals ?? "—");
+
+    byId("response-time").textContent =
+      summary.averageResponseMinutes == null
+        ? "Sin datos"
+        : `${summary.averageResponseMinutes} min`;
+  } catch (error) {
+    console.error("No fue posible actualizar los indicadores:", error);
+  }
+}
+
+
 async function initializeDashboard() {
   const session = await startPage();
 
@@ -435,7 +463,24 @@ async function initializeDashboard() {
     return;
   }
 
+
+refreshDashboardSummary();
+setInterval(refreshDashboardSummary, 30000);
+
+
   const map = createMap();
+
+startIncidents(
+  map,
+  session,
+  {
+    list: byId("incident-list"),
+    pill: byId("incident-pill"),
+    message: byId("incident-message"),
+  },
+  refreshDashboardSummary
+);
+
 
   byId("response-time").textContent = "Sin datos";
   byId("hospital-count").textContent = "—";
@@ -495,9 +540,6 @@ async function initializeDashboard() {
       stations.value,
       hospitals.value,
     );
-
-    byId("hospital-count").textContent =
-      String(hospitals.value.length);
 
     byId("hospital-pill").textContent =
       String(hospitals.value.length);
