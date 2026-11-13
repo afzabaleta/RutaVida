@@ -236,6 +236,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | API de despacho: unidades candidatas, vista previa, despachar, rutas de la misión y avance (`/api/dispatches`, A12d) | Programado y probado |
 | Seguimiento en la API (`/api/tracking`, A12e) | **Pendiente** |
 | Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado; falta la API |
+| Unidades y estaciones (CU-04) en servicio y controlador, con alerta al cambiar la disponibilidad (S10) | Programado y probado; falta la API |
 
 
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
