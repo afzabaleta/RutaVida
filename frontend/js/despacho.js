@@ -24,10 +24,10 @@ import {
   byId,
   addText,
   makeTag,
-  circleMarker,
   createBaseMap,
-  COLORS,
 } from "./map-base.js";
+
+import { iconMarker, placeIcon, unitIcon } from "./map-icons.js";
 
 import { drawRoutes } from "./dispatch-routes.js";
 
@@ -138,13 +138,13 @@ function drawMarkers() {
   markerLayer.clearLayers();
 
   markerLayer.addLayer(
-    circleMarker(map, current.location, COLORS.emergency, `Emergencia ${current.code}`),
+    iconMarker(map, current.location, placeIcon("emergency"), `Emergencia ${current.code}`),
   );
 
   for (const unit of candidates) {
     if (unit.location) {
       markerLayer.addLayer(
-        circleMarker(map, unit.location, COLORS.unit,
+        iconMarker(map, unit.location, unitIcon(unit.vehicleType, "DISPONIBLE"),
           `${unit.unitCode} · ${MINUTES.format(unit.etaMinutes)} min${unit.example ? " (EJEMPLO)" : ""}`),
       );
     }
