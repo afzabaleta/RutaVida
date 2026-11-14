@@ -1006,6 +1006,7 @@ class UserService {
     -clock : Clock
     +create(request: UserRequest, session: UserSession) User
     +listAll() List~User~
+    +listActiveRoles() List~Role~
     +findById(id: long) User
     +deactivate(userId: long, session: UserSession) User
     +activate(userId: long, session: UserSession) User
@@ -1967,6 +1968,7 @@ class UserController {
     -session : SessionContext
     +create(request: UserRequest) OperationResult~UserView~
     +list() OperationResult~List~UserView~~
+    +roles() OperationResult~List~Role~~
     +deactivate(userId: long) OperationResult~UserView~
     +activate(userId: long) OperationResult~UserView~
     +changeOwnPassword(current: char[], next: char[]) OperationResult~Void~
@@ -2052,6 +2054,9 @@ classDiagram
         -roadMapController : RoadMapController
         -alertService : AlertService
         -alertController : AlertController
+        -userController : UserController
+        -hospitalController : HospitalController
+        -fleetController : FleetController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -2066,6 +2071,9 @@ classDiagram
         +roadMapController() RoadMapController
         +alertService() AlertService
         +alertController() AlertController
+        +userController() UserController
+        +hospitalController() HospitalController
+        +fleetController() FleetController
         +graphLoader() GraphLoader
         +routeService() RouteService
         +dispatchController() DispatchController
@@ -2126,6 +2134,9 @@ classDiagram
     AppContext ..> GraphLoader : crea
     AppContext ..> EmergencyController : crea e inyecta
     AppContext ..> DispatchController : crea e inyecta
+    AppContext ..> UserController : crea e inyecta
+    AppContext ..> FleetController : crea e inyecta
+    AppContext ..> HospitalController : crea e inyecta
     WebServer ..> AppContext : crea
     WebServer ..> ApiServer : inicia en el puerto 8080
 ```
@@ -2156,6 +2167,7 @@ classDiagram
         -roadMap : RoadMapController
         -alerts : AlertController
         -dispatch : DispatchController
+        -admin : AdminControllers
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
@@ -2193,6 +2205,25 @@ classDiagram
     class AssignmentStatusRequest {
         <<record>>
         +status : AssignmentStatus
+    }
+    class AdminControllers {
+        <<record>>
+        +users : UserController
+        +fleet : FleetController
+        +hospitals : HospitalController
+    }
+    class RecordStatusRequest {
+        <<record>>
+        +status : RecordStatus
+    }
+    class VehicleStatusRequest {
+        <<record>>
+        +status : VehicleOperationalStatus
+    }
+    class PasswordChangeRequest {
+        <<record>>
+        +currentPassword : String
+        +newPassword : String
     }
     class JsonMapperFactory {
         +create() ObjectMapper$
@@ -2264,12 +2295,19 @@ classDiagram
     ApiServer --> RoadMapController
     ApiServer --> AlertController
     ApiServer --> DispatchController
+    ApiServer --> AdminControllers
+    AdminControllers --> UserController
+    AdminControllers --> FleetController
+    AdminControllers --> HospitalController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
     ApiServer ..> IncidentStatusRequest
     ApiServer ..> DispatchRequest
     ApiServer ..> AssignmentStatusRequest
+    ApiServer ..> RecordStatusRequest
+    ApiServer ..> VehicleStatusRequest
+    ApiServer ..> PasswordChangeRequest
     ApiServer ..> JsonMapperFactory
     ApiStatus ..> ErrorKind
     WebSessionController --> AuthService
@@ -2286,6 +2324,8 @@ classDiagram
 ```
 
 `LoginResponse` y `SessionUser` existen para que el JSON nunca lleve `passwordHash` ni el documento del usuario. `JsonMapperFactory` escribe los enums con su código en español (`"CRITICA"`) sin anotar el modelo, y envía una `Route` sin sus tramos (un *mix-in* de Jackson; `docs/api.md`, 5.5).
+
+`AdminControllers` agrupa los tres controladores de administración (A17: usuarios y roles, unidades y estaciones, hospitales; `docs/api.md`, sección 15) para que `ApiServer` los reciba en un solo argumento. `RecordStatusRequest` sirve para activar o desactivar usuarios, estaciones y hospitales (`"A"` o `"I"`), y `VehicleStatusRequest` para la disponibilidad de una unidad.
 
 `CatalogController` y `EmergencyController` devuelven `OperationResult.failure(e)`, así la API sabe qué tipo de error ocurrió (400, 401, 403, 404, 409 o 503) sin leer el mensaje.
 
