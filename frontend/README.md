@@ -18,6 +18,7 @@ La aplicación web permite:
 - Identificar los recursos de demostración mediante la etiqueta `EJEMPLO`.
 - Ver los indicadores del panel contados en Oracle (`GET /api/dashboard/summary`).
 - Ver los incidentes viales abiertos sobre su tramo en el mapa, y validarlos, rechazarlos o cerrarlos (`/api/incidents`).
+- Ver cada unidad en el mapa con el ícono de su vehículo (ambulancia, bomberos o patrulla) y un anillo con su estado (verde `DISPONIBLE`, naranja `OCUPADO`, gris en mantenimiento o fuera de servicio), y los hospitales, estaciones y emergencias con su propio ícono (`map-icons.js`).
 - Despachar una unidad en `despacho.html`: las unidades ordenadas por su tiempo de llegada, las 3 rutas del motor con su explicación, el despacho, el estado de la misión y el cierre de la emergencia (D6b).
 
 **Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. Las rutas del panel principal continúan siendo rutas de demostración (D4); las de `despacho.html` las calcula el motor de rutas en el servidor (D6b).
@@ -38,6 +39,7 @@ frontend/
 │   ├── despacho.js
 │   ├── dispatch-routes.js
 │   ├── emergencia.js
+│   ├── map-icons.js
 │   ├── page-session.js
 │   ├── route-layer.js
 │   ├── valledupar-data.js

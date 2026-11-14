@@ -669,3 +669,57 @@
     min-height: 36px;
   }
 }
+
+/* Map icons (map-icons.js): vehicles, hospitals, stations and emergencies */
+.rv-map-icon {
+  background: none;
+  border: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .45));
+}
+
+.rv-map-icon svg {
+  display: block;
+}
+
+.rv-pulse::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 3px solid #e5484d;
+  animation: rv-pulse 1.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes rv-pulse {
+  from { transform: scale(.7); opacity: .9; }
+  to { transform: scale(1.5); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-pulse::before { animation: none; opacity: 0; }
+}
+
+.legend-icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+}
+
+.legend-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.legend-ring {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid;
+  vertical-align: middle;
+}
+
+.available-ring { border-color: #22c55e; }
+.busy-ring { border-color: #f59e0b; }
