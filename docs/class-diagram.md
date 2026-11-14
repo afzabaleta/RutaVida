@@ -2458,6 +2458,7 @@ classDiagram
 | `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) |
 | `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y `updateService` siguen diseñados |
 | `PanicReport`, `PanicReportStatus`, `PanicReportDAO`, `JdbcPanicReportDAO` | `model`, `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A20, botón de pánico, DT-12). `PanicService` (S11) y sus rutas (A20b) pendientes |
+| `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22). Sus rutas de la API: A20b |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
