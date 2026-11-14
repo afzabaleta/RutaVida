@@ -1176,9 +1176,29 @@ class HospitalService {
         +incidentOnRoute(assignment: EmergencyAssignment, unitCode: String, incident: RoadIncident, roadName: String) Alert
         +congestionOnRoute(assignment: EmergencyAssignment, unitCode: String, roadName: String) Alert
         +availabilityChanged(vehicle: EmergencyVehicle, before: VehicleOperationalStatus) List~Alert~
+        +panicAlert(emergencyId: long, message: String) List~Alert~
         +list(session: UserSession, onlyUnread: boolean) List~Alert~
         +markAsRead(alertId: long, session: UserSession) Alert
     }
+    class PanicService {
+    -reportDao : PanicReportDAO
+    -emergencyTypeDao : EmergencyTypeDAO
+    -userDao : UserDAO
+    -roleDao : RoleDAO
+    -emergencyService : EmergencyService
+    -dispatchService : DispatchService
+    -routeService : RouteService
+    -alertService : AlertService
+    -auditService : AuditService
+    -transactions : TransactionManager
+    -clock : Clock
+    +report(request: PanicAlertRequest, reporter: UserSession) PanicResult
+    +listRecent(status: PanicReportStatus) List~PanicReportView~
+    +discard(reportId: long, session: UserSession) PanicReportView
+    +canValidateAlone(session: UserSession) boolean
+    +hashDevice(deviceId: String) String
+}
+    
     class PasswordHasher {
         -iterations : int
         +hash(raw: char[]) String
@@ -1202,6 +1222,11 @@ class HospitalService {
     DispatchService ..> HungarianAlgorithm : fase 2
     DispatchService ..> AlertService : avisa (S8)
     HospitalService ..> RouteService
+    PanicService ..> EmergencyService : crea la emergencia
+    PanicService ..> DispatchService : despacha sola
+    PanicService ..> RouteService : zona de la red
+    PanicService ..> AlertService : avisa
+    PanicService ..> AuditService
 ```
 
 `PasswordHasher` (paquete `util`) es una clase concreta con PBKDF2: no tiene interfaz porque hay una sola forma de proteger contraseñas en el sistema.
@@ -1240,6 +1265,36 @@ classDiagram
         <<record>>
         +assignment : EmergencyAssignment
         +routes : List~Route~
+    }
+        class PanicAlertRequest {
+        <<record>>
+        +deviceId : String
+        +location : GeoPoint
+        +emergencyTypeId : Long
+        +description : String
+    }
+
+    class PanicResult {
+        <<record>>
+        +reportId : long
+        +status : PanicReportStatus
+        +emergencyId : Long
+        +dispatchedUnit : String
+        +reportsNearby : int
+        +reportsNeeded : int
+    }
+
+    class PanicReportView {
+        <<record>>
+        +id : long
+        +location : GeoPoint
+        +reportedAt : LocalDateTime
+        +byPolice : boolean
+        +emergencyTypeId : Long
+        +description : String
+        +status : PanicReportStatus
+        +emergencyId : Long
+        +of(report: PanicReport) PanicReportView$
     }
     class HospitalOption {
         <<record>>
@@ -1407,6 +1462,9 @@ class Messages {
     HospitalService ..> HospitalRequest
     FleetService ..> VehicleRequest
     FleetService ..> StationRequest
+    PanicService ..> PanicAlertRequest
+    PanicService ..> PanicResult
+    PanicService ..> PanicReportView
     EmergencyService ..> ValidationUtil
 ```
 
@@ -1989,6 +2047,14 @@ class IncidentController {
         +list(onlyUnread: boolean) OperationResult~List~Alert~~
         +markAsRead(alertId: long) OperationResult~Alert~
     }
+    class PanicController {
+    -panicService : PanicService
+    -authService : AuthService
+    -session : SessionContext
+    +report(request: PanicAlertRequest) OperationResult~PanicResult~
+    +listRecent(status: PanicReportStatus) OperationResult~List~PanicReportView~~
+    +discard(reportId: long) OperationResult~PanicReportView~
+}
     class SimulationController {
         -engine : SimulationEngine
         -scenarios : List~DemoScenario~
