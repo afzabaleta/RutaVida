@@ -9,10 +9,14 @@
 --
 -- El script pide la contraseña del nuevo usuario (variable rv_password).
 -- Autonomous Database exige de 12 a 30 caracteres, con mayúscula,
--- minúscula y número, sin comillas dobles y sin la palabra "admin".
+-- minúscula y número, sin comillas dobles y sin el nombre del usuario
+-- (no puede contener "rutavida" ni "admin").
 -- Esa contraseña NO se escribe en ningún archivo del repositorio:
 -- cada integrante la guarda en su backend/db.properties local.
 -- =====================================================================
+
+-- No mostrar en la salida el CREATE USER con la contraseña reemplazada.
+SET VERIFY OFF
 
 -- Comprobación: debe mostrar ADMIN.
 SELECT USER AS usuario_actual FROM dual;
