@@ -1186,9 +1186,29 @@ class HospitalService {
         +incidentOnRoute(assignment: EmergencyAssignment, unitCode: String, incident: RoadIncident, roadName: String) Alert
         +congestionOnRoute(assignment: EmergencyAssignment, unitCode: String, roadName: String) Alert
         +availabilityChanged(vehicle: EmergencyVehicle, before: VehicleOperationalStatus) List~Alert~
+        +panicAlert(emergencyId: long, message: String) List~Alert~
         +list(session: UserSession, onlyUnread: boolean) List~Alert~
         +markAsRead(alertId: long, session: UserSession) Alert
     }
+    class PanicService {
+    -reportDao : PanicReportDAO
+    -emergencyTypeDao : EmergencyTypeDAO
+    -userDao : UserDAO
+    -roleDao : RoleDAO
+    -emergencyService : EmergencyService
+    -dispatchService : DispatchService
+    -routeService : RouteService
+    -alertService : AlertService
+    -auditService : AuditService
+    -transactions : TransactionManager
+    -clock : Clock
+    +report(request: PanicAlertRequest, reporter: UserSession) PanicResult
+    +listRecent(status: PanicReportStatus) List~PanicReportView~
+    +discard(reportId: long, session: UserSession) PanicReportView
+    +canValidateAlone(session: UserSession) boolean
+    +hashDevice(deviceId: String) String
+}
+    
     class PasswordHasher {
         -iterations : int
         +hash(raw: char[]) String
@@ -1212,6 +1232,11 @@ class HospitalService {
     DispatchService ..> HungarianAlgorithm : fase 2
     DispatchService ..> AlertService : avisa (S8)
     HospitalService ..> RouteService
+    PanicService ..> EmergencyService : crea la emergencia
+    PanicService ..> DispatchService : despacha sola
+    PanicService ..> RouteService : zona de la red
+    PanicService ..> AlertService : avisa
+    PanicService ..> AuditService
 ```
 
 `PasswordHasher` (paquete `util`) es una clase concreta con PBKDF2: no tiene interfaz porque hay una sola forma de proteger contraseñas en el sistema.
@@ -1250,6 +1275,36 @@ classDiagram
         <<record>>
         +assignment : EmergencyAssignment
         +routes : List~Route~
+    }
+        class PanicAlertRequest {
+        <<record>>
+        +deviceId : String
+        +location : GeoPoint
+        +emergencyTypeId : Long
+        +description : String
+    }
+
+    class PanicResult {
+        <<record>>
+        +reportId : long
+        +status : PanicReportStatus
+        +emergencyId : Long
+        +dispatchedUnit : String
+        +reportsNearby : int
+        +reportsNeeded : int
+    }
+
+    class PanicReportView {
+        <<record>>
+        +id : long
+        +location : GeoPoint
+        +reportedAt : LocalDateTime
+        +byPolice : boolean
+        +emergencyTypeId : Long
+        +description : String
+        +status : PanicReportStatus
+        +emergencyId : Long
+        +of(report: PanicReport) PanicReportView$
     }
     class HospitalOption {
         <<record>>
@@ -1454,6 +1509,9 @@ class Messages {
     HospitalService ..> HospitalRequest
     FleetService ..> VehicleRequest
     FleetService ..> StationRequest
+    PanicService ..> PanicAlertRequest
+    PanicService ..> PanicResult
+    PanicService ..> PanicReportView
     EmergencyService ..> ValidationUtil
 ```
 
@@ -2036,6 +2094,14 @@ class IncidentController {
         +list(onlyUnread: boolean) OperationResult~List~Alert~~
         +markAsRead(alertId: long) OperationResult~Alert~
     }
+    class PanicController {
+        -panicService : PanicService
+        -authService : AuthService
+        -session : SessionContext
+        +report(request: PanicAlertRequest) OperationResult~PanicResult~
+        +listRecent(status: PanicReportStatus) OperationResult~List~PanicReportView~~
+        +discard(reportId: long) OperationResult~PanicReportView~
+    }
     class TrackingController {
         -liveMapService : LiveMapService
         -authService : AuthService
@@ -2451,6 +2517,7 @@ classDiagram
 | `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) |
 | `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y `updateService` siguen diseñados |
 | `PanicReport`, `PanicReportStatus`, `PanicReportDAO`, `JdbcPanicReportDAO` | `model`, `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A20, botón de pánico, DT-12). `PanicService` (S11) y sus rutas (A20b) pendientes |
+| `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22). Sus rutas de la API: A20b |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
