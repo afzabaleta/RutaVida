@@ -81,7 +81,7 @@ Este documento corrige las inconsistencias detectadas entre el diccionario de da
 |---|---|
 | `tipo_incidente` | `ACCIDENTE` · `OBRA` · `CIERRE` · `MANIFESTACION` · `OTRO` |
 | `estado` | `PENDIENTE` · `ACTIVO` · `CERRADO` · `RECHAZADO` |
-| `origen` | `OPERADOR` · `QR_CIUDADANO` · `SIMULACION` |
+| `origen` | `OPERADOR` · `QR_CIUDADANO` (sin uso desde DT-12) · `SIMULACION` |
 | `bloquea_tramo` | `S` (el motor lo trata como cerrado) · `N` (solo penaliza) |
 
 - **El estado por defecto es `PENDIENTE`.** Un incidente solo afecta las rutas cuando alguien lo pasa explícitamente a `ACTIVO`. Así un reporte ciudadano falso nunca cierra una calle por error.
@@ -135,8 +135,9 @@ Este documento corrige las inconsistencias detectadas entre el diccionario de da
 | 8 | ALERTA | `id_emergencia` pasa a ser opcional | Existen alertas generales (cambio de disponibilidad, congestión) |
 | 9 | AUDITORIA | `id_usuario` pasa a ser opcional | Registrar inicios de sesión fallidos y acciones del simulador |
 | 10 | PERMISO, SERVICIO_HOSPITAL | Restricciones únicas `(modulo, accion)` y `(id_hospital, nombre_servicio)` | Evitar registros duplicados |
+| 11 | **REPORTE_PANICO** (nueva, `07_boton_panico.sql`) | Cada vez que alguien presiona el botón de pánico: ubicación, hash del dispositivo, usuario si tiene sesión, tipo y descripción opcionales, estado (`PENDIENTE` · `VALIDADO` · `DESCARTADO` · `VENCIDO`) y la emergencia que originó. CHECK `ck_reporte_panico_validado`: un reporte `VALIDADO` siempre tiene emergencia, y uno que no lo está, nunca | Botón de pánico (DT-12, CU-22). Además se agregan el tipo de vehículo y el rol `POLICIA`, los permisos `PANICO/*` y el usuario del sistema |
 
-Las 23 tablas se conservan.
+Las 23 tablas originales se conservan y `REPORTE_PANICO` es la tabla 24.
 
 ---
 

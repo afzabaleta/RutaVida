@@ -12,6 +12,7 @@ import co.edu.unicesar.rutavida.model.enums.IncidentOrigin;
 import co.edu.unicesar.rutavida.model.enums.IncidentStatus;
 import co.edu.unicesar.rutavida.model.enums.IncidentType;
 import co.edu.unicesar.rutavida.model.enums.NodeType;
+import co.edu.unicesar.rutavida.model.enums.PanicReportStatus;
 import co.edu.unicesar.rutavida.model.enums.PositionSource;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 import co.edu.unicesar.rutavida.model.enums.RoadSegmentStatus;
@@ -67,6 +68,7 @@ public final class JsonMapperFactory {
         addCodedEnum(codes, IncidentStatus.class);
         addCodedEnum(codes, IncidentType.class);
         addCodedEnum(codes, NodeType.class);
+        addCodedEnum(codes, PanicReportStatus.class);
         addCodedEnum(codes, PositionSource.class);
         addCodedEnum(codes, RecordStatus.class);
         addCodedEnum(codes, RoadSegmentStatus.class);

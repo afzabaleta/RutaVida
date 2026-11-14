@@ -15,6 +15,7 @@ Registro de las decisiones que afectan a todo el proyecto. Cada decisión dice q
 | DT-09 | Oracle **local** para desarrollar y probar; **Oracle Cloud** (Always Free) como base compartida del equipo y de la sustentación, cuando el núcleo funcione | 05/11/2026 | Decidida por el equipo |
 | DT-10 | Alcance final: núcleo, botón de pánico, rol Policía y **patrullas de policía simuladas** en el mapa. Fecha de congelamiento por definir | 05/11/2026 | Decidida por el equipo; falta la fecha |
 | DT-11 | Umbrales y parámetros en un archivo `rutavida.properties` | 05/11/2026 | **Propuesta**; falta la opinión de Kendrick |
+| DT-12 | El **botón de pánico reemplaza el reporte ciudadano por QR** (CU-22). Cualquiera lo presiona sin cuenta; 3 reportes a 300 m en 10 minutos (o 1 de un Policía) validan la alerta, que crea la emergencia y despacha sola la unidad más rápida | 14/11/2026 | Decidida por el líder |
 
 ---
 
@@ -121,3 +122,18 @@ Nada de esto está programado todavía: el estado actual es **diseñado**.
 | DT-09 | Solo local, solo nube, o local para desarrollar y nube compartida | Las dos: el código no cambia, solo `db.properties` (y el *wallet* de la nube, que nunca se sube al repositorio). Local para desarrollar y correr las pruebas; nube como la base del equipo y de la sustentación, como pidió el profesor. Límites del plan Always Free a tener en cuenta: 2 bases de 20 GB, 30 sesiones simultáneas, se detiene sola después de 7 días sin uso y puede borrarse si queda detenida 90 días, y no permite copias manuales (los scripts `01` a `06` son la copia) |
 | DT-10 | Solo el núcleo, o el núcleo con el botón de pánico, la Policía y las patrullas | Todo es obligatorio para el proyecto final. Las patrullas de policía son unidades simuladas (rotuladas `SIMULACION`), con su propio tipo de vehículo y rol. Se programan después de que el núcleo funcione de punta a punta. La fecha desde la que no se agrega nada nuevo la define el líder |
 | DT-11 | Umbrales en el código, en un archivo o en una tabla | Propuesta: un archivo `rutavida.properties` se cambia sin recompilar y se explica fácil en la sustentación. Pendiente de Kendrick |
+
+## DT-12 · Botón de pánico en lugar del QR ciudadano
+
+**Decisión (14/11/2026, el líder):** el botón de pánico que recomendó el profesor en la sustentación de avance **reemplaza** el reporte ciudadano por QR. CU-22 pasa a ser "Activar botón de pánico" (`docs/analysis.md`, reglas RN-13 a RN-15).
+
+| Tema | Opciones evaluadas | Qué se decidió y por qué |
+|---|---|---|
+| QR o botón | Hacer los dos, solo el QR o solo el botón | Solo el botón. El documento del proyecto dejaba el QR como secundario ("se evaluará") y el botón cubre la misma idea (el ciudadano reporta y el reporte se valida antes de afectar al sistema). Hacer los dos duplicaba trabajo. Diferencia a explicar: el QR reportaba **incidentes viales** (afectaban las rutas); el botón reporta **emergencias** (se despachan). Los incidentes los siguen registrando el operador y la simulación. El valor `QR_CIUDADANO` de `INCIDENTE_VIAL.origen` queda sin uso |
+| Quién lo presiona | Cualquiera sin cuenta, o solo ciudadanos registrados | Cualquiera, sin cuenta: en una emergencia nadie va a crear una cuenta. Para evitar abuso, cada dispositivo puede enviar como máximo 3 reportes cada 10 minutos, y una sola persona nunca valida una alerta (salvo un Policía) |
+| Cuándo es válida | 3 reportes a 300 m en 10 min; 3 a 500 m en 15 min; o la valida un operador | 3 reportes de dispositivos distintos a menos de 300 m en 10 minutos, como dijo el profesor ("3 o más personas cercanas"). Un reporte de un usuario con `PANICO/VALIDAR` (rol `POLICIA`) la valida solo, porque su reporte tiene más credibilidad. Los valores son parámetros a calibrar (DT-11) |
+| Qué pasa al validarse | Crear la emergencia `REPORTADA`, o crearla y despachar solo | Crearla y **despachar sola la unidad disponible más rápida**, con sus 3 rutas (mismo `DispatchService` de CU-09). Es lo más útil en una emergencia real y lo más claro en la demostración. Riesgo: una alerta falsa ocupa una unidad; por eso hacen falta 3 dispositivos y un coordinador puede descartarla y cerrar la emergencia como falsa alarma |
+| Quién figura como responsable | Dejar el usuario vacío, o un usuario del sistema | Un **usuario del sistema** (`sistema.rutavida`, inactivo y sin contraseña válida, nadie puede iniciar sesión con él): `EMERGENCIA.id_usuario_reporta` y `ASIGNACION_EMERGENCIA.id_usuario_coordinador` son obligatorios, y así la auditoría muestra que lo hizo el sistema |
+| Privacidad | Guardar el identificador del dispositivo o su hash | Solo el **hash SHA-256** del identificador que genera el navegador. No se piden nombre ni teléfono |
+
+**Qué cambia:** `database/07_boton_panico.sql` agrega la tabla `REPORTE_PANICO` (tabla 24), el tipo de vehículo `POLICIA`, el rol `POLICIA`, los permisos `PANICO/CONSULTAR`, `PANICO/GESTIONAR` y `PANICO/VALIDAR`, y el usuario del sistema. En Java: `PanicReport`, `PanicReportStatus`, `PanicReportDAO` y `JdbcPanicReportDAO` (A20). Faltan el servicio con las reglas (S11), sus rutas de la API (A20b, `docs/api.md` 16) y la página del botón (D9).

@@ -23,12 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Contract between Java and Oracle: the codes of every status enum must be exactly the
- * values allowed by the matching CHECK constraint in database/01_esquema.sql.
+ * values allowed by the matching CHECK constraint in database/01_esquema.sql (or in
+ * 07_boton_panico.sql, which adds the table of the panic button).
  * If someone changes one side and forgets the other, this test fails.
  */
 class EnumSqlContractTest {
 
     private static final Path SCHEMA = Path.of("..", "database", "01_esquema.sql");
+    private static final Path PANIC_SCHEMA = Path.of("..", "database", "07_boton_panico.sql");
 
     /** enum → CHECK constraints that must allow exactly its codes. */
     private static final Map<Class<? extends CodedEnum>, List<String>> CONTRACT = new LinkedHashMap<>();
@@ -52,13 +54,15 @@ class EnumSqlContractTest {
         CONTRACT.put(HospitalLevel.class, List.of("ck_hospital_nivel"));
         CONTRACT.put(AlertType.class, List.of("ck_alerta_tipo"));
         CONTRACT.put(AuditResult.class, List.of("ck_auditoria_resultado"));
+        CONTRACT.put(PanicReportStatus.class, List.of("ck_reporte_panico_estado"));
         CONTRACT.put(RecordStatus.class, List.of("ck_rol_estado", "ck_usuario_estado", "ck_hospital_estado"));
     }
 
     @Test
     void enumCodesMatchCheckConstraints() throws IOException {
         assertTrue(Files.isRegularFile(SCHEMA), "Schema not found: " + SCHEMA.toAbsolutePath());
-        String sql = Files.readString(SCHEMA, StandardCharsets.UTF_8);
+        String sql = Files.readString(SCHEMA, StandardCharsets.UTF_8)
+                + Files.readString(PANIC_SCHEMA, StandardCharsets.UTF_8).replace("''", "'");
 
         List<String> mismatches = new ArrayList<>();
         for (Map.Entry<Class<? extends CodedEnum>, List<String>> entry : CONTRACT.entrySet()) {
