@@ -10,7 +10,7 @@ import {
 } from "./api-client.js";
 
 import { startIncidents } from "./incident-panel.js";
-import { paintLegend, placeIcon, unitIcon } from "./map-icons.js";
+import { paintLegend, placeIcon, UNIT_Z, unitIcon, unitSlots } from "./map-icons.js";
 
 import {
   STATIONS as D2_STATIONS,
@@ -99,7 +99,7 @@ function makePopup(title, description, label, source = null) {
   return wrapper;
 }
 
-function addMarker(map, item, icon, popup) {
+function addMarker(map, item, icon, popup, zIndexOffset = 0) {
   if (!map || !Array.isArray(item.location)) {
     return null;
   }
@@ -110,7 +110,7 @@ function addMarker(map, item, icon, popup) {
     return null;
   }
 
-  const marker = L.marker([lat, lng], { icon, keyboard: false }).addTo(map);
+  const marker = L.marker([lat, lng], { icon, keyboard: false, zIndexOffset }).addTo(map);
 
   marker.bindPopup(popup);
 
@@ -373,7 +373,9 @@ function renderUnits(map, units) {
     if (!usesSummary) {
       byId("unit-count").textContent = String(available.length);
     }
-  for (const unit of units) {
+  const slots = unitSlots(units);
+
+  for (const [index, unit] of units.entries()) {
     const title =
       unit.code ||
       unit.name ||
@@ -395,12 +397,13 @@ function renderUnits(map, units) {
     const marker = addMarker(
       map,
       unit,
-      unitIcon(unit.type, unit.status),
+      unitIcon(unit.type, unit.status, slots[index]),
       makePopup(
         title,
         description,
         label,
       ),
+      UNIT_Z,
     );
 
     list.appendChild(
