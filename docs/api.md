@@ -647,6 +647,8 @@ Salida `201`:
 
 Si todavía no se valida: `"status": "PENDIENTE"`, `"emergencyId": null`, `"dispatchedUnit": null` y el mensaje "Su reporte quedó registrado. Esperamos la confirmación de otras personas cercanas.".
 
+Si se valida pero no hay unidad disponible: `"dispatchedUnit": null` y el mensaje "Su alerta fue validada. Un coordinador enviará una unidad.". Si ya hay una alerta validada y abierta a menos de 300 m (10 minutos), el reporte se une a ella: `"status": "VALIDADO"`, su `emergencyId` y `"dispatchedUnit": null` (no se manda otra unidad).
+
 Errores: `400` si falta la ubicación o el `deviceId`, o la ubicación está fuera de la zona de la red vial; `409` si el dispositivo ya envió 3 reportes en 10 minutos ("Ya envió varios reportes. Si la emergencia sigue, llame al 123.").
 
 ### 16.2 `GET /api/panic/reports`
@@ -663,4 +665,4 @@ Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del
 
 ### 16.3 `PATCH /api/panic/reports/{id}/status`
 
-`{ "status": "DESCARTADO" }`: un coordinador marca como falsa una alerta pendiente. Si la alerta ya creó una emergencia, se cierra como falsa alarma con 6.7. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`.
+`{ "status": "DESCARTADO" }`: un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).

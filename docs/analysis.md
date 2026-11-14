@@ -400,7 +400,8 @@ flowchart LR
 - 2a. El dispositivo ya envió 3 reportes en 10 minutos: se rechaza con un mensaje (RN-13).
 - 3a. No hay suficientes reportes: el reporte queda `PENDIENTE`; si en 10 minutos nadie más reporta cerca, pasa a `VENCIDO`.
 - 5a. No hay unidades disponibles: la emergencia queda `REPORTADA` y la alerta a los coordinadores lo dice; el despacho se hace a mano (CU-09).
-- 7a. Un coordinador ve que la alerta es falsa: la descarta (`DESCARTADO`) y, si ya se creó la emergencia, la cierra como falsa alarma (CU-12).
+- 4a. Ya hay una alerta validada y abierta a menos de 300 m en los últimos 10 minutos: el reporte se une a esa emergencia (`VALIDADO`) y no se crea otra ni se despacha otra unidad.
+- 7a. Un coordinador ve que una alerta pendiente es falsa: la descarta y sus reportes cercanos pasan a `DESCARTADO`. Si la alerta ya se validó, cancela la misión (CU-10) y cierra la emergencia como falsa alarma (CU-12).
 
 **Clases:** `PanicService` (S11) → `PanicReportDAO`, `EmergencyService`, `DispatchService`, `AlertService`. Tabla `REPORTE_PANICO` de `07_boton_panico.sql`.
 
@@ -424,7 +425,7 @@ flowchart LR
 | RN-12 | Toda operación que modifica datos y todo inicio de sesión se audita | `AuditService` |
 | RN-13 | Un reporte de pánico entra `PENDIENTE`. Cada dispositivo puede enviar como máximo 3 reportes cada 10 minutos, y la página nunca guarda el identificador real del dispositivo (solo su hash SHA-256) | `PanicService` + `REPORTE_PANICO` |
 | RN-14 | Una alerta de pánico se valida con 3 reportes `PENDIENTE` de dispositivos distintos a menos de 300 m entre sí en los últimos 10 minutos, o con 1 reporte de un usuario con `PANICO/VALIDAR` (Policía) | `PanicService` |
-| RN-15 | Una alerta validada crea una emergencia `REPORTADA` (severidad `ALTA`, usuario del sistema) y despacha sola la unidad disponible más rápida. Los reportes que la validaron quedan `VALIDADO` y ligados a esa emergencia; los `PENDIENTE` de más de 10 minutos pasan a `VENCIDO` | `PanicService` + CHECK `ck_reporte_panico_validado` |
+| RN-15 | Una alerta validada crea una emergencia `REPORTADA` (severidad `ALTA`, usuario del sistema) y despacha sola la unidad disponible más rápida. Los reportes que la validaron quedan `VALIDADO` y ligados a esa emergencia, igual que los que llegan después cerca de ella mientras esté abierta; los `PENDIENTE` de más de 10 minutos pasan a `VENCIDO` | `PanicService` + CHECK `ck_reporte_panico_validado` |
 
 Los valores de RN-08, RN-09 y RN-14 (80 %, 1,5×, 15 %, 30 s, 3 reportes, 300 m, 10 min) son **parámetros iniciales a calibrar** con pruebas, no datos medidos.
 
