@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.api;
 
+import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
@@ -18,6 +19,7 @@ import co.edu.unicesar.rutavida.graph.Node;
 import co.edu.unicesar.rutavida.model.Alert;
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.enums.AlertType;
+import co.edu.unicesar.rutavida.service.LiveMapService;
 import co.edu.unicesar.rutavida.service.AdministrationTestSupport;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.model.GeoPoint;
@@ -148,8 +150,13 @@ class ApiServerTest {
                 new FleetController(new FleetTestSupport().fleetService(), support.authService, support.sessionContext),
                 new HospitalController(administration.hospitalService(), support.authService, support.sessionContext));
 
+        // Live map (A12e) on the same small city and the same alerts.
+        TrackingController tracking = new TrackingController(new LiveMapService(city.vehicles,
+                () -> DispatchTestSupport.VEHICLE_TYPES, city.assignments, city.routes, alertDao, () -> false,
+                support.clock), support.authService, support.sessionContext);
+
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
-                dashboard, incidents, roadMap, alerts, dispatch, admin, frontend);
+                dashboard, incidents, roadMap, alerts, dispatch, admin, tracking, frontend);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -517,6 +524,36 @@ class ApiServerTest {
         assertEquals("EN_SITIO", value(onScene).get("status").asText());
         assertTrue(value(send("GET", "/api/dispatches/" + mission + "/routes", token, null)).isEmpty(),
                 "the routes to the scene ended when the unit arrived");
+    }
+
+    @Test
+    void theLiveMapShowsTheUnitsTheOpenMissionAndTheUnreadAlerts() throws Exception {
+        String token = login("marta.ruiz");
+        long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
+        HttpResponse<String> dispatched = send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                + ", \"vehicleId\": " + DispatchTestSupport.AMBULANCE + "}");
+        assertEquals(201, dispatched.statusCode(), dispatched.body());
+        long mission = value(dispatched).get("assignment").get("id").asLong();
+
+        HttpResponse<String> tracked = send("GET", "/api/tracking", token, null);
+        assertEquals(200, tracked.statusCode(), tracked.body());
+        JsonNode map = value(tracked);
+        assertFalse(map.get("simulation").get("running").asBoolean(), "no simulation engine yet (K9)");
+        assertEquals("SIMULACION", map.get("simulation").get("source").asText());
+        assertEquals(5, map.get("units").size());
+        JsonNode ambulance = map.get("units").get(0);
+        assertEquals("EJEMPLO-AMB-01", ambulance.get("unitCode").asText());
+        assertEquals("AMBULANCIA", ambulance.get("vehicleType").asText());
+        assertEquals("OCUPADO", ambulance.get("operationalStatus").asText());
+        assertTrue(ambulance.get("location").has("latitude"));
+        JsonNode open = map.get("missions").get(0);
+        assertEquals(mission, open.get("assignmentId").asLong());
+        assertEquals("ASIGNADA", open.get("status").asText());
+        assertTrue(open.get("routesVersion").asInt() >= 1);
+        assertEquals(2, map.get("unreadAlerts").asInt(), "the two EXAMPLE alerts of marta.ruiz");
+
+        assertEquals(401, send("GET", "/api/tracking", null, null).statusCode());
+        assertEquals(403, send("GET", "/api/tracking", login("luis.gomez"), null).statusCode());
     }
 
     @Test

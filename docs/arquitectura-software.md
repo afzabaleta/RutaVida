@@ -231,11 +231,13 @@ Ejemplo: *consultar los hospitales operativos*.
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
 | API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |
 | API de alertas: las del usuario de la sesión y marcarlas como leídas (`/api/alerts`, A12f) | Programado y probado |
+| Botón de pánico (CU-22): recepción de alertas, validación por dispositivos o policía, creación de emergencia y despacho automático de unidad (`PanicService`, `PanicController`, S11) | Programado y probado sin Oracle; pendiente exposición en API (A20b) |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
 | Indicadores del panel desde Oracle e incidentes viales en el mapa: validar, rechazar y cerrar (D6) | Programado; pruebas de integración pendientes |
+| Página de despacho conectada a la API (D6b): unidades por tiempo de llegada, 3 rutas con su explicación, despacho, estado de la misión y cierre de la emergencia | Programado; pruebas de integración pendientes |
 | API de despacho: unidades candidatas, vista previa, despachar, rutas de la misión y avance (`/api/dispatches`, A12d) | Programado y probado |
-| Seguimiento en la API (`/api/tracking`, A12e) | **Pendiente** |
+| Seguimiento en la API (`GET /api/tracking`, A12e): unidades con su tipo, estado y posición, misiones abiertas con su ruta activa y alertas sin leer (`LiveMapService`, `TrackingController`) | Programado y probado (sin Oracle). Las unidades se mueven cuando el motor de simulación (K9) llame a `TrackingService` |
 | Cerrar la emergencia (CU-12) con `sp_cerrar_emergencia` y `POST /api/emergencies/{id}/close` (A16) | Programado y probado |
 | Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado |
 | Unidades y estaciones (CU-04) en servicio y controlador, con alerta al cambiar la disponibilidad (S10) | Programado y probado |
@@ -249,57 +251,3 @@ El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
 - **Sin framework de inyección (sin Spring) por ahora.** `AppContext` cumple esa función en pocas líneas y es fácil de explicar en la sustentación.
 - **Vista web (DT-01, 15/10/2026).** Se agregará un paquete `api` con adaptadores REST que llamen a los mismos controladores, sin tocar `service` ni `dao`. El paquete `view` del backend se reemplazará por `api` cuando se programe, ajustando `ArchitectureTest` y el diagrama de clases en el mismo PR. El servidor HTTP, la librería JSON y el mecanismo de tiempo real están pendientes (ver `docs/decisiones-tecnicas.md`).
 - **Contratos de `RouteService` (K6) y `DispatchService` (K7):** programados. Sus métodos están en `docs/class-diagram.md` (sección 5) y su uso desde la web, en `docs/api.md` (sección 6).
-
-## 12. Integración del despacho real (D8)
-
-D8 conecta la página web `frontend/despacho.html` con las operaciones de despacho implementadas en el backend (K7 y A12d).
-
-### Flujo de la operación
-
-1. El operador abre una emergencia desde la interfaz web.
-2. `despacho.js` consulta las unidades candidatas mediante `api-client.js`.
-3. El backend calcula los tiempos de llegada utilizando la red vial.
-4. El operador selecciona una unidad y solicita hasta tres rutas alternativas.
-5. `dispatch-routes.js` representa las rutas recibidas sobre Leaflet.
-6. Al confirmar el despacho, la API registra la asignación y actualiza la emergencia y la unidad mediante una transacción.
-7. El operador puede cambiar el estado de la misión a `EN_RUTA` o `EN_SITIO`.
-8. La página permite cancelar la misión o cerrar la emergencia según las reglas del backend.
-9. Al consultar nuevamente la emergencia, el historial y las rutas de la misión se recuperan desde la API.
-
-### Endpoints REST
-
-| Método | Ruta | Función |
-|---|---|---|
-| GET | `/api/emergencies/{id}/candidates` | Consultar unidades candidatas |
-| POST | `/api/routes/preview` | Calcular hasta tres rutas |
-| POST | `/api/dispatches` | Registrar el despacho |
-| GET | `/api/emergencies/{id}/history` | Consultar historial |
-| GET | `/api/dispatches/{id}/routes` | Consultar rutas de la misión |
-| PATCH | `/api/dispatches/{id}/status` | Cambiar estado de la misión |
-| POST | `/api/emergencies/{id}/close` | Cerrar emergencia |
-
-### Responsabilidades por capa
-
-| Capa | Responsabilidad |
-|---|---|
-| Frontend | Interacción del operador y visualización del mapa |
-| API REST | Autenticación, autorización y recepción de solicitudes |
-| Controller | Delegar las operaciones a los servicios |
-| Service | Validaciones, cálculo de candidatos, despacho y transiciones de estado |
-| Motor de rutas | Calcular alternativas sobre el grafo vial |
-| DAO JDBC | Consultar y persistir los registros |
-| Oracle XE | Almacenar emergencias, unidades, asignaciones y rutas |
-
-### Reglas y seguridad
-
-- El frontend no calcula rutas ni tiempos estimados de llegada.
-- Las rutas se calculan nuevamente al confirmar el despacho.
-- La asignación se realiza de forma transaccional.
-- Las operaciones requieren los permisos correspondientes.
-- Los conflictos HTTP 409 se comunican al operador.
-- La página de despacho no realiza consultas automáticas periódicas.
-- La interfaz utiliza un diseño adaptable a escritorio y celulares, sin una aplicación móvil nativa independiente.
-
-### Verificación funcional
-
-En D8 se comprobaron la consulta de unidades, la visualización de hasta tres rutas, la asignación, las transiciones `EN_RUTA` y `EN_SITIO`, el cierre o cancelación y el funcionamiento en pantalla móvil, sin errores observados en la consola del navegador.

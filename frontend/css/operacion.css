@@ -281,8 +281,7 @@
   cursor: not-allowed;
 }
 
-/* Dispatch and mission (D8) */
-
+/* Dispatch and mission (D6b) */
 .mission-actions {
   display: flex;
   flex-wrap: wrap;
@@ -319,7 +318,7 @@
 }
 
 .secondary-button:disabled {
-  opacity: .55;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -327,63 +326,24 @@
   display: none;
 }
 
-/* D8 - Route cards */
-
+/* Dispatch page on narrow screens (D8, Diego): long texts wrap inside the cards and the
+   buttons take the whole width, so nothing overflows on a phone. */
 .route-card {
   min-width: 0;
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, .12);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, .035);
   overflow-wrap: anywhere;
 }
 
-.route-best {
-  border-color: rgba(47, 123, 255, .65);
-}
-
 .route-card-top {
-  display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
 }
 
 .route-card-top h3 {
   flex: 1 1 140px;
   min-width: 0;
-  margin: 0;
-}
-
-.route-swatch {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 12px;
-  border-radius: 50%;
-}
-
-.route-numbers,
-.route-explanation {
-  overflow-wrap: anywhere;
-}
-
-.route-list {
-  display: grid;
-  gap: 12px;
-}
-
-.unit-choice {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  cursor: pointer;
 }
 
 .unit-choice input {
-  margin-top: 5px;
   flex-shrink: 0;
-  accent-color: #2f7bff;
 }
 
 .unit-choice > div {
@@ -391,105 +351,22 @@
   flex: 1;
 }
 
-.unit-choice:has(input:checked) {
-  border-color: #2f7bff;
-}
-
-#dispatch-button {
-  width: 100%;
-  min-height: 44px;
-}
-
-/* D8 - Mobile responsive */
-
-@media (max-width: 900px) {
-  .workspace {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .workspace > .side-panel,
-  .workspace > .map-panel {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .map-panel #map {
-    width: 100%;
-    height: 360px;
-    min-height: 300px;
-  }
-
-  .route-list {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 600px) {
-  .dashboard-main {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-
-  .welcome-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .workspace {
-    gap: 12px;
-  }
-
-  .workspace > .side-panel,
-  .workspace > .map-panel {
-    padding: 14px;
-  }
-
-  .map-panel #map {
-    height: 300px;
-    min-height: 260px;
-  }
-
-  .route-card {
-    padding: 12px;
-  }
-
   .mission-actions {
     flex-direction: column;
   }
 
-  .mission-actions button {
-    flex: 0 0 auto;
-    width: 100%;
-    min-height: 48px;
-  }
-
+  .mission-actions button,
   #refresh-button,
   #dispatch-button,
-  .close-area button,
-  .map-action {
-    min-height: 48px;
+  .close-area button {
     width: 100%;
+    min-height: 48px;
   }
 
   #emergency-select {
     width: 100%;
     max-width: 100%;
     min-height: 44px;
-  }
-
-  .unit-choice {
-    padding: 12px;
-  }
-
-  .dashboard-header {
-    gap: 10px;
-  }
-
-  .header-user {
-    min-width: 0;
   }
 }

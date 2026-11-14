@@ -10,6 +10,7 @@ import {
 } from "./api-client.js";
 
 import { startIncidents } from "./incident-panel.js";
+import { paintLegend, placeIcon, unitIcon } from "./map-icons.js";
 
 import {
   STATIONS as D2_STATIONS,
@@ -22,13 +23,6 @@ import { showRoutes } from "./route-layer.js";
 import { startPage } from "./page-session.js";
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-const COLORS = {
-  station: "#4bd6a0",
-  hospital: "#79adff",
-  emergency: "#ff6674",
-  unit: "#f6b94b",
-};
 
 const byId = (id) => document.getElementById(id);
 
@@ -105,7 +99,7 @@ function makePopup(title, description, label, source = null) {
   return wrapper;
 }
 
-function addMarker(map, item, color, popup) {
+function addMarker(map, item, icon, popup) {
   if (!map || !Array.isArray(item.location)) {
     return null;
   }
@@ -116,13 +110,7 @@ function addMarker(map, item, color, popup) {
     return null;
   }
 
-  const marker = L.circleMarker([lat, lng], {
-    radius: 8,
-    color,
-    fillColor: color,
-    fillOpacity: 0.85,
-    weight: 2,
-  }).addTo(map);
+  const marker = L.marker([lat, lng], { icon, keyboard: false }).addTo(map);
 
   marker.bindPopup(popup);
 
@@ -248,7 +236,7 @@ function renderPlaces(map, stations, hospitals) {
     const marker = addMarker(
       map,
       item,
-      COLORS.station,
+      placeIcon("station"),
       makePopup(
         station.name,
         station.address || "Dirección no disponible",
@@ -294,7 +282,7 @@ function renderPlaces(map, stations, hospitals) {
     const marker = addMarker(
       map,
       item,
-      COLORS.hospital,
+      placeIcon("hospital"),
       makePopup(
         hospital.name,
         description,
@@ -346,7 +334,7 @@ if (!usesSummary) {
     const marker = addMarker(
       map,
       emergency,
-      COLORS.emergency,
+      placeIcon("emergency"),
       makePopup(
         title,
         description,
@@ -407,7 +395,7 @@ function renderUnits(map, units) {
     const marker = addMarker(
       map,
       unit,
-      COLORS.unit,
+      unitIcon(unit.type, unit.status),
       makePopup(
         title,
         description,
@@ -462,6 +450,7 @@ async function refreshDashboardSummary() {
 
 
 async function initializeDashboard() {
+  paintLegend();
   const session = await startPage();
 
   if (!session) {

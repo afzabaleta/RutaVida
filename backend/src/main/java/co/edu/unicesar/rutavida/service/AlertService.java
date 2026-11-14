@@ -145,6 +145,26 @@ public class AlertService {
         });
     }
 
+    /**
+     * Panic button (CU-22): tells every user who can dispatch that an alert was validated,
+     * and whether a unit was sent on its own. The type is OTHER: ALERT has no type of its own
+     * for it.
+     */
+    public List<Alert> panicAlert(long emergencyId, String message) {
+        ValidationUtil.requirePositiveId(emergencyId, "emergencia");
+        String text = ValidationUtil.requireText(message, "mensaje", MAX_MESSAGE);
+
+        return transactions.callInTransaction(() -> {
+            List<Alert> saved = new ArrayList<>();
+
+            for (User dispatcher : dispatchers()) {
+                saved.add(save(dispatcher.getId(), emergencyId, AlertType.OTHER, text));
+            }
+
+            return saved;
+        });
+    }
+
     public List<Alert> list(UserSession session, boolean onlyUnread) {
         long userId = userOf(session);
 

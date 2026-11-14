@@ -209,6 +209,24 @@ class AlertServiceTest {
 
     // The user reads alerts
 
+
+    @Test
+    void aPanicAlertGoesToEveryoneWhoCanDispatchWithItsEmergency() {
+        List<Alert> alerts = service.panicAlert(
+                77, "Botón de pánico: se creó la emergencia 77."
+        );
+
+        assertEquals(
+                List.of(COORDINATOR, ADMINISTRATOR),
+                alerts.stream().map(Alert::getUserId).toList()
+        );
+
+        for (Alert alert : alerts) {
+            assertEquals(AlertType.OTHER, alert.getType());
+            assertEquals(77L, alert.getEmergencyId());
+        }
+    }
+
     @Test
     void eachUserSeesOnlyHisAlertsNewestFirst() {
         Alert first = service.routeRecalculated(

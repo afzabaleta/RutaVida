@@ -1,11 +1,12 @@
-﻿<!DOCTYPE html>
+
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
     <meta name="theme-color" content="#101923">
-    <title>RutaVida | Despacho real</title>
+    <title>RutaVida | Despacho</title>
 
     <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./css/rutavida.css">
@@ -48,17 +49,17 @@
 <main class="dashboard-main">
     <section class="welcome-row">
         <div>
-            <p class="eyebrow">CU-08 Y CU-09 · DESPACHO REAL</p>
+            <p class="eyebrow">CU-08, CU-09, CU-10 Y CU-12 · DESPACHO</p>
             <h1>Despachar unidad</h1>
             <p class="muted">
-                Selecciona una emergencia, compara las unidades por tiempo
-                de llegada y consulta hasta tres rutas calculadas por RutaVida.
+                Elige la emergencia, compara las unidades por su tiempo de llegada
+                y sus 3 rutas, despacha y sigue la misión hasta el cierre.
             </p>
         </div>
 
         <span class="demo-notice">
-            Operación conectada a Oracle. Las unidades EJEMPLO
-            están identificadas y se usan para pruebas.
+            Emergencias, unidades y rutas de Oracle. Las unidades EJEMPLO-… son de ejemplo
+            y el tráfico es SIMULACION.
         </span>
     </section>
 
@@ -72,19 +73,10 @@
                 </div>
             </div>
 
-            <label for="emergency-select" class="field-label">
-                Emergencia
-            </label>
-
+            <label for="emergency-select" class="field-label">Emergencia</label>
             <select id="emergency-select"></select>
 
             <div id="emergency-detail" class="item-list"></div>
-
-            <button type="button"
-                    id="refresh-button"
-                    class="secondary-button">
-                Actualizar estado
-            </button>
 
             <div class="panel-divider"></div>
 
@@ -99,8 +91,9 @@
             <div id="unit-list" class="item-list"></div>
 
             <p class="map-footnote">
-                Unidades ordenadas por tiempo estimado de llegada
-                sobre la red vial. El servidor calcula las rutas.
+                Solo unidades DISPONIBLE de un tipo adecuado para la emergencia,
+                ordenadas por el tiempo de llegada que calcula el motor de rutas
+                sobre las calles, con el tráfico actual.
             </p>
         </aside>
 
@@ -108,17 +101,15 @@
             <div class="map-heading">
                 <div>
                     <p class="eyebrow">UBICACIÓN</p>
-                    <h2>Emergencia y unidades</h2>
+                    <h2>Emergencia, unidades y rutas</h2>
                 </div>
-
                 <span class="map-status">
-                    <span></span> Mapa operativo
+                    <span></span> Mapa de referencia
                 </span>
             </div>
 
-            <div id="map"
-                 role="application"
-                 aria-label="Mapa de emergencia, unidades y rutas"></div>
+            <div id="map" role="application"
+                 aria-label="Mapa con la emergencia, las unidades y las rutas"></div>
 
             <p class="map-footnote">
                 Cartografía © OpenStreetMap contributors.
@@ -128,16 +119,12 @@
                 <div class="map-heading">
                     <div>
                         <p class="eyebrow">MOTOR DE RUTAS</p>
-                        <h2 id="route-title">Rutas calculadas</h2>
+                        <h2 id="route-title">Rutas</h2>
                     </div>
-
-                    <span id="route-tag" class="data-tag">
-                        SIN RUTAS
-                    </span>
+                    <span id="route-tag" class="data-tag">SIN CALCULAR</span>
                 </div>
 
                 <div id="route-list" class="route-list"></div>
-
                 <p id="route-note" class="map-footnote"></p>
             </section>
         </section>
@@ -145,45 +132,41 @@
         <aside class="side-panel">
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">OPERACIÓN</p>
-                    <h2>Despacho y misión</h2>
+                    <p class="eyebrow">CONFIRMACIÓN</p>
+                    <h2>Despacho</h2>
                 </div>
             </div>
 
             <div id="dispatch-summary" class="dispatch-summary">
-                <p class="empty-state">
-                    Selecciona una unidad disponible.
-                </p>
+                <p class="empty-state">Selecciona una unidad disponible.</p>
             </div>
 
-            <button type="button"
-                    id="dispatch-button"
-                    class="button dispatch-button"
-                    disabled hidden>
+            <button type="button" id="dispatch-button"
+                    class="button dispatch-button" disabled>
                 Despachar unidad
             </button>
 
-            <p id="dispatch-message"
-               class="form-message"
-               role="alert"
-               aria-live="polite"
-               hidden></p>
-
             <div id="close-box"></div>
+
+            <p id="dispatch-message" class="form-message"
+               role="alert" aria-live="polite" hidden></p>
+
+            <button type="button" id="refresh-button" class="secondary-button">
+                Actualizar estado
+            </button>
 
             <div class="panel-divider"></div>
 
             <div class="source-note">
-                <strong>Operación real</strong>
+                <strong>Qué hace el servidor</strong>
                 <p>
-                    El servidor asigna la unidad, actualiza la emergencia
-                    y guarda las rutas en Oracle. El coordinador puede
-                    actualizar la misión, cancelar la asignación o cerrar
-                    la emergencia según su estado y permisos.
+                    Al despachar guarda la asignación, pone la emergencia en ASIGNADA
+                    y la unidad en OCUPADO, y guarda la ruta ACTIVA y las alternativas,
+                    todo en una sola transacción de Oracle.
                 </p>
                 <p>
-                    El seguimiento se actualiza manualmente mediante
-                    el botón Actualizar estado. No incluye GPS en vivo.
+                    La página no se actualiza sola: usa «Actualizar estado». El
+                    seguimiento en vivo llega con la API de seguimiento (A12e).
                 </p>
             </div>
         </aside>
@@ -191,8 +174,8 @@
     </section>
 
     <footer class="dashboard-footer">
-        <span>RutaVida · Despacho real (D8)</span>
-        <span>Datos de Oracle y unidades EJEMPLO identificadas</span>
+        <span>RutaVida · Despacho (D6b)</span>
+        <span>Datos de Oracle y datos EJEMPLO identificados</span>
     </footer>
 </main>
 </body>

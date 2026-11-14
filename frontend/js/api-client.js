@@ -337,7 +337,6 @@ export async function changeIncidentStatus(id, status) {
   return toIncident(incident);
 }
 
-
 /** A route of the engine with its path as [lat, lng] points, ready for L.polyline (6.2 and 6.4). */
 function toRoute(route) {
   return {

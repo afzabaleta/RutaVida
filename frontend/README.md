@@ -18,8 +18,10 @@ La aplicación web permite:
 - Identificar los recursos de demostración mediante la etiqueta `EJEMPLO`.
 - Ver los indicadores del panel contados en Oracle (`GET /api/dashboard/summary`).
 - Ver los incidentes viales abiertos sobre su tramo en el mapa, y validarlos, rechazarlos o cerrarlos (`/api/incidents`).
+- Ver cada unidad en el mapa con el ícono de su vehículo (ambulancia, bomberos o patrulla) y un anillo con su estado (verde `DISPONIBLE`, naranja `OCUPADO`, gris en mantenimiento o fuera de servicio), y los hospitales, estaciones y emergencias con su propio ícono (`map-icons.js`).
+- Despachar una unidad en `despacho.html`: las unidades ordenadas por su tiempo de llegada, las 3 rutas del motor con su explicación, el despacho, el estado de la misión y el cierre de la emergencia (D6b).
 
-**Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. Las rutas del mapa continúan siendo rutas de demostración.
+**Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. Las rutas del panel principal continúan siendo rutas de demostración (D4); las de `despacho.html` las calcula el motor de rutas en el servidor (D6b).
 
 El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad haya llegado al sitio hoy (las llegadas las registra el despacho, K7). Nunca se muestra un 0 inventado.
 
@@ -34,7 +36,10 @@ frontend/
 ├── js/
 │   ├── api-client.js
 │   ├── dashboard.js
+│   ├── despacho.js
+│   ├── dispatch-routes.js
 │   ├── emergencia.js
+│   ├── map-icons.js
 │   ├── page-session.js
 │   ├── route-layer.js
 │   ├── valledupar-data.js
@@ -137,6 +142,23 @@ El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad ha
 - Las consultas automáticas no mantienen viva la sesión (DT-08). Si la sesión vence, el panel vuelve al inicio de sesión.
 - Validar un incidente no recalcula nada en la página: el motor de rutas lo tiene en cuenta en el siguiente ciclo de la simulación (K8 y K9).
 - Reportar un incidente nuevo desde la página queda para cuando la API pueda ubicar el tramo de un punto del mapa.
+
+### Despacho y misión (D6b)
+
+| Paso en `despacho.html` | Ruta de la API | Permiso |
+|---|---|---|
+| Unidades que pueden ir, la más rápida primero | `GET /api/emergencies/{id}/candidates` (6.1) | `DESPACHO:GESTIONAR` |
+| Las 3 rutas de la unidad elegida, sin guardar nada | `POST /api/routes/preview` (6.2) | `RUTAS:GESTIONAR` |
+| Despachar | `POST /api/dispatches` (6.3) | `DESPACHO:GESTIONAR` |
+| Rutas de una misión ya despachada | `GET /api/dispatches/{id}/routes` (6.4) | `RUTAS:CONSULTAR` |
+| La unidad salió, llegó o se cancela | `PATCH /api/dispatches/{id}/status` (6.6) | `DESPACHO:GESTIONAR` |
+| Cerrar la emergencia | `POST /api/emergencies/{id}/close` (6.7) | `DESPACHO:GESTIONAR` |
+
+- La página no calcula rutas: dibuja las que devuelve el servidor, con la explicación que él escribe.
+- Una emergencia que no está `REPORTADA` muestra su misión abierta, que la página busca en el historial (`GET /api/emergencies/{id}/history`).
+- Cerrar pide un segundo clic de confirmación. Una emergencia `REPORTADA` se puede cerrar como falsa alarma.
+- La página no se actualiza sola, porque esas consultas mantendrían viva la sesión (DT-08): se usa «Actualizar estado». El seguimiento en vivo llega con `/api/tracking` (A12e).
+- El traslado al hospital (`TRASLADANDO`) llega con K7b.
 ## 6. Verificación funcional
 
 Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
@@ -153,54 +175,12 @@ Para comprobar la conexión entre el frontend, el backend y Oracle, realiza esta
 | Consultar estaciones | Se muestran las estaciones activas |
 | Ver los indicadores | Las 4 tarjetas muestran los conteos de Oracle; el tiempo promedio dice «Sin datos» si nadie ha llegado hoy |
 | Validar un incidente `PENDIENTE` | Pasa a `ACTIVO`, la línea deja de ser punteada y aparece el botón Cerrar |
+| Despachar una unidad en `despacho.html` | La emergencia pasa a `ASIGNADA`, la unidad a `OCUPADO` y se ve la ruta `ACTIVA` |
+| Cerrar la emergencia en `despacho.html` | Pide confirmación y la emergencia queda `CERRADA` |
 | Abrir el panel sin sesión | Se redirige al inicio de sesión |
 | Detener el backend | Se muestra un mensaje de error de conexión |
 
 Para revisar posibles errores, abre las herramientas del navegador con `F12` y consulta la pestaña **Console** y la pestaña **Network**.
-
-## 6.1. Despacho real de emergencias (D8)
-
-La página `despacho.html` integra el despacho real con el backend y Oracle. A diferencia de las rutas de demostración del panel principal, las rutas de despacho se calculan en el servidor utilizando la red vial.
-
-### Funcionalidades
-
-- Consultar las unidades candidatas para una emergencia, ordenadas por tiempo estimado de llegada.
-- Seleccionar una unidad y solicitar hasta tres rutas alternativas.
-- Visualizar las rutas calculadas sobre el mapa mediante `dispatch-routes.js`.
-- Despachar una unidad y registrar la asignación en Oracle.
-- Consultar la misión existente al recargar la página.
-- Consultar las rutas asociadas a una misión.
-- Actualizar el estado de la misión a `EN_RUTA` o `EN_SITIO`.
-- Cancelar una misión cuando corresponda.
-- Cerrar una emergencia mediante confirmación.
-- Mostrar errores del servidor, incluidos los conflictos HTTP 409.
-- Adaptar la interfaz a pantallas de escritorio y celulares.
-
-### Endpoints utilizados
-
-| Operación | Endpoint |
-|---|---|
-| Unidades candidatas | `GET /api/emergencies/{id}/candidates` |
-| Vista previa de rutas | `POST /api/routes/preview` |
-| Registrar despacho | `POST /api/dispatches` |
-| Historial de emergencia | `GET /api/emergencies/{id}/history` |
-| Rutas de la misión | `GET /api/dispatches/{id}/routes` |
-| Actualizar estado de misión | `PATCH /api/dispatches/{id}/status` |
-| Cerrar emergencia | `POST /api/emergencies/{id}/close` |
-
-### Reglas de integración
-
-- `api-client.js` centraliza las solicitudes HTTP.
-- `despacho.js` controla la interacción y los estados de la página.
-- `dispatch-routes.js` representa las rutas recibidas del servidor.
-- El navegador no calcula rutas ni tiempos de llegada por su cuenta.
-- Las operaciones están protegidas mediante los permisos correspondientes, como `DESPACHO:GESTIONAR` y `RUTAS:GESTIONAR`.
-- La página de despacho no realiza consultas automáticas periódicas.
-- Las unidades `EJEMPLO-` continúan identificándose como datos de demostración cuando aparecen.
-
-### Verificación de D8
-
-Se realizaron pruebas funcionales desde `http://localhost:8080`, comprobando la visualización de unidades y rutas, el despacho de una unidad, las transiciones `EN_RUTA` y `EN_SITIO`, el cierre o cancelación, la adaptación a pantallas móviles y la ausencia de errores en la consola del navegador.
 
 ## 7. Detener la aplicación
 

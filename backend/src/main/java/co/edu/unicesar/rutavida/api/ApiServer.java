@@ -6,6 +6,7 @@ import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
+import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
@@ -85,6 +86,7 @@ public final class ApiServer {
     private final AlertController alerts;
     private final DispatchController dispatch;
     private final AdminControllers admin;
+    private final TrackingController tracking;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -95,7 +97,8 @@ public final class ApiServer {
     public ApiServer(WebSessionController sessions, CatalogController catalogs,
                      EmergencyController emergencies, DashboardController dashboard,
                      IncidentController incidents, RoadMapController roadMap, AlertController alerts,
-                     DispatchController dispatch, AdminControllers admin, Path frontendDirectory) {
+                     DispatchController dispatch, AdminControllers admin, TrackingController tracking,
+                     Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
@@ -105,6 +108,7 @@ public final class ApiServer {
         this.alerts = Objects.requireNonNull(alerts, "alerts");
         this.dispatch = Objects.requireNonNull(dispatch, "dispatch");
         this.admin = Objects.requireNonNull(admin, "admin");
+        this.tracking = Objects.requireNonNull(tracking, "tracking");
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -180,6 +184,11 @@ public final class ApiServer {
                 ctx -> send(ctx, catalogs.stations(), ApiStatus.OK)));
         config.routes.get("/api/hospitals", secured("HOSPITALES", "CONSULTAR", USER_ACTION,
                 ctx -> send(ctx, catalogs.hospitals("true".equalsIgnoreCase(ctx.queryParam("all"))), ApiStatus.OK)));
+
+        // 8. Live map (A12e). The map asks every 5 seconds by itself (DT-07), so it does not keep
+        // the session alive (DT-08).
+        config.routes.get("/api/tracking", secured("EMERGENCIAS", "CONSULTAR", AUTOMATIC,
+                ctx -> send(ctx, tracking.snapshot(), ApiStatus.OK)));
 
         // 11. Dashboard. The panel refreshes it by itself, so it does not keep the session alive.
         config.routes.get("/api/dashboard/summary", secured("REPORTES", "CONSULTAR", AUTOMATIC,
