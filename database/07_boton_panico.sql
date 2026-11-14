@@ -98,7 +98,7 @@ SELECT p.modulo, p.accion, p.descripcion
 INSERT INTO rol_permiso (id_rol, id_permiso)
 SELECT r.id_rol, p.id_permiso
   FROM rol r CROSS JOIN permiso p
- WHERE (   (r.nombre_rol = 'ADMINISTRADOR'    AND (p.modulo, p.accion) IN (('PANICO', 'CONSULTAR'), ('PANICO', 'GESTIONAR')))
+ WHERE (   (r.nombre_rol = 'ADMINISTRADOR'    AND p.modulo = 'PANICO')   -- el administrador tiene todos los permisos
         OR (r.nombre_rol = 'OPERADOR_CENTRAL' AND (p.modulo, p.accion) IN (('PANICO', 'CONSULTAR')))
         OR (r.nombre_rol = 'COORDINADOR'      AND (p.modulo, p.accion) IN (('PANICO', 'CONSULTAR'), ('PANICO', 'GESTIONAR')))
         OR (r.nombre_rol = 'POLICIA'          AND (p.modulo, p.accion) IN (('EMERGENCIAS', 'CONSULTAR'),
@@ -142,7 +142,7 @@ UNION ALL
 SELECT 'Permisos PANICO', CASE WHEN COUNT(*) = 3 THEN 'SI' ELSE 'NO' END
   FROM permiso WHERE modulo = 'PANICO'
 UNION ALL
-SELECT 'Permisos asignados de PANICO y POLICIA', CASE WHEN COUNT(*) = 8 THEN 'SI' ELSE 'NO' END
+SELECT 'Permisos asignados de PANICO y POLICIA', CASE WHEN COUNT(*) = 9 THEN 'SI' ELSE 'NO' END
   FROM rol_permiso rp JOIN rol r ON r.id_rol = rp.id_rol JOIN permiso p ON p.id_permiso = rp.id_permiso
  WHERE p.modulo = 'PANICO' OR r.nombre_rol = 'POLICIA'
 UNION ALL
