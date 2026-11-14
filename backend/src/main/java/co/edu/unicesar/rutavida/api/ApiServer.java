@@ -9,14 +9,20 @@ import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
+import co.edu.unicesar.rutavida.dto.HospitalRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.IncidentRequest;
 import co.edu.unicesar.rutavida.dto.OperationResult;
+import co.edu.unicesar.rutavida.dto.StationRequest;
+import co.edu.unicesar.rutavida.dto.UserRequest;
+import co.edu.unicesar.rutavida.dto.VehicleRequest;
 import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
 import co.edu.unicesar.rutavida.model.enums.IncidentStatus;
+import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.javalin.Javalin;
@@ -42,8 +48,9 @@ import java.util.logging.Logger;
  * handler with that session (so the controllers and the audit triggers see that user).
  *
  * <p>Routes: session (A12a), emergencies and catalogs (A12b), dashboard (A14), road incidents
- * (A12c), alerts (A12f), dispatch and routes (A12d) and closing an emergency (A16). Tracking
- * and simulation are added when their controllers exist (K9, A12e).
+ * (A12c), alerts (A12f), dispatch and routes (A12d), closing an emergency (A16) and
+ * administration of users, units, stations and hospitals (A17). Tracking and simulation are
+ * added when their controllers exist (K9, A12e).
  */
 public final class ApiServer {
 
@@ -57,6 +64,9 @@ public final class ApiServer {
     private static final String BAD_STATUS = "El estado del incidente no es válido.";
     private static final String BAD_DISPATCH = "Indique la emergencia y la unidad (emergencyId y vehicleId).";
     private static final String BAD_MISSION_STATUS = "El estado de la misión no es válido.";
+    private static final String BAD_RECORD_STATUS = "El estado debe ser A (activo) o I (inactivo).";
+    private static final String BAD_UNIT_STATUS = "El estado de la unidad no es válido.";
+    private static final String BAD_PASSWORD = "Escriba la contraseña actual y la nueva.";
 
     /**
      * Second argument of {@link #secured}: a request made by the user counts as use of the
@@ -74,6 +84,7 @@ public final class ApiServer {
     private final RoadMapController roadMap;
     private final AlertController alerts;
     private final DispatchController dispatch;
+    private final AdminControllers admin;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -84,7 +95,7 @@ public final class ApiServer {
     public ApiServer(WebSessionController sessions, CatalogController catalogs,
                      EmergencyController emergencies, DashboardController dashboard,
                      IncidentController incidents, RoadMapController roadMap, AlertController alerts,
-                     DispatchController dispatch, Path frontendDirectory) {
+                     DispatchController dispatch, AdminControllers admin, Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
@@ -93,6 +104,7 @@ public final class ApiServer {
         this.roadMap = Objects.requireNonNull(roadMap, "roadMap");
         this.alerts = Objects.requireNonNull(alerts, "alerts");
         this.dispatch = Objects.requireNonNull(dispatch, "dispatch");
+        this.admin = Objects.requireNonNull(admin, "admin");
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -191,6 +203,43 @@ public final class ApiServer {
         config.routes.patch("/api/alerts/{id}/read", authenticated(USER_ACTION,
                 ctx -> send(ctx, alerts.markAsRead(pathId(ctx)), ApiStatus.OK)));
 
+        // 15. Administration (A17). The permission is checked here and again in each controller.
+        config.routes.get("/api/users", secured("USUARIOS", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, admin.users().list(), ApiStatus.OK)));
+        config.routes.post("/api/users", secured("USUARIOS", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.users().create(readBody(ctx, UserRequest.class)), ApiStatus.CREATED)));
+        config.routes.patch("/api/users/{id}/status", secured("USUARIOS", "GESTIONAR", USER_ACTION, ctx -> {
+            long id = pathId(ctx);
+            send(ctx, readRecordStatus(ctx) == RecordStatus.ACTIVE
+                    ? admin.users().activate(id) : admin.users().deactivate(id), ApiStatus.OK);
+        }));
+        config.routes.get("/api/roles", secured("USUARIOS", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, admin.users().roles(), ApiStatus.OK)));
+        config.routes.post("/api/auth/password", authenticated(USER_ACTION, this::changePassword));
+
+        config.routes.post("/api/units", secured("UNIDADES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.fleet().registerVehicle(readBody(ctx, VehicleRequest.class)), ApiStatus.CREATED)));
+        config.routes.put("/api/units/{id}", secured("UNIDADES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.fleet().updateVehicle(pathId(ctx), readBody(ctx, VehicleRequest.class)),
+                        ApiStatus.OK)));
+        config.routes.patch("/api/units/{id}/status", secured("UNIDADES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.fleet().changeVehicleStatus(pathId(ctx), readUnitStatus(ctx)), ApiStatus.OK)));
+        config.routes.post("/api/stations", secured("UNIDADES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.fleet().registerStation(readBody(ctx, StationRequest.class)), ApiStatus.CREATED)));
+        config.routes.put("/api/stations/{id}", secured("UNIDADES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.fleet().updateStation(pathId(ctx), readBody(ctx, StationRequest.class)),
+                        ApiStatus.OK)));
+        config.routes.patch("/api/stations/{id}/status", secured("UNIDADES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.fleet().changeStationStatus(pathId(ctx), readRecordStatus(ctx)), ApiStatus.OK)));
+
+        config.routes.post("/api/hospitals", secured("HOSPITALES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.hospitals().register(readBody(ctx, HospitalRequest.class)), ApiStatus.CREATED)));
+        config.routes.put("/api/hospitals/{id}", secured("HOSPITALES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.hospitals().update(pathId(ctx), readBody(ctx, HospitalRequest.class)),
+                        ApiStatus.OK)));
+        config.routes.patch("/api/hospitals/{id}/status", secured("HOSPITALES", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, admin.hospitals().changeStatus(pathId(ctx), readRecordStatus(ctx)), ApiStatus.OK)));
+
         config.routes.exception(Exception.class, this::onError);
     }
 
@@ -275,6 +324,34 @@ public final class ApiServer {
             throw new ValidationException(BAD_MISSION_STATUS);
         }
         return status;
+    }
+
+    /** The new status of a user, station or hospital: A or I; without it, a 400. */
+    private RecordStatus readRecordStatus(Context ctx) {
+        RecordStatus status = readBody(ctx, RecordStatusRequest.class).status();
+        if (status == null) {
+            throw new ValidationException(BAD_RECORD_STATUS);
+        }
+        return status;
+    }
+
+    /** The new operational status of PATCH /api/units/{id}/status; without it, a 400. */
+    private VehicleOperationalStatus readUnitStatus(Context ctx) {
+        VehicleOperationalStatus status = readBody(ctx, VehicleStatusRequest.class).status();
+        if (status == null) {
+            throw new ValidationException(BAD_UNIT_STATUS);
+        }
+        return status;
+    }
+
+    /** POST /api/auth/password: the user of the session changes his own password. */
+    private void changePassword(Context ctx) {
+        PasswordChangeRequest request = readBody(ctx, PasswordChangeRequest.class);
+        if (request.currentPassword() == null || request.newPassword() == null) {
+            throw new ValidationException(BAD_PASSWORD);
+        }
+        send(ctx, admin.users().changeOwnPassword(request.currentPassword().toCharArray(),
+                request.newPassword().toCharArray()), ApiStatus.OK);
     }
 
     /** The {id} of the URL as a positive number; anything else is a 400. */

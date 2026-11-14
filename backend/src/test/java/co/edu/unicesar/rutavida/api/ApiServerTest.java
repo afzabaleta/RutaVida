@@ -5,8 +5,11 @@ import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
+import co.edu.unicesar.rutavida.controller.FleetController;
+import co.edu.unicesar.rutavida.controller.HospitalController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
+import co.edu.unicesar.rutavida.controller.UserController;
 import co.edu.unicesar.rutavida.controller.WebTestSupport;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.SegmentView;
@@ -15,12 +18,14 @@ import co.edu.unicesar.rutavida.graph.Node;
 import co.edu.unicesar.rutavida.model.Alert;
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.enums.AlertType;
+import co.edu.unicesar.rutavida.service.AdministrationTestSupport;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.DispatchTestSupport;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
+import co.edu.unicesar.rutavida.service.FleetTestSupport;
 import co.edu.unicesar.rutavida.service.InMemoryAlertDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyTypeDAO;
@@ -136,8 +141,15 @@ class ApiServerTest {
                 new InMemoryRoleDAO(), new EmergencyTestSupport.CountingTransactions(), support.clock),
                 support.sessionContext);
 
+        // Administration (A17) has its own test, AdminApiTest; here it only has to exist.
+        AdministrationTestSupport administration = new AdministrationTestSupport();
+        AdminControllers admin = new AdminControllers(
+                new UserController(administration.userService(), support.authService, support.sessionContext),
+                new FleetController(new FleetTestSupport().fleetService(), support.authService, support.sessionContext),
+                new HospitalController(administration.hospitalService(), support.authService, support.sessionContext));
+
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
-                dashboard, incidents, roadMap, alerts, dispatch, frontend);
+                dashboard, incidents, roadMap, alerts, dispatch, admin, frontend);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;

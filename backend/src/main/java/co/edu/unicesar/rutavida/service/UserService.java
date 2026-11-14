@@ -125,6 +125,14 @@ public class UserService {
                 .toList();
     }
 
+    /** The active roles a new user can get, by name (the form of CU-03). */
+    public List<Role> listActiveRoles() {
+        return roleDao.findAll().stream()
+                .filter(role -> role.getStatus() == RecordStatus.ACTIVE)
+                .sorted(Comparator.comparing(Role::getName))
+                .toList();
+    }
+
     /** One user by id. */
     public User findById(long id) {
         return userDao.findById(id)
