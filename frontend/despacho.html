@@ -23,7 +23,6 @@
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
 
-    <script defer src="./data/rutas-demo.js"></script>
     <script type="module" src="./js/despacho.js"></script>
 </head>
 
@@ -50,17 +49,17 @@
 <main class="dashboard-main">
     <section class="welcome-row">
         <div>
-            <p class="eyebrow">CU-08 Y CU-09 · DESPACHO</p>
+            <p class="eyebrow">CU-08, CU-09, CU-10 Y CU-12 · DESPACHO</p>
             <h1>Despachar unidad</h1>
             <p class="muted">
-                Elige la emergencia, revisa las unidades disponibles y las rutas,
-                y consulta la referencia de distancia.
+                Elige la emergencia, compara las unidades por su tiempo de llegada
+                y sus 3 rutas, despacha y sigue la misión hasta el cierre.
             </p>
         </div>
 
         <span class="demo-notice">
-            Emergencias y unidades de Oracle. Las unidades EJEMPLO-… son de ejemplo;
-            el despacho llega con K7.
+            Emergencias, unidades y rutas de Oracle. Las unidades EJEMPLO-… son de ejemplo
+            y el tráfico es SIMULACION.
         </span>
     </section>
 
@@ -92,9 +91,9 @@
             <div id="unit-list" class="item-list"></div>
 
             <p class="map-footnote">
-                Ordenadas por distancia en línea recta, solo como referencia.
-                Cuando exista la API, el orden será por el tiempo calculado
-                por el motor de rutas (A*) sobre las calles.
+                Solo unidades DISPONIBLE de un tipo adecuado para la emergencia,
+                ordenadas por el tiempo de llegada que calcula el motor de rutas
+                sobre las calles, con el tráfico actual.
             </p>
         </aside>
 
@@ -102,7 +101,7 @@
             <div class="map-heading">
                 <div>
                     <p class="eyebrow">UBICACIÓN</p>
-                    <h2>Emergencia y unidades</h2>
+                    <h2>Emergencia, unidades y rutas</h2>
                 </div>
                 <span class="map-status">
                     <span></span> Mapa de referencia
@@ -124,10 +123,6 @@
                     </div>
                     <span id="route-tag" class="data-tag">SIN CALCULAR</span>
                 </div>
-
-                <div id="route-tabs" class="route-tabs"
-                     role="tablist"
-                     aria-label="Escenario de la demostración"></div>
 
                 <div id="route-list" class="route-list"></div>
                 <p id="route-note" class="map-footnote"></p>
@@ -151,18 +146,27 @@
                 Despachar unidad
             </button>
 
+            <div id="close-box"></div>
+
             <p id="dispatch-message" class="form-message"
                role="alert" aria-live="polite" hidden></p>
+
+            <button type="button" id="refresh-button" class="secondary-button">
+                Actualizar estado
+            </button>
 
             <div class="panel-divider"></div>
 
             <div class="source-note">
-                <strong>Qué hará el sistema real</strong>
+                <strong>Qué hace el servidor</strong>
                 <p>
-                    Al despachar, el servidor guardará la asignación,
-                    pondrá la emergencia en ASIGNADA y la unidad en OCUPADO,
-                    y guardará las 3 rutas, todo en una sola transacción de Oracle.
-                    Esta operación estará disponible cuando se implemente K7.
+                    Al despachar guarda la asignación, pone la emergencia en ASIGNADA
+                    y la unidad en OCUPADO, y guarda la ruta ACTIVA y las alternativas,
+                    todo en una sola transacción de Oracle.
+                </p>
+                <p>
+                    La página no se actualiza sola: usa «Actualizar estado». El
+                    seguimiento en vivo llega con la API de seguimiento (A12e).
                 </p>
             </div>
         </aside>
@@ -170,7 +174,7 @@
     </section>
 
     <footer class="dashboard-footer">
-        <span>RutaVida · Despacho (D5b)</span>
+        <span>RutaVida · Despacho (D6b)</span>
         <span>Datos de Oracle y datos EJEMPLO identificados</span>
     </footer>
 </main>
