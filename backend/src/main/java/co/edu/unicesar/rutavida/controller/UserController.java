@@ -5,6 +5,7 @@ import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.dto.UserRequest;
 import co.edu.unicesar.rutavida.dto.UserView;
+import co.edu.unicesar.rutavida.model.Role;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.UserService;
@@ -50,6 +51,11 @@ public class UserController {
         return run(VIEW, user -> userService.listAll().stream()
                 .map(UserView::of)
                 .toList());
+    }
+
+    /** CU-03: the active roles, for the form of a new user. */
+    public OperationResult<List<Role>> roles() {
+        return run(VIEW, user -> userService.listActiveRoles());
     }
 
     /** CU-03: the user can no longer log in. */
