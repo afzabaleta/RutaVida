@@ -85,6 +85,23 @@ exit
 
 `database/99_eliminar_esquema.sql` borra todas las tablas. **Solo se ejecuta con autorización explícita del líder**; después hay que repetir desde `01`.
 
+#### Base de datos en Oracle Cloud (DT-09)
+
+La base compartida del equipo y de la sustentación es una **Autonomous Database Always Free** (Oracle 19c, región Colombia Central - Bogotá). Se conecta con el *wallet* de la base (mTLS). El código no cambia: solo `backend/db.properties`.
+
+1. Pedirle al líder, **por privado**, el archivo `Wallet_rutavida.zip` y la contraseña de `RUTAVIDA`. Nunca se suben a GitHub ni se mandan al grupo.
+2. Guardar el zip **fuera del repositorio**, por ejemplo en `C:\oracle\wallet\`, y descomprimirlo ahí mismo: queda la carpeta `C:\oracle\wallet\Wallet_rutavida\`.
+3. **SQL Developer:** conexión nueva con usuario `RUTAVIDA`, tipo de conexión *Cartera de Cloud*, el archivo `.zip` y el servicio `rutavida_low`.
+4. **Backend:** en `db.properties` activar la línea de la nube de `db.properties.example`, con la ruta de la carpeta descomprimida y barras `/`:
+   ```
+   db.url=jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=C:/oracle/wallet/Wallet_rutavida
+   ```
+   y ejecutar `DatabaseCheck`: debe decir "24 de 24".
+
+Solo el líder instala o reinstala el esquema en la nube: conectado como `ADMIN`, `00_crear_usuario_nube.sql`; luego, como `RUTAVIDA`, los scripts `01` a `07` y `98`. El `05` se ejecuta desde una hoja de trabajo con `SET FEEDBACK OFF` antes de `@05_red_vial_valledupar.sql`, porque son casi 17 000 inserciones por internet.
+
+Límites del plan gratuito: 30 sesiones simultáneas, **se detiene sola después de 7 días sin uso** (se vuelve a iniciar desde la consola, *Start*) y puede borrarse si queda detenida 90 días. Las pruebas se corren contra la base **local**; la nube es para la demostración.
+
 ### 2. Backend
 
 1. En IntelliJ IDEA: *File → Open* → seleccionar la carpeta `backend/` (se abre como proyecto Maven y descarga las dependencias).
