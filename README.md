@@ -96,7 +96,8 @@ La base compartida del equipo y de la sustentación es una **Autonomous Database
    ```
    db.url=jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=C:/oracle/wallet/Wallet_rutavida
    ```
-   y ejecutar `DatabaseCheck`: debe decir "24 de 24".
+   y ejecutar `DatabaseCheck`: debe decir "24 de 24" y "Oracle Database 19c".
+   Si dice "Database password not configured", la configuración de ejecución de IntelliJ (*Run → Edit Configurations → Working directory*) debe terminar en `\backend`, donde está `db.properties`.
 
 Solo el líder instala o reinstala el esquema en la nube: conectado como `ADMIN`, `00_crear_usuario_nube.sql`; luego, como `RUTAVIDA`, los scripts `01` a `07` y `98`. El `05` se ejecuta desde una hoja de trabajo con `SET FEEDBACK OFF` antes de `@05_red_vial_valledupar.sql`, porque son casi 17 000 inserciones por internet.
 
