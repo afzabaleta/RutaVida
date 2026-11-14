@@ -125,14 +125,17 @@ function renderEmergency() {
   addText(card, "p", `Severidad ${current.severity} · Estado ${current.status}`, "status-text");
   box.appendChild(card);
 
-  const option = byId("emergency-select").querySelector(`option[value="${current.id}"]`);
+  // Compared as text, so an id can never break a CSS selector (D8, Diego).
+  const option = [...byId("emergency-select").options]
+    .find((item) => item.value === String(current.id));
   if (option) {
     option.textContent = `${current.code} · ${typeLabel(current.type)} · ${current.status}`;
   }
 }
 
 function drawMarkers() {
-  if (!markerLayer) {
+  // An emergency without location cannot be drawn (D8, Diego).
+  if (!markerLayer || !current.location) {
     return;
   }
   markerLayer.clearLayers();
@@ -330,7 +333,10 @@ async function chooseUnit(unit, quiet = false) {
       "Vista previa: todavía no se guarda nada. Al despachar, el servidor vuelve a calcular "
         + "las rutas con el tráfico de ese momento, así que pueden cambiar un poco.";
   } catch (error) {
-    clearRoutes(error.message);
+    // The error of a unit that is no longer selected must not erase the routes of the new one (D8, Diego).
+    if (selected === unit) {
+      clearRoutes(error.message);
+    }
   }
 }
 

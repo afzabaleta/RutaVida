@@ -325,3 +325,48 @@
 .dispatch-button[hidden] {
   display: none;
 }
+
+/* Dispatch page on narrow screens (D8, Diego): long texts wrap inside the cards and the
+   buttons take the whole width, so nothing overflows on a phone. */
+.route-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-card-top {
+  flex-wrap: wrap;
+}
+
+.route-card-top h3 {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.unit-choice input {
+  flex-shrink: 0;
+}
+
+.unit-choice > div {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .mission-actions {
+    flex-direction: column;
+  }
+
+  .mission-actions button,
+  #refresh-button,
+  #dispatch-button,
+  .close-area button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  #emergency-select {
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+  }
+}
