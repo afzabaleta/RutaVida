@@ -18,8 +18,9 @@ La aplicación web permite:
 - Identificar los recursos de demostración mediante la etiqueta `EJEMPLO`.
 - Ver los indicadores del panel contados en Oracle (`GET /api/dashboard/summary`).
 - Ver los incidentes viales abiertos sobre su tramo en el mapa, y validarlos, rechazarlos o cerrarlos (`/api/incidents`).
+- Despachar una unidad en `despacho.html`: las unidades ordenadas por su tiempo de llegada, las 3 rutas del motor con su explicación, el despacho, el estado de la misión y el cierre de la emergencia (D6b).
 
-**Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. Las rutas del mapa continúan siendo rutas de demostración.
+**Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. Las rutas del panel principal continúan siendo rutas de demostración (D4); las de `despacho.html` las calcula el motor de rutas en el servidor (D6b).
 
 El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad haya llegado al sitio hoy (las llegadas las registra el despacho, K7). Nunca se muestra un 0 inventado.
 
@@ -34,6 +35,8 @@ frontend/
 ├── js/
 │   ├── api-client.js
 │   ├── dashboard.js
+│   ├── despacho.js
+│   ├── dispatch-routes.js
 │   ├── emergencia.js
 │   ├── page-session.js
 │   ├── route-layer.js
@@ -137,6 +140,23 @@ El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad ha
 - Las consultas automáticas no mantienen viva la sesión (DT-08). Si la sesión vence, el panel vuelve al inicio de sesión.
 - Validar un incidente no recalcula nada en la página: el motor de rutas lo tiene en cuenta en el siguiente ciclo de la simulación (K8 y K9).
 - Reportar un incidente nuevo desde la página queda para cuando la API pueda ubicar el tramo de un punto del mapa.
+
+### Despacho y misión (D6b)
+
+| Paso en `despacho.html` | Ruta de la API | Permiso |
+|---|---|---|
+| Unidades que pueden ir, la más rápida primero | `GET /api/emergencies/{id}/candidates` (6.1) | `DESPACHO:GESTIONAR` |
+| Las 3 rutas de la unidad elegida, sin guardar nada | `POST /api/routes/preview` (6.2) | `RUTAS:GESTIONAR` |
+| Despachar | `POST /api/dispatches` (6.3) | `DESPACHO:GESTIONAR` |
+| Rutas de una misión ya despachada | `GET /api/dispatches/{id}/routes` (6.4) | `RUTAS:CONSULTAR` |
+| La unidad salió, llegó o se cancela | `PATCH /api/dispatches/{id}/status` (6.6) | `DESPACHO:GESTIONAR` |
+| Cerrar la emergencia | `POST /api/emergencies/{id}/close` (6.7) | `DESPACHO:GESTIONAR` |
+
+- La página no calcula rutas: dibuja las que devuelve el servidor, con la explicación que él escribe.
+- Una emergencia que no está `REPORTADA` muestra su misión abierta, que la página busca en el historial (`GET /api/emergencies/{id}/history`).
+- Cerrar pide un segundo clic de confirmación. Una emergencia `REPORTADA` se puede cerrar como falsa alarma.
+- La página no se actualiza sola, porque esas consultas mantendrían viva la sesión (DT-08): se usa «Actualizar estado». El seguimiento en vivo llega con `/api/tracking` (A12e).
+- El traslado al hospital (`TRASLADANDO`) llega con K7b.
 ## 6. Verificación funcional
 
 Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
@@ -153,6 +173,8 @@ Para comprobar la conexión entre el frontend, el backend y Oracle, realiza esta
 | Consultar estaciones | Se muestran las estaciones activas |
 | Ver los indicadores | Las 4 tarjetas muestran los conteos de Oracle; el tiempo promedio dice «Sin datos» si nadie ha llegado hoy |
 | Validar un incidente `PENDIENTE` | Pasa a `ACTIVO`, la línea deja de ser punteada y aparece el botón Cerrar |
+| Despachar una unidad en `despacho.html` | La emergencia pasa a `ASIGNADA`, la unidad a `OCUPADO` y se ve la ruta `ACTIVA` |
+| Cerrar la emergencia en `despacho.html` | Pide confirmación y la emergencia queda `CERRADA` |
 | Abrir el panel sin sesión | Se redirige al inicio de sesión |
 | Detener el backend | Se muestra un mensaje de error de conexión |
 
