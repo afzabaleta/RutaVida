@@ -23,11 +23,12 @@ CONNECT rutavida/LA_CONTRASEÑA_QUE_ELEGISTE@localhost:1521/XEPDB1
 @02_datos_iniciales.sql
 @03_datos_valledupar.sql
 @04_plsql.sql
+@07_boton_panico.sql
 @98_verificar.sql
 exit
 ```
 
-En `98_verificar.sql` todo debe decir `SI` (23 tablas, 21 secuencias, 24 índices, 0 objetos inválidos, objetos PL/SQL y las 14 líneas de la prueba 8). Las dos pruebas marcadas "DEBE FALLAR" muestran `ORA-02290`, y eso es lo correcto.
+En `98_verificar.sql` todo debe decir `SI` (24 tablas, 22 secuencias, 27 índices, 0 objetos inválidos, objetos PL/SQL y las 14 líneas de la prueba 8). Las dos pruebas marcadas "DEBE FALLAR" muestran `ORA-02290`, y eso es lo correcto.
 
 `SYSTEM` solo se usa para crear el usuario. La aplicación y los demás scripts trabajan siempre con el usuario `RUTAVIDA`.
 
@@ -36,7 +37,7 @@ En `98_verificar.sql` todo debe decir `SI` (23 tablas, 21 secuencias, 24 índice
 **Backend:**
 1. En IntelliJ: *File → Open* → carpeta `RutaVida\backend` (así IntelliJ carga el `pom.xml` como proyecto Maven). Si se abrió la carpeta `RutaVida` completa y `src/test/java` no sale en verde: clic derecho en `backend/pom.xml` → *Add as Maven Project*.
 2. Copia `db.properties.example` como `db.properties` y escribe tu contraseña. Este archivo **nunca** se sube a GitHub.
-3. Ejecuta `DatabaseCheck`: debe decir "23 de 23".
+3. Ejecuta `DatabaseCheck`: debe decir "24 de 24".
 4. Clic derecho en `src/test/java` → *Run 'All Tests'* (o en la ventana *Maven*: *Lifecycle → test*): todas en verde.
 
 ---

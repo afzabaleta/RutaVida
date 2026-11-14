@@ -19,7 +19,8 @@ Fuentes: requerimientos RF-01 a RF-12 de la propuesta, flujo general de atenció
 | **Bombero / Paramédico** | Principal | Personal en la unidad: consulta su misión asignada y la ruta | `BOMBERO_PARAMEDICO` |
 | **Administrador** | Principal | Gestiona usuarios y catálogos (unidades, estaciones, hospitales) y consulta la auditoría | `ADMINISTRADOR` |
 | **Simulador** | Secundario (sistema, temporizado) | Cada pocos segundos cambia el tráfico simulado y mueve las unidades simuladas. En la fase 2 lo reemplazan una fuente real de tráfico y el GPS | — |
-| **Ciudadano** | Secundario (fuera del núcleo) | Reporta un incidente vial escaneando un código QR | — |
+| **Ciudadano** | Secundario | Presiona el botón de pánico en su celular, sin cuenta (CU-22, DT-12) | — |
+| **Policía** | Secundario | Presiona el mismo botón con su sesión: su reporte valida la alerta sin esperar a otros (CU-22) | `POLICIA` |
 
 El **Coordinador** hereda los casos de uso del **Operador** (generalización de actores).
 
@@ -84,7 +85,8 @@ flowchart LR
 flowchart LR
     BP["Bombero / Paramédico"]:::actor
     AD["Administrador"]:::actor
-    CI["Ciudadano (fuera del núcleo)"]:::actor
+    CI["Ciudadano"]:::actor
+    PO["Policía"]:::actor
     subgraph RV["Sistema RutaVida"]
         direction TB
         CU01([CU-01 Iniciar sesión])
@@ -93,13 +95,14 @@ flowchart LR
         CU04([CU-04 Gestionar unidades y estaciones])
         CU05([CU-05 Gestionar hospitales y servicios])
         CU21([CU-21 Consultar auditoría])
-        CU22([CU-22 Reportar incidente por QR])
-        CU13([CU-13 Registrar incidente vial])
+        CU22([CU-22 Activar botón de pánico])
+        CU09([CU-09 Despachar unidad])
     end
     BP --- CU01 & CU20
     AD --- CU01 & CU03 & CU04 & CU05 & CU21
     CI --- CU22
-    CU22 -. include .-> CU13
+    PO --- CU22
+    CU22 -. include: alerta validada .-> CU09
     classDef actor fill:#1d3557,color:#ffffff,stroke:#1d3557
 ```
 
@@ -152,7 +155,7 @@ flowchart LR
 | CU-19 | Controlar simulación y escenarios de demostración | Coordinador | `TRAFICO/GESTIONAR` | RF-06 | N |
 | CU-20 | Consultar misión asignada | Bombero / Paramédico | `DESPACHO/CONSULTAR` | RF-09 | C |
 | CU-21 | Consultar auditoría | Administrador, Coordinador | `AUDITORIA/CONSULTAR` | RF-12 | C |
-| CU-22 | Reportar incidente por QR | Ciudadano | Token firmado del QR | RF-08 | F |
+| CU-22 | Activar botón de pánico (reemplaza el reporte por QR, DT-12) | Ciudadano, Policía | Ninguno (sin sesión); `PANICO/VALIDAR` valida solo | RF-02, RF-09 | N |
 
 **Ajuste de permisos:** CU-12 (cerrar emergencia) exige `DESPACHO/GESTIONAR`, que solo tienen el Coordinador y el Administrador. Así el Operador registra, pero no cierra, emergencias. Coincide con los datos de `02_datos_iniciales.sql`.
 
@@ -376,6 +379,32 @@ flowchart LR
 
 **Clases:** `SimulationEngine` → `RoadConditionService` (con `TrafficProvider` / `SimulatedTrafficProvider`), `TrackingService` (con `VehiclePositionSource` / `VehicleMovementSimulator`).
 
+### CU-22 · Activar botón de pánico
+
+| Campo | Contenido |
+|---|---|
+| Actor | Ciudadano (sin cuenta) o Policía (con su sesión) |
+| Precondición | La ubicación del celular está dentro de la zona de la red vial cargada |
+| Postcondición | Queda un `REPORTE_PANICO`. Si la alerta se valida: hay una emergencia `REPORTADA` y, si hay una unidad disponible, despachada (`ASIGNADA`) con sus 3 rutas |
+
+**Flujo principal**
+1. La persona abre la página del botón en el celular y lo presiona. El navegador envía la ubicación, un identificador del dispositivo y, si la persona quiere, el tipo de emergencia y una descripción corta.
+2. El sistema guarda el reporte como `PENDIENTE` (RN-13).
+3. El sistema busca reportes `PENDIENTE` de **otros dispositivos** a menos de **300 m** en los últimos **10 minutos** (RN-14).
+4. Si con el nuevo son 3 o más, la alerta queda **validada**: el sistema crea una emergencia `REPORTADA` en el punto medio de los reportes, con severidad `ALTA`, a nombre del usuario del sistema, y marca esos reportes `VALIDADO` (RN-15).
+5. El sistema despacha sola la unidad disponible más rápida (como en CU-09, con sus 3 rutas) y avisa a los coordinadores con una alerta.
+6. La página le confirma a la persona que la ayuda va en camino, o que su reporte espera a otros.
+
+**Flujos alternativos**
+- 1a. Quien reporta tiene sesión con `PANICO/VALIDAR` (Policía): su reporte valida la alerta solo, sin esperar a otros (paso 4 directo).
+- 2a. El dispositivo ya envió 3 reportes en 10 minutos: se rechaza con un mensaje (RN-13).
+- 3a. No hay suficientes reportes: el reporte queda `PENDIENTE`; si en 10 minutos nadie más reporta cerca, pasa a `VENCIDO`.
+- 5a. No hay unidades disponibles: la emergencia queda `REPORTADA` y la alerta a los coordinadores lo dice; el despacho se hace a mano (CU-09).
+- 4a. Ya hay una alerta validada y abierta a menos de 300 m en los últimos 10 minutos: el reporte se une a esa emergencia (`VALIDADO`) y no se crea otra ni se despacha otra unidad.
+- 7a. Un coordinador ve que una alerta pendiente es falsa: la descarta y sus reportes cercanos pasan a `DESCARTADO`. Si la alerta ya se validó, cancela la misión (CU-10) y cierra la emergencia como falsa alarma (CU-12).
+
+**Clases:** `PanicService` (S11) → `PanicReportDAO`, `EmergencyService`, `DispatchService`, `AlertService`. Tabla `REPORTE_PANICO` de `07_boton_panico.sql`.
+
 ---
 
 ## 5. Reglas de negocio
@@ -394,8 +423,11 @@ flowchart LR
 | RN-10 | El hospital de traslado debe estar operativo y tener el servicio requerido; se elige por menor ETA con penalización por baja disponibilidad | `HospitalService` |
 | RN-11 | Los datos simulados se marcan `SIMULACION` y nunca se presentan como reales; el historial se guarda por lotes | Enums `TrafficSource`, `PositionSource` |
 | RN-12 | Toda operación que modifica datos y todo inicio de sesión se audita | `AuditService` |
+| RN-13 | Un reporte de pánico entra `PENDIENTE`. Cada dispositivo puede enviar como máximo 3 reportes cada 10 minutos, y la página nunca guarda el identificador real del dispositivo (solo su hash SHA-256) | `PanicService` + `REPORTE_PANICO` |
+| RN-14 | Una alerta de pánico se valida con 3 reportes `PENDIENTE` de dispositivos distintos a menos de 300 m entre sí en los últimos 10 minutos, o con 1 reporte de un usuario con `PANICO/VALIDAR` (Policía) | `PanicService` |
+| RN-15 | Una alerta validada crea una emergencia `REPORTADA` (severidad `ALTA`, usuario del sistema) y despacha sola la unidad disponible más rápida. Los reportes que la validaron quedan `VALIDADO` y ligados a esa emergencia, igual que los que llegan después cerca de ella mientras esté abierta; los `PENDIENTE` de más de 10 minutos pasan a `VENCIDO` | `PanicService` + CHECK `ck_reporte_panico_validado` |
 
-Los valores de RN-08 y RN-09 (80 %, 1,5×, 15 %, 30 s) son **parámetros iniciales a calibrar** con pruebas, no datos medidos.
+Los valores de RN-08, RN-09 y RN-14 (80 %, 1,5×, 15 %, 30 s, 3 reportes, 300 m, 10 min) son **parámetros iniciales a calibrar** con pruebas, no datos medidos.
 
 ---
 
@@ -404,13 +436,13 @@ Los valores de RN-08 y RN-09 (80 %, 1,5×, 15 %, 30 s) son **parámetros inicial
 | Requerimiento | Casos de uso |
 |---|---|
 | RF-01 Autenticación | CU-01, CU-02, CU-03 |
-| RF-02 Emergencias | CU-06, CU-07, CU-12, CU-15 |
+| RF-02 Emergencias | CU-06, CU-07, CU-12, CU-15, CU-22 |
 | RF-03 Unidades | CU-04, CU-09 |
 | RF-04 Hospitales | CU-05, CU-11 |
 | RF-05 Rutas | CU-08, CU-17 |
 | RF-06 Tráfico | CU-08, CU-18, CU-19 |
 | RF-07 Semáforos | CU-08, CU-18 |
-| RF-08 Incidentes | CU-13, CU-14, CU-22 |
+| RF-08 Incidentes | CU-13, CU-14 |
 | RF-09 Seguimiento | CU-09, CU-10, CU-18, CU-20 |
 | RF-10 Alertas | CU-17 (y alertas de disponibilidad) |
 | RF-11 Reportes | CU-16 |

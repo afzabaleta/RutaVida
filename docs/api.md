@@ -619,10 +619,10 @@ sequenceDiagram
 
 ## 13. Fuera de este contrato
 
-- **Botón de pánico, rol Policía y patrullas de policía simuladas** (DT-10): tienen sus propias rutas, que se agregan a este documento en su tarea. La ruta del botón será la única sin sesión.
+- **Botón de pánico**: su contrato está en la sección 16 (DT-12); las rutas se programan cuando esté su servicio (S11). **Patrullas de policía simuladas** (DT-10): llegan por `/api/tracking` como cualquier unidad, con `vehicleType` = `"POLICIA"`.
 - **Auditoría** (CU-21): consultar la tabla `AUDITORIA` con filtros. Se agrega en su tarea. La administración de usuarios, unidades, estaciones y hospitales ya está en la sección 15.
 - **Servicios de cada hospital** (`SERVICIO_HOSPITAL`, CU-05): se agregan con el traslado al hospital (K7b), que los necesita para elegir el destino.
-- **Reporte ciudadano por QR** (CU-22): fuera del alcance de la primera versión.
+- **Reporte ciudadano por QR**: reemplazado por el botón de pánico (DT-12).
 
 ## 14. Notas para quien implementa (A12)
 
@@ -727,3 +727,56 @@ Crea o edita un hospital (DTO `HospitalRequest`):
 ### 15.12 `PATCH /api/hospitals/{id}/status`
 
 `{ "status": "I" }` o `{ "status": "A" }`. Un hospital inactivo deja de aparecer como destino de traslado. Salida `200`: el hospital.
+
+## 16. Botón de pánico (CU-22, DT-12)
+
+**Estado:** contrato acordado; la tabla y el DAO ya existen (A20). Las rutas se programan cuando esté `PanicService` (S11). Reglas: `docs/analysis.md`, CU-22 y RN-13 a RN-15.
+
+| # | Método | URL | Permiso |
+|---|---|---|---|
+| 46 | `POST` | `/api/panic` | **Ninguno** (la única ruta pública además del login). Con sesión, se usa el usuario |
+| 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` |
+| 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` |
+
+### 16.1 `POST /api/panic`
+
+La página del botón (D9) la llama al presionarlo. Sin token funciona como ciudadano anónimo; con el token de un usuario con `PANICO/VALIDAR` (Policía), su reporte valida la alerta solo.
+
+```json
+{ "deviceId": "8f1c2b0e-5d7a-4c61-9a0e-3f0b2f7c9d11",
+  "location": { "latitude": 10.467172, "longitude": -73.265099 },
+  "emergencyTypeId": 1, "description": "Hay una persona herida" }
+```
+
+- `deviceId`: un UUID que la página genera la primera vez y guarda en el navegador. El servidor guarda solo su hash SHA-256 (RN-13).
+- `emergencyTypeId` y `description` (máximo 200 caracteres) son opcionales.
+
+Salida `201`:
+
+```json
+{ "success": true, "message": "Su alerta fue validada: la ayuda va en camino.", "value": {
+  "reportId": 41, "status": "VALIDADO", "emergencyId": 77, "dispatchedUnit": "EJEMPLO-AMB-01",
+  "reportsNearby": 3, "reportsNeeded": 3 } }
+```
+
+Si todavía no se valida: `"status": "PENDIENTE"`, `"emergencyId": null`, `"dispatchedUnit": null` y el mensaje "Su reporte quedó registrado. Esperamos la confirmación de otras personas cercanas.".
+
+Si se valida pero no hay unidad disponible: `"dispatchedUnit": null` y el mensaje "Su alerta fue validada. Un coordinador enviará una unidad.". Si ya hay una alerta validada y abierta a menos de 300 m (10 minutos), el reporte se une a ella: `"status": "VALIDADO"`, su `emergencyId` y `"dispatchedUnit": null` (no se manda otra unidad).
+
+Errores: `400` si falta la ubicación o el `deviceId`, o la ubicación está fuera de la zona de la red vial; `409` si el dispositivo ya envió 3 reportes en 10 minutos ("Ya envió varios reportes. Si la emergencia sigue, llame al 123.").
+
+### 16.2 `GET /api/panic/reports`
+
+Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del panel. Con `?status=PENDIENTE` solo los de ese estado. **Nunca** devuelve el hash del dispositivo:
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 41, "location": { "latitude": 10.467172, "longitude": -73.265099 },
+    "reportedAt": "2026-11-20T09:31:10", "byPolice": false, "emergencyTypeId": 1,
+    "description": "Hay una persona herida", "status": "VALIDADO", "emergencyId": 77 }
+] }
+```
+
+### 16.3 `PATCH /api/panic/reports/{id}/status`
+
+`{ "status": "DESCARTADO" }`: un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).

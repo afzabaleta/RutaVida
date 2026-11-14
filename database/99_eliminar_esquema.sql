@@ -6,7 +6,7 @@
 -- =====================================================================
 BEGIN
     FOR t IN (SELECT column_value AS nombre FROM TABLE(sys.odcivarchar2list(
-                'AUDITORIA', 'NOTIFICACION', 'ALERTA', 'UBICACION_VEHICULO',
+                'REPORTE_PANICO', 'AUDITORIA', 'NOTIFICACION', 'ALERTA', 'UBICACION_VEHICULO',
                 'ASIGNACION_EMERGENCIA', 'RUTA_TRAMO', 'RUTA', 'INCIDENTE_VIAL',
                 'TRAFICO', 'SEMAFORO', 'TRAMO_VIAL', 'NODO_VIAL', 'EMERGENCIA',
                 'TIPO_EMERGENCIA', 'SERVICIO_HOSPITAL', 'HOSPITAL',
@@ -27,7 +27,7 @@ BEGIN
                 'SEQ_NODO_VIAL', 'SEQ_TRAMO_VIAL', 'SEQ_SEMAFORO', 'SEQ_TRAFICO',
                 'SEQ_INCIDENTE_VIAL', 'SEQ_RUTA', 'SEQ_ASIGNACION_EMERGENCIA',
                 'SEQ_UBICACION_VEHICULO', 'SEQ_ALERTA', 'SEQ_NOTIFICACION',
-                'SEQ_AUDITORIA'))) LOOP
+                'SEQ_AUDITORIA', 'SEQ_REPORTE_PANICO'))) LOOP
         BEGIN
             EXECUTE IMMEDIATE 'DROP SEQUENCE ' || s.nombre;
         EXCEPTION

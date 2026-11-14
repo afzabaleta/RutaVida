@@ -294,6 +294,17 @@ classDiagram
         -headingDegrees : Double
         -source : PositionSource
     }
+    class PanicReport {
+        -id : Long
+        -location : GeoPoint
+        -reportedAt : LocalDateTime
+        -deviceId : String
+        -userId : Long
+        -emergencyTypeId : Long
+        -description : String
+        -status : PanicReportStatus
+        -emergencyId : Long
+    }
     class User
     class RoadSegment
 
@@ -311,6 +322,9 @@ classDiagram
     Route "1" *-- "1..*" RouteSegment : ordered path
     RouteSegment "0..*" --> "1" RoadSegment : crosses
     VehicleLocation "0..*" --> "1" EmergencyVehicle : position of
+    PanicReport "0..*" --> "0..1" User : sent by (police)
+    PanicReport "0..*" --> "0..1" EmergencyType : classified as
+    PanicReport "1..*" --> "0..1" Emergency : validated into
 ```
 
 ### 1.4 Red vial y tráfico
@@ -392,7 +406,7 @@ classDiagram
 
 ## 2. Capa Model — enumeraciones
 
-Las 19 enumeraciones implementan `CodedEnum`: la constante va en inglés y `code()` devuelve el valor que guarda Oracle (por ejemplo, `EN_ROUTE` → `"EN_RUTA"`). `EnumSqlContractTest` comprueba que coincidan con los CHECK de la base de datos.
+Las 20 enumeraciones implementan `CodedEnum`: la constante va en inglés y `code()` devuelve el valor que guarda Oracle (por ejemplo, `EN_ROUTE` → `"EN_RUTA"`). `EnumSqlContractTest` comprueba que coincidan con los CHECK de la base de datos.
 
 Las enumeraciones solo nombran valores. Las reglas sobre ellos están en los servicios:
 
@@ -453,7 +467,15 @@ classDiagram
     CodedEnum <|.. EmergencyStatus
     CodedEnum <|.. AssignmentStatus
     CodedEnum <|.. IncidentStatus
+    class PanicReportStatus {
+        <<enumeration>>
+        PENDING
+        VALIDATED
+        DISCARDED
+        EXPIRED
+    }
     CodedEnum <|.. VehicleOperationalStatus
+    CodedEnum <|.. PanicReportStatus
 ```
 
 ### 2.2 Catálogos
@@ -652,12 +674,24 @@ classDiagram
         +findByEmergency(emergencyId: long) List~EmergencyAssignment~
         +update(assignment: EmergencyAssignment) void
     }
+    class PanicReportDAO {
+        <<interface>>
+        +insert(report: PanicReport) long
+        +findById(id: long) Optional~PanicReport~
+        +findPendingSince(since: LocalDateTime) List~PanicReport~
+        +findSince(since: LocalDateTime) List~PanicReport~
+        +countByDeviceSince(deviceId: String, since: LocalDateTime) int
+        +markValidated(ids: Collection~Long~, emergencyId: long) void
+        +updateStatus(id: long, status: PanicReportStatus) void
+        +expirePendingBefore(before: LocalDateTime) int
+    }
     class User
     class Role
     class AuditLog
     class EmergencyType
     class Emergency
     class EmergencyAssignment
+    class PanicReport
 
     UserDAO ..> User
     RoleDAO ..> Role
@@ -665,6 +699,7 @@ classDiagram
     EmergencyTypeDAO ..> EmergencyType
     EmergencyDAO ..> Emergency
     EmergencyAssignmentDAO ..> EmergencyAssignment
+    PanicReportDAO ..> PanicReport
 ```
 
 ### 3.2 Flota y hospitales
@@ -938,6 +973,7 @@ classDiagram
     class JdbcNotificationDAO
     class JdbcDashboardDAO
     class JdbcRoadMapDAO
+    class JdbcPanicReportDAO
 
     AbstractJdbcDAO <|-- JdbcUserDAO
     AbstractJdbcDAO <|-- JdbcRoleDAO
@@ -961,9 +997,10 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcNotificationDAO
     AbstractJdbcDAO <|-- JdbcDashboardDAO
     AbstractJdbcDAO <|-- JdbcRoadMapDAO
+    AbstractJdbcDAO <|-- JdbcPanicReportDAO
 ```
 
-Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 21 flechas de realización no se dibujan para que el diagrama se pueda leer.
+Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 22 flechas de realización no se dibujan para que el diagrama se pueda leer.
 
 ---
 
@@ -2335,7 +2372,7 @@ classDiagram
 
 | Clase o grupo | Paquete | Estado |
 |---|---|---|
-| `CodedEnum` y las 19 enumeraciones | `model.enums` | **Programado y probado** |
+| `CodedEnum` y las 20 enumeraciones | `model.enums` | **Programado y probado** |
 | `TransactionManager`, `ConnectionFactory`, `JdbcTransactionManager` | `dao`, `dao.jdbc` | **Programado y probado** |
 | `RutaVidaException`, `ValidationException`, `NotFoundException`, `BusinessRuleException`, `DataAccessException` | `exception` | **Programado** |
 | `DatabaseConnection`, `AppContext`, `DatabaseCheck` | `util`, `app` | **Programado y probado** contra Oracle XE 18c |
@@ -2354,6 +2391,7 @@ classDiagram
 | `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
 | `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) |
 | `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y `updateService` siguen diseñados |
+| `PanicReport`, `PanicReportStatus`, `PanicReportDAO`, `JdbcPanicReportDAO` | `model`, `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A20, botón de pánico, DT-12). `PanicService` (S11) y sus rutas (A20b) pendientes |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |

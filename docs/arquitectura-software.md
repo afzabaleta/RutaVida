@@ -209,7 +209,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Componente | Estado |
 |---|---|
 | 15 paquetes con `package-info.java` | Programado |
-| 19 enums de estados y catálogos alineados con los CHECK de Oracle | Programado y probado (`EnumSqlContractTest`) |
+| 20 enums de estados y catálogos alineados con los CHECK de Oracle | Programado y probado (`EnumSqlContractTest`) |
 | Excepciones (`RutaVidaException` y 5 subclases) | Programado |
 | `TransactionManager`, `JdbcTransactionManager`, `ConnectionFactory` | Programado y probado |
 | `AppContext` (composition root) | Programado; se completa a medida que aparecen DAOs y servicios |
