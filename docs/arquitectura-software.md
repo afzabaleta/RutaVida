@@ -234,6 +234,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
 | Indicadores del panel desde Oracle e incidentes viales en el mapa: validar, rechazar y cerrar (D6) | Programado; pruebas de integración pendientes |
+| Página de despacho conectada a la API (D6b): unidades por tiempo de llegada, 3 rutas con su explicación, despacho, estado de la misión y cierre de la emergencia | Programado; pruebas de integración pendientes |
 | API de despacho: unidades candidatas, vista previa, despachar, rutas de la misión y avance (`/api/dispatches`, A12d) | Programado y probado |
 | Seguimiento en la API (`/api/tracking`, A12e) | **Pendiente** |
 | Cerrar la emergencia (CU-12) con `sp_cerrar_emergencia` y `POST /api/emergencies/{id}/close` (A16) | Programado y probado |
