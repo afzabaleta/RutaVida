@@ -21,6 +21,7 @@ import co.edu.unicesar.rutavida.model.Role;
 import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.VehicleType;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.service.TrackingTestSupport;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
@@ -142,7 +143,7 @@ class AdminApiTest {
 
         server = new ApiServer(new WebSessionController(auth, session, CLOCK),
                 new CatalogController(new CatalogTestSupport().service()), emergencies, dashboard, incidents,
-                roadMap, alerts, dispatch, admin, null);
+                roadMap, alerts, dispatch, admin, new TrackingTestSupport().controller(auth, session), null);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
