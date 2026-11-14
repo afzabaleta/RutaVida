@@ -158,6 +158,50 @@ Para comprobar la conexión entre el frontend, el backend y Oracle, realiza esta
 
 Para revisar posibles errores, abre las herramientas del navegador con `F12` y consulta la pestaña **Console** y la pestaña **Network**.
 
+## 6.1. Despacho real de emergencias (D8)
+
+La página `despacho.html` integra el despacho real con el backend y Oracle. A diferencia de las rutas de demostración del panel principal, las rutas de despacho se calculan en el servidor utilizando la red vial.
+
+### Funcionalidades
+
+- Consultar las unidades candidatas para una emergencia, ordenadas por tiempo estimado de llegada.
+- Seleccionar una unidad y solicitar hasta tres rutas alternativas.
+- Visualizar las rutas calculadas sobre el mapa mediante `dispatch-routes.js`.
+- Despachar una unidad y registrar la asignación en Oracle.
+- Consultar la misión existente al recargar la página.
+- Consultar las rutas asociadas a una misión.
+- Actualizar el estado de la misión a `EN_RUTA` o `EN_SITIO`.
+- Cancelar una misión cuando corresponda.
+- Cerrar una emergencia mediante confirmación.
+- Mostrar errores del servidor, incluidos los conflictos HTTP 409.
+- Adaptar la interfaz a pantallas de escritorio y celulares.
+
+### Endpoints utilizados
+
+| Operación | Endpoint |
+|---|---|
+| Unidades candidatas | `GET /api/emergencies/{id}/candidates` |
+| Vista previa de rutas | `POST /api/routes/preview` |
+| Registrar despacho | `POST /api/dispatches` |
+| Historial de emergencia | `GET /api/emergencies/{id}/history` |
+| Rutas de la misión | `GET /api/dispatches/{id}/routes` |
+| Actualizar estado de misión | `PATCH /api/dispatches/{id}/status` |
+| Cerrar emergencia | `POST /api/emergencies/{id}/close` |
+
+### Reglas de integración
+
+- `api-client.js` centraliza las solicitudes HTTP.
+- `despacho.js` controla la interacción y los estados de la página.
+- `dispatch-routes.js` representa las rutas recibidas del servidor.
+- El navegador no calcula rutas ni tiempos de llegada por su cuenta.
+- Las operaciones están protegidas mediante los permisos correspondientes, como `DESPACHO:GESTIONAR` y `RUTAS:GESTIONAR`.
+- La página de despacho no realiza consultas automáticas periódicas.
+- Las unidades `EJEMPLO-` continúan identificándose como datos de demostración cuando aparecen.
+
+### Verificación de D8
+
+Se realizaron pruebas funcionales desde `http://localhost:8080`, comprobando la visualización de unidades y rutas, el despacho de una unidad, las transiciones `EN_RUTA` y `EN_SITIO`, el cierre o cancelación, la adaptación a pantallas móviles y la ausencia de errores en la consola del navegador.
+
 ## 7. Detener la aplicación
 
 Cuando termines las pruebas:

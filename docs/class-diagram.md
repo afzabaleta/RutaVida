@@ -1011,7 +1011,7 @@ Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la secció
 Cada servicio agrupa las reglas de un área del negocio (*High Cohesion*) y recibe sus dependencias por constructor. Es el único lugar donde viven las reglas: el modelo solo guarda datos y el DAO solo los lee y escribe.
 
 
-Los casos de uso con DAO de emergencias (`register`, S6), incidentes (`report`, `changeStatus`, S7) y despacho (`candidates`, `preview`, `dispatch`, `advance`, K7) ya están programados; el traslado al hospital, el cierre y el despacho óptimo siguen **diseñados** (ver sección 9).
+Los casos de uso con DAO de emergencias (`register`, S6), incidentes (`report`, `changeStatus`, S7) y despacho (`candidates`, `preview`, `dispatch`, `advance`, K7) ya están programados; el traslado al hospital y el despacho óptimo siguen **diseñados**; el cierre de emergencias (CU-12) está programado y probado en A16 (ver sección 9).
 
 
 ```mermaid
@@ -2401,14 +2401,14 @@ classDiagram
 | `DashboardDAO`, `JdbcDashboardDAO`, `DashboardService`, `DashboardSummary`, `DashboardController`, `AppContext.dashboardController()` y `GET /api/dashboard/summary` | `dao`, `dao.jdbc`, `service`, `dto`, `controller`, `app`, `api` | **Programado y probado** (A14): una consulta sobre las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` con 3 pruebas de integración contra Oracle XE 18c; servicio, controlador y ruta probados sin Oracle |
 | `SegmentView`, `IncidentView`, `RoadMapDAO`, `JdbcRoadMapDAO`, `RoadMapService`, `RoadMapController`, `IncidentStatusRequest`, `AppContext.incidentController()`/`roadMapController()` y las rutas `/api/incidents` | `dto`, `dao`, `dao.jdbc`, `service`, `controller`, `app`, `api` | **Programado y probado** (A12c): `IncidentController` (S7) publicado en la API, con el tramo de cada incidente para el mapa; `JdbcRoadMapDAO`, contra Oracle XE 18c. Aplicar el incidente al grafo es de K8 y K9 |
 | `AppContext.alertService()`/`alertController()`, `ApiServer.authenticated` y las rutas `/api/alerts` | `app`, `api` | **Programado y probado** (A12f): `AlertController` (S8) publicado en la API con solo la sesión, sin permiso; `GET` no mantiene viva la sesión (DT-08). Las alertas las crean K7, K8 y K9 con `alertService()` |
-| `MissionRoute`, `DispatchedMission`, `RoadMapService.describeRoutes`/`describeDispatch`, `RoadMapController.routesOnMap`/`dispatchOnMap`, `DispatchRequest`, `AssignmentStatusRequest` y las rutas de despacho (`/api/emergencies/{id}/candidates`, `/api/routes/preview`, `/api/dispatches`) | `dto`, `service`, `controller`, `api`, `app` | **Programado y probado** (A12d): `DispatchController` (K7) publicado en la API, con la línea de cada ruta guardada para el mapa; sin Oracle. `WebServer` carga la red vial al arrancar. El traslado (K7b) y el cierre (CU-12) siguen pendientes |
+| `MissionRoute`, `DispatchedMission`, `RoadMapService.describeRoutes`/`describeDispatch`, `RoadMapController.routesOnMap`/`dispatchOnMap`, `DispatchRequest`, `AssignmentStatusRequest` y las rutas de despacho (`/api/emergencies/{id}/candidates`, `/api/routes/preview`, `/api/dispatches`) | `dto`, `service`, `controller`, `api`, `app` | **Programado y probado** (A12d): `DispatchController` (K7) publicado en la API, con la línea de cada ruta guardada para el mapa; sin Oracle. `WebServer` carga la red vial al arrancar. El traslado al hospital (K7b) sigue pendiente; el cierre (CU-12) fue implementado en A16 |
 | Cerrar emergencia (CU-12): `EmergencyDAO.close` y `JdbcEmergencyDAO.close` (con `sp_cerrar_emergencia`), `DispatchService.closeEmergency`, `DispatchController.close` y `POST /api/emergencies/{id}/close` | `dao`, `dao.jdbc`, `service`, `controller`, `api` | **Programado y probado** (A16): reglas, auditoría y ruta sin Oracle; `JdbcEmergencyDAO.close` contra Oracle XE 18c. Reemplaza a `closeEmergency`/`close` de la fila de K7 |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | `RouteService` y `AppContext.routeService()` | `service`, `app` | **Programado y probado** (K6) con un grafo de prueba, sin Oracle. Guarda las rutas con `RouteDAO` (A6) |
-| Despacho: `DispatchService` (`candidates`, `preview`, `dispatch`, `advance`, `missionRoutes`, `suits`), `DispatchController`, `UnitCandidate`, `DispatchResult`, `AppContext.dispatchController()` | `service`, `controller`, `dto`, `app` | **Programado y probado** (K7) con DAO falsos y una red de prueba, sin Oracle. `startTransfer`, `rankHospitals` (K7b), `closeEmergency`/`close` (CU-12) y `dispatchOptimal` siguen diseñados |
+| Despacho: `DispatchService` (`candidates`, `preview`, `dispatch`, `advance`, `missionRoutes`, `suits`), `DispatchController`, `UnitCandidate`, `DispatchResult`, `AppContext.dispatchController()` | `service`, `controller`, `dto`, `app` | **Programado y probado** (K7) con DAO falsos y una red de prueba, sin Oracle. `startTransfer`, `rankHospitals` (K7b), `dispatchOptimal` siguen diseñados; `closeEmergency`/`close` (CU-12) están programados y probados en A16 |
 | Recálculo de rutas: `RoadConditionService` (`syncIncidents`, `applyTraffic`), `RouteMonitor` y `RouteService.remainingSeconds`/`destinationOf` | `service` | **Programado y probado** (K8) con DAO falsos y una red de prueba, sin Oracle. Se conecta en `AppContext` y lo llama el ciclo de la simulación en K9 |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. Se conecta en `AppContext` y en `GET /api/tracking` en A12e; `SimulationEngine` lo llama en cada ciclo (K9) |
@@ -2418,7 +2418,7 @@ classDiagram
 | Demás controladores | `controller` | Diseñado |
 | `ApiServer`, `ApiStatus`, `ApiResponse`, `LoginRequest`, `JsonMapperFactory`, `WebServer`, `WebSessionController`, `CatalogController`, `CatalogService`, `LoginResponse`, `SessionUser`, `ErrorKind`, `SessionRequiredException` y los cambios de `SessionContext` y `OperationResult` | `api`, `app`, `controller`, `service`, `dto`, `exception` | **Programado y probado** (A12a): sesión con token, permisos por ruta, errores en JSON y `GET /api/emergency-types` |
 | Rutas de emergencias (`/api/emergencies`, `/{id}`, `/{id}/history`) y de recursos (`/api/vehicle-types`, `/api/units`, `/api/stations`, `/api/hospitals`); `ApiServer.pathId`; métodos nuevos de `CatalogService` y `CatalogController` | `api`, `controller`, `service`, `app` | **Programado y probado** (A12b) sin Oracle. Despacho, rutas, seguimiento y simulación llegan con K7 |
-| Vista web | `frontend/` | **Programada (D5b, D5c y D6); pruebas de integración de D6 pendientes**. Inicio de sesión, registro de emergencias y panel principal conectados a la API REST. El panel consulta emergencias, unidades, hospitales y estaciones desde Oracle, muestra los indicadores de `GET /api/dashboard/summary` y dibuja los incidentes viales sobre su tramo, con validar, rechazar y cerrar (`incident-panel.js`). Las unidades de demostración se identifican como `EJEMPLO`. Las rutas del mapa siguen siendo demostrativas (D4); el despacho real depende de K7. |
+| Vista web | `frontend/` | **Programada (D5b, D5c y D6); pruebas de integración de D6 pendientes**. Inicio de sesión, registro de emergencias y panel principal conectados a la API REST. El panel consulta emergencias, unidades, hospitales y estaciones desde Oracle, muestra los indicadores de `GET /api/dashboard/summary` y dibuja los incidentes viales sobre su tramo, con validar, rechazar y cerrar (`incident-panel.js`). Las unidades de demostración se identifican como `EJEMPLO`. Las rutas del mapa siguen siendo demostrativas (D4); el despacho real está conectado a la API REST en D8, con unidades candidatas, hasta tres rutas, asignación, seguimiento de misión y cierre de emergencias. |
 | `IncidentService`, `IncidentRequest`, `IncidentController`, `RoadSegmentDAO.findById` | `service`, `dto`, `controller`, `dao` | **Programado y probado (S7)** con DAO falsos; `findById`, contra Oracle. Aplicar el incidente al grafo y recalcular rutas corresponde a K7 |
 | `Alert`, `AlertDAO`, `JdbcAlertDAO`, `AlertService`, `AlertController` | `model`, `dao`, `dao.jdbc`, `service`, `controller` | **Programado y probado** (S8): servicio y controlador con DAO falsos; `JdbcAlertDAO`, contra Oracle. Se conecta en `AppContext` y en `/api/alerts` en A12f; K7, K8 y K9 llaman al servicio. `Notification` y `NotificationDAO` siguen diseñados |
 | `UserService`, `UserController`, `UserRequest`, `UserView`, `HospitalService`, `HospitalController`, `HospitalRequest` | `service`, `controller`, `dto` | **Programado y probado** (S9) con DAO falsos: crear, listar, desactivar y activar usuarios, y cambiar la propia contraseña (CU-03); registrar, editar, activar y desactivar hospitales (CU-05). Falta conectarlos en `AppContext` y en la API (Andrés). `HospitalService.rankForTransfer` (K7b), `updateServiceAvailability` y `HospitalController.updateService` siguen diseñados |
@@ -2426,3 +2426,52 @@ classDiagram
 
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
+
+## D8. Integración de la página de despacho real
+
+D8 conecta la interfaz web de despacho con los servicios existentes del backend. No introduce nuevas entidades de Oracle ni traslada las reglas de negocio al navegador.
+
+```mermaid
+flowchart TB
+    UI["despacho.html / despacho.js"]
+    API["api-client.js"]
+    MAP["dispatch-routes.js / Leaflet"]
+    SERVER["ApiServer"]
+    DC["DispatchController"]
+    EC["EmergencyController"]
+    DS["DispatchService"]
+    ES["EmergencyService"]
+    RS["RouteService"]
+    DAO["DAO JDBC"]
+    DB[("Oracle XE")]
+
+    UI --> API
+    UI --> MAP
+    API --> SERVER
+    SERVER --> DC
+    SERVER --> EC
+    DC --> DS
+    EC --> ES
+    DS --> RS
+    DS --> DAO
+    ES --> DAO
+    RS --> DAO
+    DAO --> DB
+```
+
+### Responsabilidades
+
+- `despacho.js`: controla la selección de unidades, vista previa, despacho, estados y cierre.
+- `api-client.js`: centraliza las peticiones HTTP y los errores de la API.
+- `dispatch-routes.js`: representa en Leaflet las geometrías recibidas del servidor.
+- `ApiServer`: publica las rutas REST y aplica los controles de acceso.
+- `DispatchController` y `DispatchService`: gestionan candidatos, rutas de despacho, asignaciones y cambios de estado.
+- `EmergencyController` y `EmergencyService`: permiten consultar la emergencia y su historial.
+- `RouteService`: calcula las rutas sobre la red vial.
+- Los DAO JDBC persisten y consultan la información en Oracle.
+
+La página web no calcula tiempos de llegada ni rutas. Las operaciones de despacho y rutas respetan los permisos de la API.
+
+### Estado de implementación
+
+La interfaz de despacho real quedó integrada en D8 y se comprobaron unidades candidatas, hasta tres rutas, asignación, cambios a `EN_RUTA` y `EN_SITIO`, cierre o cancelación, presentación móvil y consola del navegador.
