@@ -209,7 +209,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Componente | Estado |
 |---|---|
 | 15 paquetes con `package-info.java` | Programado |
-| 19 enums de estados y catálogos alineados con los CHECK de Oracle | Programado y probado (`EnumSqlContractTest`) |
+| 20 enums de estados y catálogos alineados con los CHECK de Oracle | Programado y probado (`EnumSqlContractTest`) |
 | Excepciones (`RutaVidaException` y 5 subclases) | Programado |
 | `TransactionManager`, `JdbcTransactionManager`, `ConnectionFactory` | Programado y probado |
 | `AppContext` (composition root) | Programado; se completa a medida que aparecen DAOs y servicios |
@@ -223,8 +223,8 @@ Ejemplo: *consultar los hospitales operativos*.
 | `LoginController`, `SessionContext` | Programado y probado |
 | Casos de uso con DAO de emergencias (`register`, S6) y de despacho (`candidates`, `preview`, `dispatch`, `advance`, K7), y `RouteService` (K6) | Programado y probado (sin Oracle) |
 | Recálculo de rutas con tráfico e incidentes (`RoadConditionService`, `RouteMonitor`, K8) | Programado y probado (sin Oracle) |
-| Traslado al hospital (K7b) y cierre de la emergencia (CU-12) | **Pendiente** |
-| DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones | **Pendiente** (Sprint 3) |
+| Traslado al hospital (K7b) y servicios de cada hospital (`SERVICIO_HOSPITAL`) | **Pendiente** |
+| DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones (A7c, S9, S10) | Programado y probado |
 | Movimiento simulado de las unidades y seguimiento (`VehicleMovementSimulator`, `TrackingService`, A13) | Programado y probado |
 | Motor de la simulación y escenarios (`SimulationEngine`, K9) | **Pendiente** |
 | Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
@@ -237,8 +237,9 @@ Ejemplo: *consultar los hospitales operativos*.
 | API de despacho: unidades candidatas, vista previa, despachar, rutas de la misión y avance (`/api/dispatches`, A12d) | Programado y probado |
 | Seguimiento en la API (`/api/tracking`, A12e) | **Pendiente** |
 | Cerrar la emergencia (CU-12) con `sp_cerrar_emergencia` y `POST /api/emergencies/{id}/close` (A16) | Programado y probado |
-| Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado; falta la API |
-| Unidades y estaciones (CU-04) en servicio y controlador, con alerta al cambiar la disponibilidad (S10) | Programado y probado; falta la API |
+| Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado |
+| Unidades y estaciones (CU-04) en servicio y controlador, con alerta al cambiar la disponibilidad (S10) | Programado y probado |
+| API de administración: usuarios y roles, cambio de la propia contraseña, unidades, estaciones y hospitales (`docs/api.md` 15, A17) | Programado y probado (sin Oracle); prueba con Oracle pendiente |
 
 
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.

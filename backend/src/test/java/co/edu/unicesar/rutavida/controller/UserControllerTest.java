@@ -112,4 +112,13 @@ class UserControllerTest {
                 wrong.message()
         );
     }
+
+    @Test
+    void theRolesNeedAPermissionToSeeUsers() {
+        session.start(support.sessionOf(ADMIN));
+        assertEquals(2, controller.roles().value().size());
+
+        session.start(support.sessionOf(OPERATOR));
+        assertEquals(ErrorKind.PERMISSION, controller.roles().error());
+    }
 }

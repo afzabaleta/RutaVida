@@ -110,6 +110,20 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 29 | `GET` | `/api/dashboard/summary` | `REPORTES/CONSULTAR` | CU-16 |
 | 30 | `GET` | `/api/alerts` | Sesión | RF de alertas |
 | 31 | `PATCH` | `/api/alerts/{id}/read` | Sesión | RF de alertas |
+| 32 | `GET` | `/api/users` | `USUARIOS/CONSULTAR` | CU-03 |
+| 33 | `POST` | `/api/users` | `USUARIOS/GESTIONAR` | CU-03 |
+| 34 | `PATCH` | `/api/users/{id}/status` | `USUARIOS/GESTIONAR` | CU-03 |
+| 35 | `GET` | `/api/roles` | `USUARIOS/CONSULTAR` | CU-03 |
+| 36 | `POST` | `/api/auth/password` | Sesión | CU-03 |
+| 37 | `POST` | `/api/units` | `UNIDADES/GESTIONAR` | CU-04 |
+| 38 | `PUT` | `/api/units/{id}` | `UNIDADES/GESTIONAR` | CU-04 |
+| 39 | `PATCH` | `/api/units/{id}/status` | `UNIDADES/GESTIONAR` | CU-04 |
+| 40 | `POST` | `/api/stations` | `UNIDADES/GESTIONAR` | CU-04 |
+| 41 | `PUT` | `/api/stations/{id}` | `UNIDADES/GESTIONAR` | CU-04 |
+| 42 | `PATCH` | `/api/stations/{id}/status` | `UNIDADES/GESTIONAR` | CU-04 |
+| 43 | `POST` | `/api/hospitals` | `HOSPITALES/GESTIONAR` | CU-05 |
+| 44 | `PUT` | `/api/hospitals/{id}` | `HOSPITALES/GESTIONAR` | CU-05 |
+| 45 | `PATCH` | `/api/hospitals/{id}/status` | `HOSPITALES/GESTIONAR` | CU-05 |
 
 "Sesión" significa que basta con un token válido, sin un permiso específico.
 
@@ -385,6 +399,8 @@ Solo se cierra una emergencia `REPORTADA` (falsa alarma), `EN_SITIO` o `TRASLADA
 
 ## 7. Recursos: unidades, estaciones y hospitales
 
+Esta sección es para consultar. Crear, editar y activar o desactivar está en la sección 15 (administración, A17).
+
 ### 7.1 `GET /api/vehicle-types`
 
 ```json
@@ -603,9 +619,10 @@ sequenceDiagram
 
 ## 13. Fuera de este contrato
 
-- **Botón de pánico, rol Policía y patrullas de policía simuladas** (DT-10): tienen sus propias rutas, que se agregan a este documento en su tarea. La ruta del botón será la única sin sesión.
-- **Administración** (CU-03, CU-04, CU-05, CU-21): crear y editar usuarios, unidades, estaciones y hospitales, y consultar la auditoría. Los DAO ya tienen `insert` y `update`; las rutas se agregan cuando se programen esas pantallas.
-- **Reporte ciudadano por QR** (CU-22): fuera del alcance de la primera versión.
+- **Botón de pánico**: su contrato está en la sección 16 (DT-12); las rutas se programan cuando esté su servicio (S11). **Patrullas de policía simuladas** (DT-10): llegan por `/api/tracking` como cualquier unidad, con `vehicleType` = `"POLICIA"`.
+- **Auditoría** (CU-21): consultar la tabla `AUDITORIA` con filtros. Se agrega en su tarea. La administración de usuarios, unidades, estaciones y hospitales ya está en la sección 15.
+- **Servicios de cada hospital** (`SERVICIO_HOSPITAL`, CU-05): se agregan con el traslado al hospital (K7b), que los necesita para elegir el destino.
+- **Reporte ciudadano por QR**: reemplazado por el botón de pánico (DT-12).
 
 ## 14. Notas para quien implementa (A12)
 
@@ -613,3 +630,153 @@ sequenceDiagram
 - `User` nunca se serializa directo: el login devuelve un DTO sin `passwordHash`.
 - Cada ruta llama a un controlador y convierte su `OperationResult` en la respuesta. El código HTTP sale del tipo de error (sección 1.2), así que el controlador necesita entregar también el tipo, no solo el mensaje.
 - DTO nuevos que nombra este contrato: `LoginResponse`, `UnitCandidate`, `MissionRoute`, `HospitalOption`, `TrackingSnapshot`, `DashboardSummary`. Se agregan al diagrama de clases cuando se programen.
+
+## 15. Administración (A17)
+
+Rutas de las pantallas de administración: usuarios (CU-03), unidades y estaciones (CU-04) y hospitales (CU-05). Cada ruta revisa el permiso y el controlador lo vuelve a revisar. Toda operación que cambia datos queda en `AUDITORIA` con el usuario de la sesión. Las respuestas tienen la forma de la sección 1.1.
+
+### 15.1 `GET /api/users`
+
+Todos los usuarios, activos o no, ordenados por `username`. **Nunca** traen la contraseña ni su hash (DTO `UserView`):
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 3, "roleId": 2, "document": "PRUEBA0003", "firstNames": "Laura", "lastNames": "Prueba",
+    "email": "laura@ejemplo.com", "username": "laura.prueba", "status": "A",
+    "registeredAt": "2026-11-14T10:00:00" }
+] }
+```
+
+### 15.2 `POST /api/users`
+
+Crea un usuario. Entrada (DTO `UserRequest`):
+
+```json
+{ "roleId": 2, "document": "PRUEBA0003", "firstNames": "Laura", "lastNames": "Prueba",
+  "email": "laura@ejemplo.com", "username": "laura.prueba", "password": "Clave-Segura1" }
+```
+
+- La contraseña debe tener al menos 10 caracteres, con letras y números. Se guarda solo su hash PBKDF2 y el servidor borra el texto de la memoria.
+- El correo y el usuario se guardan en minúsculas.
+
+Salida `201`: el usuario creado (forma de 15.1). Errores: `400` si falta un dato o la contraseña no cumple las reglas; `404` si el rol no existe; `409` si el rol está inactivo o ya existe el documento, el correo o el usuario.
+
+### 15.3 `PATCH /api/users/{id}/status`
+
+`{ "status": "I" }` desactiva el usuario (ya no puede iniciar sesión) y `{ "status": "A" }` lo vuelve a activar. Salida `200`: el usuario. Errores: `400` si el estado no es `A` o `I`; `404` si no existe; `409` si un usuario intenta desactivarse a sí mismo, si se dejaría el sistema sin administradores activos o si ya tenía ese estado.
+
+### 15.4 `GET /api/roles`
+
+Los roles **activos**, por nombre, para el formulario de 15.2. Cada uno trae `id`, `name`, `description`, `status` y sus `permissions` (`module`, `action`).
+
+### 15.5 `POST /api/auth/password`
+
+El usuario de la sesión cambia **su propia** contraseña. Basta con la sesión: no pide un permiso.
+
+```json
+{ "currentPassword": "Clave-Segura1", "newPassword": "Clave-Nueva22" }
+```
+
+Salida `200` con `value` = `null`. Errores: `400` si la actual no es correcta, si la nueva no cumple las reglas de 15.2 o si es igual a la actual.
+
+### 15.6 `POST /api/units`
+
+Registra una unidad (DTO `VehicleRequest`). Queda `DISPONIBLE` en su estación:
+
+```json
+{ "vehicleTypeId": 1, "stationId": 2, "unitCode": "EJEMPLO-AMB-09", "plate": "EJM109" }
+```
+
+- El código se guarda en mayúsculas y no puede tener espacios. La placa es opcional.
+- Salida `201`: la unidad (forma de 7.2). Errores: `400` si un dato no es válido; `404` si el tipo o la estación no existen; `409` si la estación está inactiva o el código o la placa ya existen.
+
+### 15.7 `PUT /api/units/{id}`
+
+Edita el tipo, la estación, el código y la placa, con la misma entrada de 15.6. No cambia el estado ni la posición. Una unidad `OCUPADO` (en misión) no se edita hasta que termine (`409`). Salida `200`: la unidad.
+
+### 15.8 `PATCH /api/units/{id}/status`
+
+`{ "status": "MANTENIMIENTO" }`. Se puede poner `DISPONIBLE`, `MANTENIMIENTO` o `FUERA_SERVICIO`. **`OCUPADO` nunca se pone a mano**: lo pone el despacho y lo quita el cierre. Una unidad `OCUPADO` no se cambia aquí, y `DISPONIBLE` exige que su estación esté activa. Cada cambio de disponibilidad genera una alerta para los coordinadores. Salida `200`: la unidad. Errores: `400` si el estado no es válido; `409` si la regla no lo permite.
+
+### 15.9 `POST /api/stations` y `PUT /api/stations/{id}`
+
+Crea o edita una estación o base (DTO `StationRequest`):
+
+```json
+{ "name": "EJEMPLO - Base norte", "address": "Calle de EJEMPLO 2", "neighborhood": null, "phone": null,
+  "location": { "latitude": 10.4700, "longitude": -73.2500 } }
+```
+
+Salida `201` (crear) o `200` (editar): la estación (forma de 7.3). `409` si ya existe una estación con ese nombre.
+
+### 15.10 `PATCH /api/stations/{id}/status`
+
+`{ "status": "I" }` o `{ "status": "A" }`. Una estación con unidades `DISPONIBLE` u `OCUPADO` no se puede desactivar (`409`).
+
+### 15.11 `POST /api/hospitals` y `PUT /api/hospitals/{id}`
+
+Crea o edita un hospital (DTO `HospitalRequest`):
+
+```json
+{ "name": "Hospital de EJEMPLO", "level": "II", "address": "Calle de EJEMPLO 3", "phone": null,
+  "location": { "latitude": 10.4690, "longitude": -73.2540 }, "emergencyCapacity": 12 }
+```
+
+`level` es `"I"` a `"IV"`; `emergencyCapacity` puede ser `null` (dato no verificado). Salida `201` (crear) o `200` (editar): el hospital (forma de 7.4). Errores: `400` si un dato no es válido; `409` si ya existe un hospital con ese nombre.
+
+### 15.12 `PATCH /api/hospitals/{id}/status`
+
+`{ "status": "I" }` o `{ "status": "A" }`. Un hospital inactivo deja de aparecer como destino de traslado. Salida `200`: el hospital.
+
+## 16. Botón de pánico (CU-22, DT-12)
+
+**Estado:** contrato acordado; la tabla y el DAO ya existen (A20). Las rutas se programan cuando esté `PanicService` (S11). Reglas: `docs/analysis.md`, CU-22 y RN-13 a RN-15.
+
+| # | Método | URL | Permiso |
+|---|---|---|---|
+| 46 | `POST` | `/api/panic` | **Ninguno** (la única ruta pública además del login). Con sesión, se usa el usuario |
+| 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` |
+| 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` |
+
+### 16.1 `POST /api/panic`
+
+La página del botón (D9) la llama al presionarlo. Sin token funciona como ciudadano anónimo; con el token de un usuario con `PANICO/VALIDAR` (Policía), su reporte valida la alerta solo.
+
+```json
+{ "deviceId": "8f1c2b0e-5d7a-4c61-9a0e-3f0b2f7c9d11",
+  "location": { "latitude": 10.467172, "longitude": -73.265099 },
+  "emergencyTypeId": 1, "description": "Hay una persona herida" }
+```
+
+- `deviceId`: un UUID que la página genera la primera vez y guarda en el navegador. El servidor guarda solo su hash SHA-256 (RN-13).
+- `emergencyTypeId` y `description` (máximo 200 caracteres) son opcionales.
+
+Salida `201`:
+
+```json
+{ "success": true, "message": "Su alerta fue validada: la ayuda va en camino.", "value": {
+  "reportId": 41, "status": "VALIDADO", "emergencyId": 77, "dispatchedUnit": "EJEMPLO-AMB-01",
+  "reportsNearby": 3, "reportsNeeded": 3 } }
+```
+
+Si todavía no se valida: `"status": "PENDIENTE"`, `"emergencyId": null`, `"dispatchedUnit": null` y el mensaje "Su reporte quedó registrado. Esperamos la confirmación de otras personas cercanas.".
+
+Si se valida pero no hay unidad disponible: `"dispatchedUnit": null` y el mensaje "Su alerta fue validada. Un coordinador enviará una unidad.". Si ya hay una alerta validada y abierta a menos de 300 m (10 minutos), el reporte se une a ella: `"status": "VALIDADO"`, su `emergencyId` y `"dispatchedUnit": null` (no se manda otra unidad).
+
+Errores: `400` si falta la ubicación o el `deviceId`, o la ubicación está fuera de la zona de la red vial; `409` si el dispositivo ya envió 3 reportes en 10 minutos ("Ya envió varios reportes. Si la emergencia sigue, llame al 123.").
+
+### 16.2 `GET /api/panic/reports`
+
+Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del panel. Con `?status=PENDIENTE` solo los de ese estado. **Nunca** devuelve el hash del dispositivo:
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 41, "location": { "latitude": 10.467172, "longitude": -73.265099 },
+    "reportedAt": "2026-11-20T09:31:10", "byPolice": false, "emergencyTypeId": 1,
+    "description": "Hay una persona herida", "status": "VALIDADO", "emergencyId": 77 }
+] }
+```
+
+### 16.3 `PATCH /api/panic/reports/{id}/status`
+
+`{ "status": "DESCARTADO" }`: un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).
