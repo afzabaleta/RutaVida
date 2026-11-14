@@ -460,6 +460,8 @@ La web lo consulta **cada 5 segundos** (DT-07) mientras la página del mapa est�
 - `routesVersion` sube cada vez que el sistema recalcula las rutas de esa misión (CU-17). Si la web ve un número distinto al que tenía, pide `GET /api/dispatches/{id}/routes` y redibuja.
 - `unreadAlerts` permite mostrar el contador sin pedir la lista cada 5 segundos.
 - `source` es `"SIMULACION"` mientras no exista GPS real (`PositionSource`).
+- **Programado (A12e):** `LiveMapService` y `TrackingController`. `vehicleType` es el nombre del tipo (`AMBULANCIA`, `BOMBERO`, `POLICIA`), con el que la web elige el ícono. Una unidad sin posición trae `location`, `updatedAt` y `source` en `null`. `missions` trae solo las misiones abiertas de unidades `OCUPADO`; `activeRouteId` es `null` cuando la unidad ya llegó. `routesVersion` es cuántas rutas se han guardado para esa misión: crece cuando el sistema recalcula. `simulation.running` es `false` hasta que exista el motor de simulación (K9).
+- Las posiciones las escribe `TrackingService` cuando el motor de simulación (K9) mueve las unidades: sin K9, las unidades se quedan en su última posición.
 
 ### 8.2 `GET /api/traffic/segments`
 
