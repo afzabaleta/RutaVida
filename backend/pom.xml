@@ -42,6 +42,22 @@
             <artifactId>ojdbc11</artifactId>
             <version>${ojdbc.version}</version>
         </dependency>
+        <!-- Oracle Wallet (cwallet.sso) to connect to Oracle Cloud with mTLS (DT-09) -->
+        <dependency>
+            <groupId>com.oracle.database.security</groupId>
+            <artifactId>oraclepki</artifactId>
+            <version>${ojdbc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.security</groupId>
+            <artifactId>osdt_core</artifactId>
+            <version>${ojdbc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.security</groupId>
+            <artifactId>osdt_cert</artifactId>
+            <version>${ojdbc.version}</version>
+        </dependency>
         <!-- Web server: pages of frontend/ and REST API (DT-06) -->
         <dependency>
             <groupId>io.javalin</groupId>

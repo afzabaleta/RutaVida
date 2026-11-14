@@ -1,5 +1,6 @@
 
 import { ROAD_NETWORK_ZONE, STATIONS, HOSPITALS } from "./valledupar-data.js";
+import { iconMarker, placeIcon } from "./map-icons.js";
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
@@ -111,19 +112,19 @@ export function createBaseMap(elementId) {
   }).addTo(map);
 
   for (const station of STATIONS) {
-    circleMarker(
+    iconMarker(
       map,
       station.location,
-      COLORS.station,
+      placeIcon("station"),
       `${station.name} (REAL, D2)`,
     );
   }
 
   for (const hospital of HOSPITALS) {
-    circleMarker(
+    iconMarker(
       map,
       hospital.location,
-      COLORS.hospital,
+      placeIcon("hospital"),
       `${hospital.name} (REAL, D2)`,
     );
   }

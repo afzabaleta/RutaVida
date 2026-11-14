@@ -11,6 +11,7 @@ import co.edu.unicesar.rutavida.controller.HospitalController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
+import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.SessionContext;
 import co.edu.unicesar.rutavida.controller.UserController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
@@ -50,6 +51,7 @@ import co.edu.unicesar.rutavida.service.FleetService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
 import co.edu.unicesar.rutavida.service.HospitalService;
 import co.edu.unicesar.rutavida.service.IncidentService;
+import co.edu.unicesar.rutavida.service.LiveMapService;
 import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.service.RouteService;
 import co.edu.unicesar.rutavida.service.UserService;
@@ -105,6 +107,7 @@ public final class AppContext {
     private final UserController userController;
     private final HospitalController hospitalController;
     private final FleetController fleetController;
+    private final TrackingController trackingController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
     private final AuditService auditService;
@@ -165,6 +168,12 @@ public final class AppContext {
         this.fleetController = new FleetController(new FleetService(new JdbcEmergencyVehicleDAO(jdbc),
                 new JdbcEmergencyStationDAO(jdbc), new JdbcVehicleTypeDAO(jdbc), alertService, auditService, jdbc),
                 authService, session);
+
+        // Live map (A12e): positions, open missions and unread alerts. The simulation engine
+        // (K9) gives the "running" flag through isSimulationRunning().
+        this.trackingController = new TrackingController(new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
+                new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc),
+                new JdbcAlertDAO(jdbc), this::isSimulationRunning, clock), authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
@@ -259,6 +268,19 @@ public final class AppContext {
     /** Units and stations (CU-04, S10). */
     public FleetController fleetController() {
         return fleetController;
+    }
+
+    /** Live map (docs/api.md 8.1, A12e). */
+    public TrackingController trackingController() {
+        return trackingController;
+    }
+
+    /**
+     * True while the simulation moves the units. Always false until the simulation engine
+     * (K9) exists; K9 changes this method to ask its engine.
+     */
+    public boolean isSimulationRunning() {
+        return false;
     }
 
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */

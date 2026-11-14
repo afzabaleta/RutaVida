@@ -1159,6 +1159,16 @@ class HospitalService {
         -clock : Clock
         +getSummary() DashboardSummary
     }
+    class LiveMapService {
+        -vehicleDao : EmergencyVehicleDAO
+        -vehicleTypeDao : VehicleTypeDAO
+        -assignmentDao : EmergencyAssignmentDAO
+        -routeDao : RouteDAO
+        -alertDao : AlertDAO
+        -simulationRunning : BooleanSupplier
+        -clock : Clock
+        +snapshot(session: UserSession) TrackingSnapshot
+    }
     class RoadMapService {
         -mapDao : RoadMapDAO
         +describe(incidents: List~RoadIncident~) List~IncidentView~
@@ -1310,6 +1320,38 @@ classDiagram
         +routes : List~Route~
         +auditTrail : List~AuditLog~
     }
+    class TrackingSnapshot {
+        <<record>>
+        +serverTime : LocalDateTime
+        +simulation : SimulationState
+        +units : List~TrackedUnit~
+        +missions : List~TrackedMission~
+        +unreadAlerts : int
+    }
+    class TrackedUnit {
+        <<record>>
+        +vehicleId : long
+        +unitCode : String
+        +vehicleType : String
+        +operationalStatus : VehicleOperationalStatus
+        +location : GeoPoint
+        +updatedAt : LocalDateTime
+        +source : PositionSource
+    }
+    class TrackedMission {
+        <<record>>
+        +assignmentId : long
+        +emergencyId : long
+        +vehicleId : long
+        +status : AssignmentStatus
+        +activeRouteId : Long
+        +routesVersion : int
+    }
+    class SimulationState {
+        <<record>>
+        +running : boolean
+        +source : PositionSource
+    }
     class DashboardSummary {
         <<record>>
         +activeEmergencies : int
@@ -1445,6 +1487,7 @@ class Messages {
     class HospitalService
     class FleetService
     class DashboardService
+    class LiveMapService
 
     DispatchService ..> HospitalService
     EmergencyService ..> EmergencyRequest
@@ -1453,6 +1496,10 @@ class Messages {
     DispatchService ..> DispatchResult
     HospitalService ..> HospitalOption
     DashboardService ..> DashboardSummary
+    LiveMapService ..> TrackingSnapshot
+    TrackingSnapshot *-- TrackedUnit
+    TrackingSnapshot *-- TrackedMission
+    TrackingSnapshot *-- SimulationState
     RoadMapService ..> IncidentView
     IncidentView --> SegmentView
     RoadMapService ..> MissionRoute
@@ -2048,13 +2095,19 @@ class IncidentController {
         +markAsRead(alertId: long) OperationResult~Alert~
     }
     class PanicController {
-    -panicService : PanicService
-    -authService : AuthService
-    -session : SessionContext
-    +report(request: PanicAlertRequest) OperationResult~PanicResult~
-    +listRecent(status: PanicReportStatus) OperationResult~List~PanicReportView~~
-    +discard(reportId: long) OperationResult~PanicReportView~
-}
+        -panicService : PanicService
+        -authService : AuthService
+        -session : SessionContext
+        +report(request: PanicAlertRequest) OperationResult~PanicResult~
+        +listRecent(status: PanicReportStatus) OperationResult~List~PanicReportView~~
+        +discard(reportId: long) OperationResult~PanicReportView~
+    }
+    class TrackingController {
+        -liveMapService : LiveMapService
+        -authService : AuthService
+        -session : SessionContext
+        +snapshot() OperationResult~TrackingSnapshot~
+    }
     class SimulationController {
         -engine : SimulationEngine
         -scenarios : List~DemoScenario~
@@ -2160,6 +2213,7 @@ classDiagram
         -userController : UserController
         -hospitalController : HospitalController
         -fleetController : FleetController
+        -trackingController : TrackingController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -2177,6 +2231,8 @@ classDiagram
         +userController() UserController
         +hospitalController() HospitalController
         +fleetController() FleetController
+        +trackingController() TrackingController
+        +isSimulationRunning() boolean
         +graphLoader() GraphLoader
         +routeService() RouteService
         +dispatchController() DispatchController
@@ -2240,6 +2296,7 @@ classDiagram
     AppContext ..> UserController : crea e inyecta
     AppContext ..> FleetController : crea e inyecta
     AppContext ..> HospitalController : crea e inyecta
+    AppContext ..> TrackingController : crea e inyecta
     WebServer ..> AppContext : crea
     WebServer ..> ApiServer : inicia en el puerto 8080
 ```
@@ -2271,6 +2328,7 @@ classDiagram
         -alerts : AlertController
         -dispatch : DispatchController
         -admin : AdminControllers
+        -tracking : TrackingController
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
@@ -2399,6 +2457,7 @@ classDiagram
     ApiServer --> AlertController
     ApiServer --> DispatchController
     ApiServer --> AdminControllers
+    ApiServer --> TrackingController
     AdminControllers --> UserController
     AdminControllers --> FleetController
     AdminControllers --> HospitalController
@@ -2478,14 +2537,15 @@ classDiagram
 | Despacho: `DispatchService` (`candidates`, `preview`, `dispatch`, `advance`, `missionRoutes`, `suits`), `DispatchController`, `UnitCandidate`, `DispatchResult`, `AppContext.dispatchController()` | `service`, `controller`, `dto`, `app` | **Programado y probado** (K7) con DAO falsos y una red de prueba, sin Oracle. `startTransfer`, `rankHospitals` (K7b), `closeEmergency`/`close` (CU-12) y `dispatchOptimal` siguen diseñados |
 | Recálculo de rutas: `RoadConditionService` (`syncIncidents`, `applyTraffic`), `RouteMonitor` y `RouteService.remainingSeconds`/`destinationOf` | `service` | **Programado y probado** (K8) con DAO falsos y una red de prueba, sin Oracle. Se conecta en `AppContext` y lo llama el ciclo de la simulación en K9 |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
-| `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. Se conecta en `AppContext` y en `GET /api/tracking` en A12e; `SimulationEngine` lo llama en cada ciclo (K9) |
+| `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. `SimulationEngine` lo llama en cada ciclo (K9) |
+| `LiveMapService`, `TrackingController`, `TrackingSnapshot`, `TrackedUnit`, `TrackedMission`, `SimulationState` | `service`, `controller`, `dto` | **Programado y probado** (A12e) sin Oracle: `GET /api/tracking` lee lo que guardó `TrackingService`. `running` es falso hasta que K9 cambie `AppContext.isSimulationRunning()` |
 | Demás clases de simulación (`SimulationEngine`, escenarios) | `simulation` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
 | `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos. `find` y el uso de `OperationResult.failure` se agregaron en A12b |
 | Demás controladores | `controller` | Diseñado |
 | `ApiServer`, `ApiStatus`, `ApiResponse`, `LoginRequest`, `JsonMapperFactory`, `WebServer`, `WebSessionController`, `CatalogController`, `CatalogService`, `LoginResponse`, `SessionUser`, `ErrorKind`, `SessionRequiredException` y los cambios de `SessionContext` y `OperationResult` | `api`, `app`, `controller`, `service`, `dto`, `exception` | **Programado y probado** (A12a): sesión con token, permisos por ruta, errores en JSON y `GET /api/emergency-types` |
 | Rutas de emergencias (`/api/emergencies`, `/{id}`, `/{id}/history`) y de recursos (`/api/vehicle-types`, `/api/units`, `/api/stations`, `/api/hospitals`); `ApiServer.pathId`; métodos nuevos de `CatalogService` y `CatalogController` | `api`, `controller`, `service`, `app` | **Programado y probado** (A12b) sin Oracle. Despacho, rutas, seguimiento y simulación llegan con K7 |
-| Vista web | `frontend/` | **Programada (D5b, D5c y D6); pruebas de integración de D6 pendientes**. Inicio de sesión, registro de emergencias y panel principal conectados a la API REST. El panel consulta emergencias, unidades, hospitales y estaciones desde Oracle, muestra los indicadores de `GET /api/dashboard/summary` y dibuja los incidentes viales sobre su tramo, con validar, rechazar y cerrar (`incident-panel.js`). Las unidades de demostración se identifican como `EJEMPLO`. Las rutas del mapa siguen siendo demostrativas (D4); el despacho real depende de K7. |
+| Vista web | `frontend/` | **Programada (D5b, D5c, D6 y D6b); pruebas de integración de D6 y D6b pendientes**. Inicio de sesión, registro de emergencias y panel principal conectados a la API REST. El panel consulta emergencias, unidades, hospitales y estaciones desde Oracle, muestra los indicadores de `GET /api/dashboard/summary` y dibuja los incidentes viales sobre su tramo, con validar, rechazar y cerrar (`incident-panel.js`). La página de despacho (`despacho.js` y `dispatch-routes.js`) ordena las unidades por su tiempo de llegada, dibuja las 3 rutas del motor con su explicación, despacha, cambia el estado de la misión y cierra la emergencia. Las unidades de demostración se identifican como `EJEMPLO`. Las rutas del panel principal siguen siendo demostrativas (D4). |
 | `IncidentService`, `IncidentRequest`, `IncidentController`, `RoadSegmentDAO.findById` | `service`, `dto`, `controller`, `dao` | **Programado y probado (S7)** con DAO falsos; `findById`, contra Oracle. Aplicar el incidente al grafo y recalcular rutas corresponde a K7 |
 | `Alert`, `AlertDAO`, `JdbcAlertDAO`, `AlertService`, `AlertController` | `model`, `dao`, `dao.jdbc`, `service`, `controller` | **Programado y probado** (S8): servicio y controlador con DAO falsos; `JdbcAlertDAO`, contra Oracle. Se conecta en `AppContext` y en `/api/alerts` en A12f; K7, K8 y K9 llaman al servicio. `Notification` y `NotificationDAO` siguen diseñados |
 | `UserService`, `UserController`, `UserRequest`, `UserView`, `HospitalService`, `HospitalController`, `HospitalRequest` | `service`, `controller`, `dto` | **Programado y probado** (S9) con DAO falsos: crear, listar, desactivar y activar usuarios, y cambiar la propia contraseña (CU-03); registrar, editar, activar y desactivar hospitales (CU-05). Falta conectarlos en `AppContext` y en la API (Andrés). `HospitalService.rankForTransfer` (K7b), `updateServiceAvailability` y `HospitalController.updateService` siguen diseñados |

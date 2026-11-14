@@ -1,12 +1,20 @@
-# RutaVida - database connection (local Oracle XE)
+# RutaVida - database connection
 #
 # 1. Copy this file as "db.properties" in the same folder (backend/).
-# 2. Write the password you chose in database/00_crear_usuario.sql.
+# 2. Leave ONE db.url active: local Oracle XE or Oracle Cloud.
+# 3. Write the password of the RUTAVIDA user (never the one of ADMIN).
 # db.properties is listed in .gitignore: it must NEVER be committed.
 #
 # Environment variables override these values:
 #   RUTAVIDA_DB_URL, RUTAVIDA_DB_USER, RUTAVIDA_DB_PASSWORD
 
+# --- Local Oracle XE (database/00_crear_usuario.sql) ---
 db.url=jdbc:oracle:thin:@//localhost:1521/XEPDB1
+
+# --- Oracle Cloud, Autonomous Database (database/00_crear_usuario_nube.sql) ---
+# TNS_ADMIN is the folder where Wallet_rutavida.zip was UNZIPPED, outside the
+# repository. Use forward slashes (/) even on Windows.
+# db.url=jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=C:/oracle/wallet/Wallet_rutavida
+
 db.user=rutavida
 db.password=

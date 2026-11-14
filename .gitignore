@@ -4,6 +4,10 @@ backend/db.properties
 .env
 **/wallet/
 Wallet_*.zip
+**/Wallet_*/
+cwallet.sso
+ewallet.p12
+ewallet.pem
 ### Descargas de OpenStreetMap (se regeneran con database/osm/*.overpassql) ###
 database/osm/*.osm
 

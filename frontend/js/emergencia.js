@@ -9,14 +9,13 @@ import {
 } from "./api-client.js";
 
 import { startPage } from "./page-session.js";
+import { iconMarker, paintLegend, placeIcon } from "./map-icons.js";
 
 import {
   byId,
   addText,
-  circleMarker,
   createBaseMap,
   insideZone,
-  COLORS,
   DEMO_POINT,
 } from "./map-base.js";
 
@@ -49,10 +48,10 @@ function setPoint(map, latitude, longitude) {
   if (map && pointMarker) {
     pointMarker.setLatLng(point);
   } else if (map) {
-    pointMarker = circleMarker(
+    pointMarker = iconMarker(
       map,
       point,
-      COLORS.emergency,
+      placeIcon("emergency"),
       "Emergencia nueva",
     );
   }
@@ -133,6 +132,7 @@ function readForm(form) {
 }
 
 async function initialize() {
+  paintLegend();
   const session = await startPage();
   if (!session) return;
 
