@@ -27,7 +27,7 @@ import {
   createBaseMap,
 } from "./map-base.js";
 
-import { iconMarker, placeIcon, unitIcon } from "./map-icons.js";
+import { iconMarker, placeIcon, UNIT_Z, unitIcon, unitSlots } from "./map-icons.js";
 
 import { drawRoutes } from "./dispatch-routes.js";
 
@@ -141,11 +141,12 @@ function drawMarkers() {
     iconMarker(map, current.location, placeIcon("emergency"), `Emergencia ${current.code}`),
   );
 
-  for (const unit of candidates) {
+  const slots = unitSlots(candidates);
+  for (const [index, unit] of candidates.entries()) {
     if (unit.location) {
       markerLayer.addLayer(
-        iconMarker(map, unit.location, unitIcon(unit.vehicleType, "DISPONIBLE"),
-          `${unit.unitCode} · ${MINUTES.format(unit.etaMinutes)} min${unit.example ? " (EJEMPLO)" : ""}`),
+        iconMarker(map, unit.location, unitIcon(unit.vehicleType, "DISPONIBLE", slots[index]),
+          `${unit.unitCode} · ${MINUTES.format(unit.etaMinutes)} min${unit.example ? " (EJEMPLO)" : ""}`, UNIT_Z),
       );
     }
   }

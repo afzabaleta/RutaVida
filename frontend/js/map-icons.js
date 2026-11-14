@@ -4,6 +4,12 @@
 
 const SIZE = 34;
 
+/** Units are drawn above hospitals, stations and emergencies (Leaflet zIndexOffset). */
+export const UNIT_Z = 1000;
+
+/** Distance in pixels between units parked at the same point (for example, at their station). */
+const SPREAD = 34;
+
 /** Ring of a unit by its operational status. */
 const STATUS_RING = {
   DISPONIBLE: "#22c55e",
@@ -97,19 +103,63 @@ export function placeSvg(kind) {
   return `<svg viewBox="0 0 40 40" width="${SIZE}" height="${SIZE}" aria-hidden="true">${PLACES[kind] ?? PLACES.emergency}</svg>`;
 }
 
-function divIcon(html, extraClass = "") {
+function divIcon(html, extraClass = "", shift = [0, 0]) {
   return L.divIcon({
     html,
     className: `rv-map-icon ${extraClass}`.trim(),
     iconSize: [SIZE, SIZE],
-    iconAnchor: [SIZE / 2, SIZE / 2],
-    popupAnchor: [0, -SIZE / 2],
+    iconAnchor: [SIZE / 2 - shift[0], SIZE / 2 - shift[1]],
+    popupAnchor: [shift[0], shift[1] - SIZE / 2],
   });
 }
 
-/** Leaflet icon of a unit (AMBULANCIA, BOMBERO, POLICIA) with the ring of its status. */
-export function unitIcon(vehicleType, status) {
-  return divIcon(unitSvg(vehicleType, status));
+/**
+ * Pixel shift of the unit number {@code slot} among those at the same point: the first stays
+ * on the point and the others go around it, so no unit hides another one or its station.
+ */
+function shiftOf(slot) {
+  if (!slot) {
+    return [0, 0];
+  }
+  const angle = (slot - 1) * (Math.PI / 3) - Math.PI / 2;
+  return [Math.round(Math.cos(angle) * SPREAD), Math.round(Math.sin(angle) * SPREAD)];
+}
+
+/**
+ * Leaflet icon of a unit (AMBULANCIA, BOMBERO, POLICIA) with the ring of its status.
+ * {@code slot} is its place among the units at the same point (see unitSlots).
+ */
+export function unitIcon(vehicleType, status, slot = 0) {
+  return divIcon(unitSvg(vehicleType, status), "", shiftOf(slot));
+}
+
+/**
+ * For each item with a [lat, lng] location, its place among the items at the same point:
+ * 1, 2, 3... so every unit gets its own spot around the point. A unit alone at its point,
+ * or without location, gets 0 and is drawn exactly where it is.
+ */
+export function unitSlots(items, locationOf = (item) => item.location) {
+  const keyOf = (item) => {
+    const location = locationOf(item);
+    return Array.isArray(location) ? `${location[0].toFixed(5)},${location[1].toFixed(5)}` : null;
+  };
+  const total = new Map();
+  for (const item of items) {
+    const key = keyOf(item);
+    if (key) {
+      total.set(key, (total.get(key) ?? 0) + 1);
+    }
+  }
+  const used = new Map();
+  return items.map((item) => {
+    const key = keyOf(item);
+    if (!key || total.get(key) < 2) {
+      return 0;
+    }
+    const slot = (used.get(key) ?? 0) + 1;
+    used.set(key, slot);
+    return slot;
+  });
 }
 
 /** Leaflet icon of a place: "hospital", "station" or "emergency" (the emergency pulses). */
@@ -122,9 +172,9 @@ export function vehicleLabel(vehicleType) {
   return glyphOf(vehicleType).label;
 }
 
-/** Adds a marker with an icon to the map; the popup is plain text. */
-export function iconMarker(map, location, icon, popupText) {
-  const marker = L.marker(location, { icon, keyboard: false }).addTo(map);
+/** Adds a marker with an icon to the map; the popup is plain text. Units pass UNIT_Z. */
+export function iconMarker(map, location, icon, popupText, zIndexOffset = 0) {
+  const marker = L.marker(location, { icon, keyboard: false, zIndexOffset }).addTo(map);
   if (popupText) {
     marker.bindPopup(popupText);
   }
