@@ -243,6 +243,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Unidades y estaciones (CU-04) en servicio y controlador, con alerta al cambiar la disponibilidad (S10) | Programado y probado |
 | API de administración: usuarios y roles, cambio de la propia contraseña, unidades, estaciones y hospitales (`docs/api.md` 15, A17) | Programado y probado (sin Oracle); prueba con Oracle pendiente |
 | Consulta de la auditoría (CU-21): quién hizo qué y cuándo, con filtros por fechas, módulo, usuario y resultado (`AuditQueryService`, `AuditController`, `GET /api/audit`, A18) | Programado y probado (sin Oracle); prueba de `JdbcAuditDAO.search` con Oracle pendiente |
+| Reporte de operación por periodo (RF-11): emergencias, tiempos de respuesta, despachos, rutas y recálculos, incidentes y botón de pánico, por tipo, severidad, tipo de vehículo y día (`ReportService`, `ReportController`, `GET /api/reports/operations`, A23) | Programado y probado (sin Oracle); prueba de `JdbcReportDAO` con Oracle pendiente |
 
 
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.

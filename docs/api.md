@@ -128,6 +128,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` | CU-22 |
 | 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` | CU-22 |
 | 49 | `GET` | `/api/audit` | `AUDITORIA/CONSULTAR` | CU-21 |
+| 50 | `GET` | `/api/reports/operations` | `REPORTES/CONSULTAR` | RF-11 |
 
 "Sesión" significa que basta con un token válido, sin un permiso específico.
 
@@ -537,7 +538,7 @@ Fuerza el nivel de tráfico de un tramo, para mostrar el recálculo en la demost
 
 Salida `200`: el tramo con la forma de 8.2. `404` si el tramo no existe.
 
-## 11. Dashboard y alertas
+## 11. Dashboard, reportes y alertas
 
 ### 11.1 `GET /api/dashboard/summary`
 
@@ -579,6 +580,53 @@ Las alertas del usuario de la sesión, la más reciente primero: las últimas 50
 ### 11.3 `PATCH /api/alerts/{id}/read`
 
 Sin cuerpo. Marca la alerta como leída. Salida `200`: la alerta (forma de 11.2). `404` si no existe o es de otro usuario.
+
+### 11.4 `GET /api/reports/operations`
+
+El reporte de operación de un periodo (RF-11, A23). El panel (11.1) dice qué pasa **ahora**; el reporte resume lo que pasó **entre dos días**, para la pantalla de reportes y para la sustentación. Permiso `REPORTES/CONSULTAR`, el mismo del panel. Es una acción del usuario: mantiene viva la sesión.
+
+| Parámetro | Forma | Si falta |
+|---|---|---|
+| `from` | `2026-11-08` (primer día, desde las 00:00) | 6 días antes de `to` |
+| `to` | `2026-11-14` (último día, hasta las 24:00) | hoy |
+
+Sin parámetros son los **últimos 7 días**, hoy incluido. Los días son los del reloj del servidor (Colombia). Como máximo 366 días por consulta.
+
+Todo se cuenta sobre las emergencias **reportadas** en el periodo, con la misma regla del panel para el tiempo de respuesta: minutos desde el reporte hasta la llegada de la **primera** unidad (`fn_tiempo_respuesta`).
+
+```json
+{ "success": true, "message": null, "value": {
+  "from": "2026-11-08", "to": "2026-11-14",
+  "reportedEmergencies": 12, "closedEmergencies": 10, "attendedEmergencies": 11,
+  "averageResponseMinutes": 9.4, "fastestResponseMinutes": 5.1, "slowestResponseMinutes": 16.8,
+  "dispatches": 14, "routesGenerated": 42, "recalculations": 3, "roadIncidents": 4,
+  "panicReports": 6, "validatedPanicReports": 2,
+  "byEmergencyType": [ { "label": "EMERGENCIA_MEDICA", "count": 7, "averageResponseMinutes": 8.2 } ],
+  "bySeverity":      [ { "label": "CRITICA", "count": 2, "averageResponseMinutes": 7.0 } ],
+  "byVehicleType":   [ { "label": "AMBULANCIA", "count": 9, "averageResponseMinutes": 8.9 } ],
+  "byDay":           [ { "label": "2026-11-08", "count": 0, "averageResponseMinutes": null } ]
+} }
+```
+
+Los números del ejemplo son de EJEMPLO; los de la respuesta se cuentan en Oracle en el momento de la consulta.
+
+| Campo | Qué cuenta |
+|---|---|
+| `reportedEmergencies` | Emergencias reportadas en el periodo |
+| `closedEmergencies` | De ellas, las que hoy están `CERRADA` |
+| `attendedEmergencies` | De ellas, las que tienen al menos una llegada |
+| `averageResponseMinutes`, `fastestResponseMinutes`, `slowestResponseMinutes` | Promedio, la más rápida y la más lenta de las primeras llegadas. Un decimal |
+| `dispatches` | Unidades asignadas a esas emergencias, también las canceladas |
+| `routesGenerated` | Rutas guardadas en el periodo (recomendadas y alternativas) |
+| `recalculations` | Rutas recomendadas que reemplazaron a otra de la misma misión (CU-17): misma emergencia, unidad y hospital de destino |
+| `roadIncidents` | Incidentes viales reportados en el periodo, de cualquier estado |
+| `panicReports` / `validatedPanicReports` | Veces que se presionó el botón de pánico / las que se volvieron emergencia (CU-22) |
+| `byEmergencyType` | Emergencias por tipo, la más frecuente primero |
+| `bySeverity` | Emergencias por severidad, de `CRITICA` a `BAJA` |
+| `byVehicleType` | Despachos por tipo de vehículo, el más usado primero. Su promedio es el de todas las unidades de ese tipo que llegaron, no solo la primera |
+| `byDay` | Emergencias de cada día, en orden. **Trae todos los días del periodo**: los días sin emergencias vienen con `count` 0, para que la gráfica no salte días |
+
+Todo promedio es `null` cuando no hay llegadas, nunca 0: la web muestra "Sin datos". Errores: `400` si una fecha no tiene la forma `2026-11-14`, si `from` es posterior a `to` o si el periodo pasa de 366 días; `401` sin sesión; `403` sin el permiso.
 
 ## 12. Secuencia: registrar y despachar
 

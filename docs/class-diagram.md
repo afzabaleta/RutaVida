@@ -852,6 +852,10 @@ classDiagram
         <<interface>>
         +summary(trafficSince: LocalDateTime, dayStart: LocalDateTime, dayEnd: LocalDateTime) DashboardSummary
     }
+    class ReportDAO {
+        <<interface>>
+        +operations(firstDay: LocalDate, lastDay: LocalDate) OperationsReport
+    }
 
     class RoadMapDAO {
         <<interface>>
@@ -863,6 +867,7 @@ classDiagram
     class Alert
     class Notification
     class DashboardSummary
+    class OperationsReport
     class SegmentView
 
 
@@ -871,9 +876,10 @@ classDiagram
     AlertDAO ..> Alert
     NotificationDAO ..> Notification
     DashboardDAO ..> DashboardSummary : solo lectura
+    ReportDAO ..> OperationsReport : solo lectura
     RoadMapDAO ..> SegmentView : solo lectura
 ```
-`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es una de las dos interfaces DAO que dependen de `dto`, y solo para leer. La otra es `RoadMapDAO` (A12c): un tramo con las coordenadas de sus dos nodos, para dibujarlo en el mapa.
+`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es una de las tres interfaces DAO que dependen de `dto`, y solo para leer. Las otras son `RoadMapDAO` (A12c): un tramo con las coordenadas de sus dos nodos, para dibujarlo en el mapa; y `ReportDAO` (A23): el reporte de operación de un periodo (`OperationsReport`), con una consulta para los totales y una por cada agrupación.
 
 ---
 
@@ -973,6 +979,7 @@ classDiagram
     class JdbcAlertDAO
     class JdbcNotificationDAO
     class JdbcDashboardDAO
+    class JdbcReportDAO
     class JdbcRoadMapDAO
     class JdbcPanicReportDAO
 
@@ -997,6 +1004,7 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcAlertDAO
     AbstractJdbcDAO <|-- JdbcNotificationDAO
     AbstractJdbcDAO <|-- JdbcDashboardDAO
+    AbstractJdbcDAO <|-- JdbcReportDAO
     AbstractJdbcDAO <|-- JdbcRoadMapDAO
     AbstractJdbcDAO <|-- JdbcPanicReportDAO
 ```
@@ -1165,6 +1173,11 @@ class HospitalService {
         -dashboardDao : DashboardDAO
         -clock : Clock
         +getSummary() DashboardSummary
+    }
+    class ReportService {
+        -reportDao : ReportDAO
+        -clock : Clock
+        +operations(from: LocalDate, to: LocalDate) OperationsReport
     }
     class LiveMapService {
         -vehicleDao : EmergencyVehicleDAO
@@ -1394,6 +1407,33 @@ classDiagram
         +closedToday : int
         +averageResponseMinutes : Double
     }
+    class OperationsReport {
+        <<record>>
+        +from : LocalDate
+        +to : LocalDate
+        +reportedEmergencies : int
+        +closedEmergencies : int
+        +attendedEmergencies : int
+        +averageResponseMinutes : Double
+        +fastestResponseMinutes : Double
+        +slowestResponseMinutes : Double
+        +dispatches : int
+        +routesGenerated : int
+        +recalculations : int
+        +roadIncidents : int
+        +panicReports : int
+        +validatedPanicReports : int
+        +byEmergencyType : List~ReportCount~
+        +bySeverity : List~ReportCount~
+        +byVehicleType : List~ReportCount~
+        +byDay : List~ReportCount~
+    }
+    class ReportCount {
+        <<record>>
+        +label : String
+        +count : int
+        +averageResponseMinutes : Double
+    }
     class SegmentView {
         <<record>>
         +segmentId : long
@@ -1518,6 +1558,7 @@ class Messages {
     class HospitalService
     class FleetService
     class DashboardService
+    class ReportService
     class LiveMapService
     class AuditQueryService
 
@@ -1528,6 +1569,8 @@ class Messages {
     DispatchService ..> DispatchResult
     HospitalService ..> HospitalOption
     DashboardService ..> DashboardSummary
+    ReportService ..> OperationsReport
+    OperationsReport *-- ReportCount
     LiveMapService ..> TrackingSnapshot
     TrackingSnapshot *-- TrackedUnit
     TrackingSnapshot *-- TrackedMission
@@ -2115,6 +2158,10 @@ class IncidentController {
         -dashboardService : DashboardService
         +summary() OperationResult~DashboardSummary~
     }
+    class ReportController {
+        -reportService : ReportService
+        +operations(from: LocalDate, to: LocalDate) OperationResult~OperationsReport~
+    }
     class RoadMapController {
         -mapService : RoadMapService
         +incidentsOnMap(incidents: OperationResult~List~RoadIncident~~) OperationResult~List~IncidentView~~
@@ -2248,6 +2295,7 @@ classDiagram
         -catalogController : CatalogController
         -emergencyController : EmergencyController
         -dashboardController : DashboardController
+        -reportController : ReportController
         -incidentController : IncidentController
         -roadMapController : RoadMapController
         -alertService : AlertService
@@ -2267,6 +2315,7 @@ classDiagram
         +catalogController() CatalogController
         +emergencyController() EmergencyController
         +dashboardController() DashboardController
+        +reportController() ReportController
         +incidentController() IncidentController
         +roadMapController() RoadMapController
         +alertService() AlertService
@@ -2344,6 +2393,7 @@ classDiagram
     AppContext ..> HospitalController : crea e inyecta
     AppContext ..> TrackingController : crea e inyecta
     AppContext ..> AuditController : crea e inyecta
+    AppContext ..> ReportController : crea e inyecta
     WebServer ..> AppContext : crea
     WebServer ..> ApiServer : inicia en el puerto 8080
 ```
@@ -2370,6 +2420,7 @@ classDiagram
         -catalogs : CatalogController
         -emergencies : EmergencyController
         -dashboard : DashboardController
+        -reports : ReportController
         -incidents : IncidentController
         -roadMap : RoadMapController
         -alerts : AlertController
@@ -2514,6 +2565,7 @@ classDiagram
     ApiServer --> CatalogController
     ApiServer --> EmergencyController
     ApiServer --> DashboardController
+    ApiServer --> ReportController
     ApiServer --> IncidentController
     ApiServer --> RoadMapController
     ApiServer --> AlertController
@@ -2586,6 +2638,7 @@ classDiagram
 | `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22) |
 | `PanicStatusRequest`, `RequestRateLimiter` y las rutas `/api/panic` de `ApiServer` | `api` | **Programado y probado** sin Oracle (A20b): `POST /api/panic` sin sesión obligatoria y limitado por dirección de red, `GET /api/panic/reports` y `PATCH /api/panic/reports/{id}/status` |
 | `AuditQueryService`, `AuditController`, `AuditQuery`, `AuditEntry`, `AuditDAO.search` y la ruta `GET /api/audit` | `service`, `controller`, `dto`, `dao`, `api` | **Programado y probado** sin Oracle (A18, CU-21); `JdbcAuditDAO.search` tiene su prueba de integración contra Oracle |
+| `ReportDAO`, `JdbcReportDAO`, `ReportService`, `ReportController`, `OperationsReport`, `ReportCount`, `AppContext.reportController()` y `GET /api/reports/operations` | `dao`, `dao.jdbc`, `service`, `controller`, `dto`, `app`, `api` | **Programado y probado** sin Oracle (A23, RF-11): servicio y ruta; `JdbcReportDAO` tiene 2 pruebas de integración contra Oracle |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
