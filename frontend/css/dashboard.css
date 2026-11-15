@@ -271,6 +271,7 @@
 
 .item-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   margin-top: 16px;
 }
@@ -296,23 +297,26 @@
   outline-offset: 2px;
 }
 
+/* The tag drops to the next line when it does not fit next to the title. */
 .data-card-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px 10px;
 }
 
 .data-card h3 {
   margin: 0;
   font-size: .9375rem;
   line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
-/* Card titles break between words; long codes still wrap if they overflow. */
+/* Titles break between words, never letter by letter; a single word
+   longer than the whole card is the only one allowed to break. */
 .data-card-top > h3,
 .data-card-top > strong {
+  flex: 1 1 12rem;
   min-width: 0;
   overflow-wrap: break-word;
 }
@@ -322,7 +326,7 @@
   color: var(--muted);
   font-size: .875rem;
   line-height: 1.5;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .data-tag {
@@ -619,12 +623,22 @@
   font-size: .8125rem;
 }
 
-@media (max-width: 1250px) {
-  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); }
+/* Breakpoints count the 284 px side menu: below 1550 px of window the
+   three columns get too narrow, so the map takes the full width on top
+   and the two lists go below it. */
+@media (max-width: 1549.98px) {
+  .workspace { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .map-panel { grid-column: 1 / -1; grid-row: 1; }
   .side-panel { align-self: start; }
   #map { height: 55vh; min-height: 390px; }
+}
+
+@media (max-width: 1449.98px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1099.98px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 700px) {
@@ -701,7 +715,7 @@
 }
 
 .incidents-panel .data-card {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .incidents-panel .data-card-top {
