@@ -45,16 +45,20 @@
   <main class="dashboard-main">
     <section class="welcome-row">
       <div>
-        <p class="eyebrow">GESTIÓN DE EMERGENCIAS</p>
-        <h1>Panel de control</h1>
+        <h1 class="page-title">Panel de <span>Control</span></h1>
         <p class="muted">
           Emergencias activas y recursos de Valledupar, Cesar, con los datos de Oracle.
         </p>
       </div>
 
       <div class="welcome-actions">
-        <a class="button" href="./emergencia.html">Registrar emergencia</a>
-        <a class="button button-secondary" href="./despacho.html">Despachar unidad</a>
+        <div class="welcome-buttons">
+          <a class="button button-emergency" href="./emergencia.html">
+            <span class="shell-icon shell-icon-plus" aria-hidden="true"></span>
+            Registrar emergencia
+          </a>
+          <a class="button button-outline" href="./despacho.html">Despachar unidad</a>
+        </div>
         <span class="demo-notice">
           Prototipo académico. Las unidades EJEMPLO-… están identificadas y su movimiento es SIMULACIÓN.
         </span>
@@ -62,8 +66,8 @@
     </section>
 
     <section class="kpi-grid" aria-label="Indicadores del sistema">
-      <article class="kpi-card">
-        <span class="kpi-icon red-icon" aria-hidden="true">!</span>
+      <article class="kpi-card kpi-red">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-alert"></span></span>
         <div>
           <p>Emergencias activas</p>
           <strong id="emergency-count">—</strong>
@@ -71,8 +75,8 @@
         </div>
       </article>
 
-      <article class="kpi-card">
-        <span class="kpi-icon green-icon" aria-hidden="true">✓</span>
+      <article class="kpi-card kpi-blue">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-check"></span></span>
         <div>
           <p>Unidades disponibles</p>
           <strong id="unit-count">—</strong>
@@ -80,8 +84,8 @@
         </div>
       </article>
 
-      <article class="kpi-card">
-        <span class="kpi-icon blue-icon" aria-hidden="true">+</span>
+      <article class="kpi-card kpi-green">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-hospital"></span></span>
         <div>
           <p>Hospitales activos</p>
           <strong id="hospital-count">—</strong>
@@ -89,8 +93,8 @@
         </div>
       </article>
 
-      <article class="kpi-card">
-        <span class="kpi-icon amber-icon" aria-hidden="true">◷</span>
+      <article class="kpi-card kpi-amber">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-clock"></span></span>
         <div>
           <p>Tiempo promedio de respuesta</p>
           <strong id="response-time">Sin datos</strong>
@@ -103,7 +107,6 @@
       <aside class="side-panel emergency-panel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">SEGUIMIENTO</p>
             <h2>Emergencias</h2>
           </div>
           <span class="count-pill" id="emergency-pill">0</span>
@@ -117,7 +120,6 @@
 
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">RECURSOS</p>
             <h2>Unidades</h2>
           </div>
           <span class="count-pill" id="unit-pill">0</span>
@@ -131,7 +133,6 @@
       <section class="map-panel">
         <div class="map-heading">
           <div>
-            <p class="eyebrow">UBICACIÓN GEOGRÁFICA</p>
             <h2>Mapa en vivo de Valledupar</h2>
           </div>
           <span class="map-status" id="live-status"><span></span> Conectando seguimiento…</span>
@@ -144,13 +145,13 @@
         </div>
 
         <section class="panic-dashboard-panel" aria-labelledby="panic-title">
-  <div class="panel-heading">
-    <h2 id="panic-title">Alertas SOS <span id="panic-pill">0</span></h2>
-    <a href="./panico.html">Abrir botón SOS</a>
-  </div>
-  <p id="panic-message" role="status">Cargando reportes SOS...</p>
-  <div id="panic-list" class="panic-dashboard-list"></div>
-</section>
+          <div class="panel-heading">
+            <h2 id="panic-title">Alertas SOS <span id="panic-pill" class="count-pill">0</span></h2>
+            <a class="panel-link" href="./panico.html">Abrir botón SOS</a>
+          </div>
+          <p id="panic-message" class="panic-message" role="status">Cargando reportes SOS...</p>
+          <div id="panic-list" class="panic-dashboard-list"></div>
+        </section>
         <div class="map-legend" aria-label="Leyenda del mapa">
           <span><i class="legend-icon" data-icon="station"></i> Estación</span>
           <span><i class="legend-icon" data-icon="hospital"></i> Hospital</span>
@@ -173,7 +174,6 @@
         <section class="route-panel" aria-labelledby="mission-title">
           <div class="map-heading">
             <div>
-              <p class="eyebrow">SEGUIMIENTO EN VIVO</p>
               <h2 id="mission-title">Misiones activas</h2>
             </div>
             <span class="data-tag real-tag">ORACLE</span>
@@ -193,7 +193,6 @@
       <aside class="side-panel hospital-panel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">RED DE ATENCIÓN</p>
             <h2>Hospitales</h2>
           </div>
           <span class="count-pill" id="hospital-pill">0</span>
@@ -208,7 +207,6 @@
           <section class="incidents-panel" aria-labelledby="incidents-title">
               <div class="panel-heading">
                   <div>
-                      <p class="eyebrow">ESTADO DE LAS VÍAS</p>
                       <h2 id="incidents-title">Incidentes viales</h2>
                   </div>
                   <span class="count-pill" id="incident-pill">0</span>

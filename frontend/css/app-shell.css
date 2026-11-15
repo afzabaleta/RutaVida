@@ -8,14 +8,14 @@
   --shell-text: #eef2f8;
   --shell-item: #c9d3e3;
   --shell-muted: #8d9bb3;
-  --shell-group: #66789a;
+  --shell-group: #7a8cad;
   --shell-hover: #14213a;
   --shell-red: #e5303f;
   --shell-red-dark: #c81e2e;
   --shell-red-light: #ff4d5e;
   --shell-green: #18a865;
   --shell-focus: #79adff;
-  --shell-width: 268px;
+  --shell-width: 284px;
 }
 
 /* Keep the bell out of sight until the shell places it in the header. */
@@ -84,13 +84,13 @@ body.has-shell {
 .shell-brand small {
   margin-top: 2px;
   color: var(--shell-muted);
-  font-size: .72rem;
+  font-size: .8125rem;
 }
 
 .shell-group {
   margin: 18px 12px 8px;
   color: var(--shell-group);
-  font-size: .66rem;
+  font-size: .75rem;
   font-weight: 800;
   letter-spacing: .14em;
 }
@@ -130,7 +130,7 @@ a.shell-item:not(.is-active):hover {
 }
 
 .shell-item.is-active {
-  background: linear-gradient(90deg, var(--shell-red), var(--shell-red-dark));
+  background: linear-gradient(90deg, #d42335, var(--shell-red-dark));
   color: #fff;
   box-shadow: 0 8px 22px rgb(0 0 0 / 45%), 0 6px 18px rgb(229 48 63 / 28%);
 }
@@ -158,14 +158,19 @@ a.shell-item:not(.is-active):hover {
 .shell-icon-out { --icon: url("../img/icons/out.svg"); }
 .shell-icon-menu { --icon: url("../img/icons/menu.svg"); }
 .shell-icon-bell { --icon: url("../img/icons/bell.svg"); }
+.shell-icon-alert { --icon: url("../img/icons/alert.svg"); }
+.shell-icon-check { --icon: url("../img/icons/check.svg"); }
+.shell-icon-hospital { --icon: url("../img/icons/hospital.svg"); }
+.shell-icon-clock { --icon: url("../img/icons/clock.svg"); }
 
 .shell-tag {
+  flex: 0 0 auto;
   margin-left: auto;
-  padding: 3px 7px;
+  padding: 2px 7px;
   border: 1px solid #3a4a66;
   border-radius: 99px;
   color: var(--shell-muted);
-  font-size: .6rem;
+  font-size: .75rem;
   font-weight: 800;
   letter-spacing: .04em;
 }
@@ -194,14 +199,14 @@ a.shell-item:not(.is-active):hover {
   border-radius: 12px;
   background: rgb(24 168 101 / 8%);
   color: #9fe3c2;
-  font-size: .78rem;
+  font-size: .875rem;
   line-height: 1.35;
 }
 
 .shell-sim small {
   display: block;
-  color: #7dbb9e;
-  font-size: .68rem;
+  color: #8fcaae;
+  font-size: .75rem;
 }
 
 .shell-sim-dot {
@@ -242,14 +247,14 @@ a.shell-item:not(.is-active):hover {
 }
 
 .shell-user strong {
-  font-size: .82rem;
+  font-size: .9375rem;
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
 .shell-user small {
   color: var(--shell-muted);
-  font-size: .68rem;
+  font-size: .75rem;
   letter-spacing: .05em;
   text-transform: uppercase;
 }
