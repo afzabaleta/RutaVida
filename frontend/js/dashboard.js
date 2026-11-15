@@ -451,6 +451,15 @@ async function initializeDashboard() {
   }
 
 
+  // A police officer (PANICO:VALIDAR without dispatch) works from the panic button page (D9).
+  if (
+    hasPermission(session, "PANICO:VALIDAR") &&
+    !hasPermission(session, "DESPACHO:GESTIONAR")
+  ) {
+    window.location.replace("./panico.html");
+    return;
+  }
+
   usesSummary = hasPermission(session, "REPORTES:CONSULTAR");
 
   if (usesSummary) {

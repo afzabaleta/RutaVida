@@ -24,19 +24,37 @@ const descriptionInput = byId("panic-description");
 let selectedLocation = null;
 let marker = null;
 let sending = false;
+let memoryDeviceId = null;
 
+/**
+ * Random UUID v4. crypto.randomUUID only exists on https or localhost, and phones open the
+ * page through http://<IP of the PC>; crypto.getRandomValues works everywhere.
+ */
+function newUuid() {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** Identifier of this browser, kept so the server can limit it (RN-13). Never blocks the alert. */
 function getDeviceId() {
-  let id;
   try {
-    id = localStorage.getItem(DEVICE_KEY);
+    let id = localStorage.getItem(DEVICE_KEY);
     if (!id) {
-      id = crypto.randomUUID();
+      id = newUuid();
       localStorage.setItem(DEVICE_KEY, id);
     }
+    return id;
   } catch {
-    throw new Error("No se pudo crear el identificador del dispositivo.");
+    // Private mode or blocked storage: keep one id while the page is open.
+    memoryDeviceId ??= newUuid();
+    return memoryDeviceId;
   }
-  return id;
 }
 
 function setLocation(point, source) {
