@@ -19,18 +19,23 @@ function hideMessage() {
   message.className = "message";
 }
 
+// The toggle is an icon button: CSS swaps the eye icon from aria-pressed,
+// and aria-label carries the accessible name.
+function setPasswordVisible(visible) {
+  password.type = visible ? "text" : "password";
+  togglePassword.setAttribute("aria-pressed", String(visible));
+  togglePassword.setAttribute(
+    "aria-label",
+    visible ? "Ocultar contraseña" : "Mostrar contraseña"
+  );
+}
+
 function hidePassword() {
-  password.type = "password";
-  togglePassword.textContent = "Mostrar";
-  togglePassword.setAttribute("aria-pressed", "false");
+  setPasswordVisible(false);
 }
 
 togglePassword.addEventListener("click", () => {
-  const isVisible = password.type === "text";
-
-  password.type = isVisible ? "password" : "text";
-  togglePassword.textContent = isVisible ? "Mostrar" : "Ocultar";
-  togglePassword.setAttribute("aria-pressed", String(!isVisible));
+  setPasswordVisible(password.type !== "text");
 });
 
 form.addEventListener("submit", async (event) => {
