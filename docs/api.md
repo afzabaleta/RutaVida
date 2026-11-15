@@ -732,7 +732,11 @@ Crea o edita un hospital (DTO `HospitalRequest`):
 
 ## 16. Botón de pánico (CU-22, DT-12)
 
-**Estado:** contrato acordado; la tabla y el DAO ya existen (A20). Las rutas se programan cuando esté `PanicService` (S11). Reglas: `docs/analysis.md`, CU-22 y RN-13 a RN-15.
+**Estado:** programado (A20 la tabla y el DAO, S11 el servicio, A20b las rutas). Reglas: `docs/analysis.md`, CU-22 y RN-13 a RN-15.
+
+- **Sesión opcional en 16.1:** con un token válido se usa ese usuario; sin token, o con uno vencido, el reporte entra como de un ciudadano anónimo. En una emergencia el botón nunca responde "inicie sesión".
+- **Límite por dirección de red:** además del límite de 3 reportes por dispositivo (RN-13), `POST /api/panic` acepta como máximo 20 reportes por dirección de red cada 10 minutos, porque el identificador del dispositivo lo genera el navegador y se puede cambiar. Al pasarlo responde `409` con "Se enviaron demasiadas alertas desde esta conexión. Si la emergencia sigue, llame al 123.". El conteo vive en memoria: se reinicia con el servidor.
+- `GET /api/panic/reports` es una consulta automática del mapa: no mantiene viva la sesión (DT-08).
 
 | # | Método | URL | Permiso |
 |---|---|---|---|
@@ -769,7 +773,7 @@ Errores: `400` si falta la ubicación o el `deviceId`, o la ubicación está fue
 
 ### 16.2 `GET /api/panic/reports`
 
-Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del panel. Con `?status=PENDIENTE` solo los de ese estado. **Nunca** devuelve el hash del dispositivo:
+Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del panel. Con `?status=PENDIENTE` solo los de ese estado (un estado que no existe da `400`). **Nunca** devuelve el hash del dispositivo:
 
 ```json
 { "success": true, "message": null, "value": [
@@ -781,4 +785,4 @@ Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del
 
 ### 16.3 `PATCH /api/panic/reports/{id}/status`
 
-`{ "status": "DESCARTADO" }`: un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).
+`{ "status": "DESCARTADO" }` (cualquier otro estado da `400`): un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).

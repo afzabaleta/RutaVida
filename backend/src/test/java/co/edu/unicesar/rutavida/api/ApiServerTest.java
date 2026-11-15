@@ -19,6 +19,7 @@ import co.edu.unicesar.rutavida.graph.Node;
 import co.edu.unicesar.rutavida.model.Alert;
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.enums.AlertType;
+import co.edu.unicesar.rutavida.service.PanicTestSupport;
 import co.edu.unicesar.rutavida.service.LiveMapService;
 import co.edu.unicesar.rutavida.service.AdministrationTestSupport;
 import co.edu.unicesar.rutavida.service.AlertService;
@@ -156,7 +157,8 @@ class ApiServerTest {
                 support.clock), support.authService, support.sessionContext);
 
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
-                dashboard, incidents, roadMap, alerts, dispatch, admin, tracking, frontend);
+                dashboard, incidents, roadMap, alerts, dispatch, admin, tracking,
+                new PanicTestSupport().controller(support.authService, support.sessionContext), frontend);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;

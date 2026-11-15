@@ -231,7 +231,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
 | API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |
 | API de alertas: las del usuario de la sesión y marcarlas como leídas (`/api/alerts`, A12f) | Programado y probado |
-| Botón de pánico (CU-22): recepción de alertas, validación por dispositivos o policía, creación de emergencia y despacho automático de unidad (`PanicService`, `PanicController`, S11) | Programado y probado sin Oracle; pendiente exposición en API (A20b) |
+| Botón de pánico (CU-22): recepción de alertas, validación por dispositivos o policía, creación de emergencia y despacho automático de unidad (`PanicService`, `PanicController`, S11) | Programado y probado sin Oracle (S11); rutas de la API `/api/panic` programadas y probadas sin Oracle (A20b) |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
 | Indicadores del panel desde Oracle e incidentes viales en el mapa: validar, rechazar y cerrar (D6) | Programado; pruebas de integración pendientes |

@@ -6,6 +6,7 @@ import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
+import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
@@ -14,6 +15,7 @@ import co.edu.unicesar.rutavida.dto.HospitalRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.IncidentRequest;
 import co.edu.unicesar.rutavida.dto.OperationResult;
+import co.edu.unicesar.rutavida.dto.PanicAlertRequest;
 import co.edu.unicesar.rutavida.dto.StationRequest;
 import co.edu.unicesar.rutavida.dto.UserRequest;
 import co.edu.unicesar.rutavida.dto.VehicleRequest;
@@ -22,6 +24,7 @@ import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
 import co.edu.unicesar.rutavida.model.enums.IncidentStatus;
+import co.edu.unicesar.rutavida.model.enums.PanicReportStatus;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,7 +37,10 @@ import io.javalin.http.staticfiles.Location;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -68,6 +74,14 @@ public final class ApiServer {
     private static final String BAD_RECORD_STATUS = "El estado debe ser A (activo) o I (inactivo).";
     private static final String BAD_UNIT_STATUS = "El estado de la unidad no es válido.";
     private static final String BAD_PASSWORD = "Escriba la contraseña actual y la nueva.";
+    private static final String BAD_PANIC_STATUS = "Una alerta de pánico solo se puede marcar DESCARTADO.";
+    private static final String BAD_PANIC_FILTER = "El estado del reporte de pánico no es válido.";
+    private static final String TOO_MANY_PANIC =
+            "Se enviaron demasiadas alertas desde esta conexión. Si la emergencia sigue, llame al 123.";
+
+    /** Panic button: reports per network address in 10 minutes (RN-13 limits each device to 3). */
+    static final int PANIC_PER_ADDRESS = 20;
+    static final Duration PANIC_WINDOW = Duration.ofMinutes(10);
 
     /**
      * Second argument of {@link #secured}: a request made by the user counts as use of the
@@ -87,6 +101,8 @@ public final class ApiServer {
     private final DispatchController dispatch;
     private final AdminControllers admin;
     private final TrackingController tracking;
+    private final PanicController panic;
+    private final RequestRateLimiter panicLimiter;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -98,7 +114,7 @@ public final class ApiServer {
                      EmergencyController emergencies, DashboardController dashboard,
                      IncidentController incidents, RoadMapController roadMap, AlertController alerts,
                      DispatchController dispatch, AdminControllers admin, TrackingController tracking,
-                     Path frontendDirectory) {
+                     PanicController panic, Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
@@ -109,6 +125,8 @@ public final class ApiServer {
         this.dispatch = Objects.requireNonNull(dispatch, "dispatch");
         this.admin = Objects.requireNonNull(admin, "admin");
         this.tracking = Objects.requireNonNull(tracking, "tracking");
+        this.panic = Objects.requireNonNull(panic, "panic");
+        this.panicLimiter = new RequestRateLimiter(PANIC_PER_ADDRESS, PANIC_WINDOW, Clock.systemUTC());
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -249,6 +267,18 @@ public final class ApiServer {
         config.routes.patch("/api/hospitals/{id}/status", secured("HOSPITALES", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, admin.hospitals().changeStatus(pathId(ctx), readRecordStatus(ctx)), ApiStatus.OK)));
 
+        // 16. Panic button (CU-22, A20b). Reporting is public: anyone presses it without an account,
+        // and a police officer with a session validates the alert alone (docs/api.md 16).
+        config.routes.post("/api/panic", optionalSession(this::reportPanic));
+        // The panel map refreshes the reports by itself, so reading them does not keep the session alive.
+        config.routes.get("/api/panic/reports", secured("PANICO", "CONSULTAR", AUTOMATIC,
+                ctx -> send(ctx, panic.listRecent(readPanicFilter(ctx)), ApiStatus.OK)));
+        config.routes.patch("/api/panic/reports/{id}/status", secured("PANICO", "GESTIONAR", USER_ACTION, ctx -> {
+            long id = pathId(ctx);
+            readDiscard(ctx);
+            send(ctx, panic.discard(id), ApiStatus.OK);
+        }));
+
         config.routes.exception(Exception.class, this::onError);
     }
 
@@ -283,6 +313,55 @@ public final class ApiServer {
      * Like {@link #secured}, for the routes that only need a valid session ("Sesión" in
      * docs/api.md 3): 401 without a valid token, otherwise the handler runs with that session.
      */
+    /**
+     * Wraps a public handler: with a valid token it runs with that session (a police officer);
+     * without a token, or with one that expired, it runs without session. In an emergency the
+     * button must never answer "log in first".
+     */
+    Handler optionalSession(Handler handler) {
+        return ctx -> {
+            String header = ctx.header(AUTHORIZATION);
+            if (header != null && !header.isBlank()) {
+                OperationResult<UserSession> session = sessions.authenticate(header, USER_ACTION);
+                if (session.success()) {
+                    sessions.runAs(session.value(), () -> handler.handle(ctx));
+                    return;
+                }
+            }
+            handler.handle(ctx);
+        };
+    }
+
+    /** POST /api/panic: limited per network address, then the controller (docs/api.md 16.1). */
+    private void reportPanic(Context ctx) {
+        if (!panicLimiter.tryAcquire(ctx.ip())) {
+            send(ctx, OperationResult.error(ErrorKind.BUSINESS_RULE, TOO_MANY_PANIC), ApiStatus.OK);
+            return;
+        }
+        send(ctx, panic.report(readBody(ctx, PanicAlertRequest.class)), ApiStatus.CREATED);
+    }
+
+    /** ?status=PENDIENTE (or another code of PanicReportStatus); null for all. */
+    private static PanicReportStatus readPanicFilter(Context ctx) {
+        String code = ctx.queryParam("status");
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+        try {
+            return PanicReportStatus.fromCode(code.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(BAD_PANIC_FILTER);
+        }
+    }
+
+    /** The body of 16.3 must be {"status": "DESCARTADO"}. */
+    private void readDiscard(Context ctx) {
+        PanicStatusRequest request = readBody(ctx, PanicStatusRequest.class);
+        if (request.status() != PanicReportStatus.DISCARDED) {
+            throw new ValidationException(BAD_PANIC_STATUS);
+        }
+    }
+
     Handler authenticated(boolean countsAsUse, Handler handler) {
         return ctx -> {
             OperationResult<UserSession> session = sessions.authenticate(ctx.header(AUTHORIZATION), countsAsUse);
