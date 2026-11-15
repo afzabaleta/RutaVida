@@ -266,3 +266,48 @@ El módulo `alert-bell.js` utiliza el contador `unreadAlerts` y consulta `GET /a
 El acceso al seguimiento depende de `EMERGENCIAS:CONSULTAR`; la consulta de rutas depende de `RUTAS:CONSULTAR`.
 
 El backend conserva la responsabilidad sobre los datos operativos, el cálculo de rutas, la simulación y las reglas de negocio. El frontend únicamente consulta y presenta la información.
+
+## 9. Integración web del botón de pánico (D9)
+
+La funcionalidad D9 mantiene la separación por capas
+de RutaVida.
+
+**Presentación:** `panico.html` y `panico.js` permiten
+enviar reportes SOS desde la web adaptable a celulares.
+
+**Comunicación:** `api-client.js` centraliza las
+solicitudes HTTP al conjunto de rutas `/api/panic`.
+
+**Seguimiento:** `panic-layer.js` consulta los reportes
+y representa su estado sobre el mapa del dashboard.
+La actualización periódica es independiente de la
+capa D7 de unidades y misiones.
+
+**Negocio:** `PanicController` delega en `PanicService`
+las reglas de validación y descarte. El frontend no
+valida reportes por proximidad ni decide despachos.
+
+**Persistencia:** `PanicReportDAO` y su implementación
+JDBC gestionan los reportes en Oracle.
+
+### Consideraciones de seguridad
+
+- El identificador local del dispositivo no equivale
+  a una identidad autenticada.
+- El servidor debe controlar los permisos para
+  consultar y descartar reportes.
+- La geolocalización del navegador requiere un
+  contexto seguro, como HTTPS o localhost.
+- Los reportes SOS no sustituyen la llamada al 123.
+- La validación de alertas debe mantenerse en el
+  backend, incluso si el navegador es modificado.
+
+### Estado de integración
+
+La interfaz pública y el panel SOS se implementaron
+en la rama `feature/panic-button-web`.
+
+La visualización del dashboard fue comprobada.
+La integración funcional completa con los estados,
+permisos y respuestas reales de la API requiere
+verificación antes de declarar terminado el caso de uso.

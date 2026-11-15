@@ -158,10 +158,20 @@
           aria-label="Mapa interactivo con emergencias, unidades, estaciones y hospitales">
         </div>
 
+        <section class="panic-dashboard-panel" aria-labelledby="panic-title">
+  <div class="panel-heading">
+    <h2 id="panic-title">Alertas SOS <span id="panic-pill">0</span></h2>
+    <a href="./panico.html">Abrir botón SOS</a>
+  </div>
+  <p id="panic-message" role="status">Cargando reportes SOS...</p>
+  <div id="panic-list" class="panic-dashboard-list"></div>
+</section>
         <div class="map-legend" aria-label="Leyenda del mapa">
           <span><i class="legend-icon" data-icon="station"></i> Estación</span>
           <span><i class="legend-icon" data-icon="hospital"></i> Hospital</span>
           <span><i class="legend-icon" data-icon="emergency"></i> Emergencia</span>
+          <span><i class="legend-icon" data-icon="panic"></i> SOS pendiente</span>
+          <span><i class="legend-icon" data-icon="panic-validated"></i> SOS validado</span>
           <span><i class="legend-icon" data-icon="AMBULANCIA"></i> Ambulancia</span>
           <span><i class="legend-icon" data-icon="BOMBERO"></i> Bomberos</span>
           <span><i class="legend-icon" data-icon="POLICIA"></i> Patrulla</span>

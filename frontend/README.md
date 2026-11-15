@@ -258,3 +258,73 @@ Se verificaron satisfactoriamente:
 8. Conservación del panel de incidentes e indicadores.
 
 El seguimiento es una visualización de la simulación del servidor; no debe presentarse como rastreo GPS real.
+
+## 11. Botón de pánico y alertas SOS (D9)
+
+La aplicación incorpora una página pública para reportar
+situaciones de emergencia y una capa de seguimiento SOS
+en el dashboard.
+
+### Página pública
+
+- `panico.html`: interfaz del botón de pánico.
+- `js/panico.js`: ubicación, selección de tipo y envío.
+- `css/panico.css`: presentación adaptable a celulares.
+- `js/api-client.js`: comunicación con la API REST.
+
+El usuario puede utilizar su ubicación GPS, seleccionar
+un punto en el mapa o usar la ubicación de demostración
+del Parque La Popa.
+
+El navegador genera un identificador de dispositivo
+persistido en `localStorage`. No sustituye la
+autenticación ni garantiza por sí solo una identidad única.
+
+El número 123 se presenta como alternativa de contacto
+con los servicios de emergencia.
+
+### Validación de reportes
+
+El frontend envía los reportes al backend. No decide
+si un reporte es válido ni crea emergencias directamente.
+
+La lógica de validación corresponde a `PanicService`.
+El servidor puede validar un reporte mediante la
+confirmación de tres dispositivos independientes,
+próximos entre sí, dentro de la ventana temporal
+definida, o mediante un reporte policial autorizado.
+
+### Visualización en el dashboard
+
+- `js/panic-layer.js`: consulta y dibuja reportes SOS.
+- `js/dashboard.js`: inicializa la capa independiente.
+- `js/map-icons.js`: iconos SOS pendientes y validados.
+- `dashboard.html`: panel de alertas y leyenda.
+- `css/dashboard.css`: estilos del panel.
+
+Los reportes pendientes se representan en ámbar y los
+validados en rojo. La capa consulta periódicamente la API
+cada 15 segundos.
+
+El descarte se solicita al backend. La autorización y
+las transiciones de estado se verifican en el servidor.
+
+### API utilizada
+
+| Operación | Endpoint |
+|---|---|
+| Tipos disponibles | `GET /api/panic/emergency-types` |
+| Enviar SOS | `POST /api/panic` |
+| Consultar reportes | `GET /api/panic/reports` |
+| Cambiar estado | `PATCH /api/panic/reports/{id}/status` |
+
+### Pruebas D9
+
+- Página pública `panico.html` cargada visualmente.
+- Dashboard con panel Alertas SOS visible.
+- Mapa, unidades e incidentes anteriores conservados.
+- Integración de la capa SOS en `dashboard.js`.
+
+Pendiente de verificación específica: respuestas reales
+de la API, estados recibidos, permisos de descarte y
+flujo completo de validación automática.

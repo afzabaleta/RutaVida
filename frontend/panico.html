@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+  <meta name="theme-color" content="#101923">
+  <title>RutaVida | Botón de pánico</title>
+  <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/rutavida.css">
+  <link rel="stylesheet" href="./css/panico.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script defer type="module" src="./js/panico.js"></script>
+</head>
+<body class="panic-page">
+  <main class="panic-shell">
+    <header class="panic-header">
+      <a href="./index.html" class="panic-brand">RutaVida</a>
+      <a class="panic-call" href="tel:123">Llamar al 123</a>
+    </header>
+
+    <section class="panic-intro">
+      <span class="panic-eyebrow">ALERTA CIUDADANA</span>
+      <h1>Botón de pánico</h1>
+      <p>Reporta una situación de emergencia en la zona de demostración de Valledupar.</p>
+      <p class="panic-warning">Si estás en peligro inmediato, llama al 123. Este sistema es un proyecto académico y no sustituye los servicios oficiales.</p>
+    </section>
+
+    <section class="panic-panel" aria-labelledby="location-title">
+      <h2 id="location-title">1. Ubicación</h2>
+      <p>Selecciona un punto en el mapa o utiliza uno de los botones.</p>
+      <div class="panic-actions">
+        <button type="button" id="gps-button" class="panic-secondary">Usar mi GPS</button>
+        <button type="button" id="demo-button" class="panic-secondary">Ubicación de prueba</button>
+      </div>
+      <div id="panic-map" class="panic-map" aria-label="Mapa para seleccionar ubicación"></div>
+      <p id="location-status" class="panic-hint" role="status">Selecciona una ubicación.</p>
+    </section>
+
+    <section class="panic-panel" aria-labelledby="details-title">
+      <h2 id="details-title">2. Detalles opcionales</h2>
+      <label for="panic-type">Tipo de emergencia</label>
+      <select id="panic-type">
+        <option value="">Sin especificar</option>
+      </select>
+      <label for="panic-description">Descripción</label>
+      <textarea id="panic-description" maxlength="200" rows="3" placeholder="Describe brevemente qué sucede (opcional)"></textarea>
+    </section>
+
+    <section class="panic-panel panic-submit-panel">
+      <h2>3. Enviar alerta</h2>
+      <button type="button" id="sos-button" class="panic-sos" disabled>ENVIAR SOS</button>
+      <p id="panic-status" class="panic-result" role="status" aria-live="polite">Selecciona una ubicación para habilitar el botón.</p>
+      <p class="panic-hint">No introduzcas nombres, teléfonos ni otros datos personales.</p>
+    </section>
+    <footer class="panic-footer">RutaVida · Demostración académica</footer>
+  </main>
+</body>
+</html>

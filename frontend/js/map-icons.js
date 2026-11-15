@@ -82,6 +82,12 @@ const PLACES = {
     <circle cx="20" cy="20" r="16" fill="${RED}" stroke="#fff" stroke-width="2.5"/>
     <path d="M20 10.5v11" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
     <circle cx="20" cy="28" r="2.5" fill="#fff"/>`,
+  panic: `
+    <path d="M20 3 37 20 20 37 3 20z" fill="#f59e0b" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="20" y="24" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10.5" font-weight="800" fill="#1f2a37">SOS</text>`,
+  "panic-validated": `
+    <path d="M20 3 37 20 20 37 3 20z" fill="${RED}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="20" y="24" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10.5" font-weight="800" fill="#fff">SOS</text>`,
 };
 
 function glyphOf(vehicleType) {
@@ -164,6 +170,9 @@ export function unitSlots(items, locationOf = (item) => item.location) {
 
 /** Leaflet icon of a place: "hospital", "station" or "emergency" (the emergency pulses). */
 export function placeIcon(kind) {
+  if (kind === "panic") {
+    return divIcon(placeSvg(kind), "rv-pulse rv-pulse-amber");
+  }
   return divIcon(placeSvg(kind), kind === "emergency" ? "rv-pulse" : "");
 }
 
@@ -183,7 +192,7 @@ export function iconMarker(map, location, icon, popupText, zIndexOffset = 0) {
 
 /**
  * Draws the small icons of a legend: every element with data-icon="hospital", "station",
- * "emergency", "AMBULANCIA", "BOMBERO" or "POLICIA" gets its SVG.
+ * "emergency", "panic", "AMBULANCIA", "BOMBERO" or "POLICIA" gets its SVG.
  */
 export function paintLegend(root = document) {
   for (const element of root.querySelectorAll("[data-icon]")) {

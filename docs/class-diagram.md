@@ -2696,3 +2696,35 @@ flowchart TD
 ```
 
 `live-map.js` administra los marcadores y las rutas activas. `alert-bell.js` presenta las alertas del usuario. Los módulos del frontend no implementan reglas de negocio ni realizan cálculos de rutas.
+
+## 11. Integración frontend D9 - Botón de pánico
+
+Los diagramas anteriores ya incluyen `PanicReport`,
+`PanicReportStatus`, `PanicReportDAO`, `PanicService`,
+`PanicController` y los DTO del caso de uso.
+
+Esta sección documenta la integración de la vista web.
+
+```mermaid
+flowchart TD
+    PUBLIC[panico.html] --> PANIC[panico.js]
+    PANIC --> CLIENT[api-client.js]
+    DASH[dashboard.js] --> LAYER[panic-layer.js]
+    LAYER --> CLIENT
+    LAYER --> ICONS[map-icons.js]
+    CLIENT --> REST[API REST /api/panic]
+    REST --> CTRL[PanicController]
+    CTRL --> SERVICE[PanicService]
+    SERVICE --> DAO[PanicReportDAO]
+    DAO --> DB[(Oracle)]
+    SERVICE --> EMERGENCY[EmergencyService]
+    SERVICE --> DISPATCH[DispatchService]
+```
+
+`panico.js` captura los datos del reporte y solicita
+su registro. `panic-layer.js` presenta los reportes
+consultados en el dashboard.
+
+La validación, el cambio de estado, la creación de
+emergencias y el despacho pertenecen al backend.
+La vista no reproduce esas reglas de negocio.
