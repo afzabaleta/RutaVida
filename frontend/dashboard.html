@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -17,7 +17,7 @@
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
-  <script defer src="./data/rutas-demo.js"></script>
+
   <script type="module" src="./js/dashboard.js"></script>
 </head>
 
@@ -31,6 +31,23 @@
       </span>
     </a>
 
+      <div class="bell-container">
+        <button
+          id="alert-bell"
+          class="bell-button"
+          type="button"
+          aria-label="Alertas"
+          aria-expanded="false"
+          aria-controls="alert-panel">
+          <span aria-hidden="true">🔔</span>
+          <span id="alert-count" class="bell-count" hidden>0</span>
+        </button>
+
+        <section id="alert-panel" class="bell-panel" hidden>
+          <h2>Alertas</h2>
+          <div id="alert-list" class="bell-list"></div>
+        </section>
+      </div>
     <div class="header-user">
       <div>
         <strong id="user-name">Cargando…</strong>
@@ -130,9 +147,9 @@
         <div class="map-heading">
           <div>
             <p class="eyebrow">UBICACIÓN GEOGRÁFICA</p>
-            <h2>Mapa de Valledupar</h2>
+            <h2>Mapa en vivo de Valledupar</h2>
           </div>
-          <span class="map-status"><span></span> Mapa de referencia</span>
+          <span class="map-status" id="live-status"><span></span> Conectando seguimiento…</span>
         </div>
 
         <div
@@ -158,24 +175,23 @@
           consulta la fuente de cada sitio en su marcador.
         </p>
 
-        <section class="route-panel" aria-labelledby="route-title">
+        <section class="route-panel" aria-labelledby="mission-title">
           <div class="map-heading">
             <div>
-              <p class="eyebrow">MOTOR DE RUTAS</p>
-              <h2 id="route-title">Rutas calculadas por RutaVida</h2>
+              <p class="eyebrow">SEGUIMIENTO EN VIVO</p>
+              <h2 id="mission-title">Misiones activas</h2>
             </div>
-            <span class="data-tag real-tag">CALCULADAS</span>
+            <span class="data-tag real-tag">ORACLE</span>
           </div>
 
-          <div
-            id="route-tabs"
-            class="route-tabs"
-            role="tablist"
-            aria-label="Escenario de la demostración">
-          </div>
+          <p class="map-footnote">
+            Las posiciones se actualizan cada 5 segundos.
+            SIMULACIÓN: las unidades todavía no transmiten GPS real.
+          </p>
 
-          <div id="route-list" class="route-list"></div>
-          <p id="route-note" class="map-footnote"></p>
+          <div id="mission-list" class="route-list">
+            <p class="empty-state">Cargando misiones…</p>
+          </div>
         </section>
       </section>
 
@@ -243,7 +259,7 @@
     </section>
 
     <footer class="dashboard-footer">
-      <span>RutaVida · Panel principal (D5c)</span>
+      <span>RutaVida · Panel principal (D7)</span>
       <span>Datos de Oracle; EJEMPLO identificado</span>
     </footer>
   </main>

@@ -1,4 +1,4 @@
-﻿
+
 import {
   getDashboardSummary,
   hasPermission,
@@ -19,7 +19,8 @@ import {
   SOURCES_CHECKED_ON,
 } from "./valledupar-data.js";
 
-import { showRoutes } from "./route-layer.js";
+import { startLiveMap } from "./live-map.js";
+import { startAlertBell } from "./alert-bell.js";
 import { startPage } from "./page-session.js";
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -367,15 +368,17 @@ function renderUnits(map, units) {
   const list = byId("unit-list");
   list.replaceChildren();
 
-  const available = units.filter((unit) => unit.status === "DISPONIBLE");
+  const available = units.filter(
+    (unit) => unit.status === "DISPONIBLE"
+  );
+
   byId("unit-pill").textContent = String(units.length);
 
-    if (!usesSummary) {
-      byId("unit-count").textContent = String(available.length);
-    }
-  const slots = unitSlots(units);
+  if (!usesSummary) {
+    byId("unit-count").textContent = String(available.length);
+  }
 
-  for (const [index, unit] of units.entries()) {
+  for (const unit of units) {
     const title =
       unit.code ||
       unit.name ||
@@ -386,45 +389,25 @@ function renderUnits(map, units) {
       unit.example === true ||
       String(unit.code || "").startsWith("EJEMPLO-");
 
-    const label = isExample
-      ? "EJEMPLO"
-      : "ORACLE";
+    const label = isExample ? "EJEMPLO" : "ORACLE";
 
     const description =
       `${unit.type || "Unidad"} · ` +
       `${unit.status || "Sin estado"}`;
-
-    const marker = addMarker(
-      map,
-      unit,
-      unitIcon(unit.type, unit.status, slots[index]),
-      makePopup(
-        title,
-        description,
-        label,
-      ),
-      UNIT_Z,
-    );
 
     list.appendChild(
       makeDataCard({
         title,
         label,
         description,
-        status: marker
-          ? ""
+        status: unit.location
+          ? "Posición disponible en el mapa en vivo"
           : "Sin posición conocida",
-        action: marker
-          ? () => focusMarker(map, marker)
-          : null,
-      }),
+      })
     );
   }
 
-  showEmpty(
-    list,
-    "No hay unidades disponibles.",
-  );
+  showEmpty(list, "No hay unidades disponibles.");
 }
 
 let usesSummary = false;
@@ -470,6 +453,60 @@ async function initializeDashboard() {
 
 
   const map = createMap();
+
+  const bell = startAlertBell({
+    button: byId("alert-bell"),
+    count: byId("alert-count"),
+    panel: byId("alert-panel"),
+    list: byId("alert-list"),
+  });
+
+  const live = startLiveMap(map, session, {
+    onSnapshot(snapshot) {
+      const status = byId("live-status");
+      if (status) {
+        status.textContent = "Seguimiento activo · SIMULACIÓN";
+      }
+
+      bell.setCount(snapshot.unreadAlerts ?? 0);
+
+      const missionList = byId("mission-list");
+      if (missionList) {
+        missionList.replaceChildren();
+
+        for (const mission of snapshot.missions ?? []) {
+          const card = makeDataCard({
+            title: `Misión ${mission.assignmentId}`,
+            label: "ORACLE",
+            description: `Unidad ${mission.unitCode ?? mission.vehicleId ?? "Sin datos"}`,
+            status: mission.status ?? "En seguimiento",
+            action: mission.activeRouteId != null
+              ? () => live.showRoute(mission.assignmentId)
+              : null,
+          });
+
+          missionList.appendChild(card);
+        }
+
+        showEmpty(missionList, "No hay misiones activas.");
+      }
+    },
+
+    onError(error) {
+      console.error("Error de seguimiento D7:", error);
+      const status = byId("live-status");
+      if (status) {
+        status.textContent = "Seguimiento no disponible";
+      }
+    },
+  });
+
+  if (!live) {
+    const status = byId("live-status");
+    if (status) {
+      status.textContent = "Seguimiento sin permiso o mapa no disponible";
+    }
+  }
 
 startIncidents(
   map,
@@ -559,21 +596,9 @@ if (!usesSummary) {
     );
   }
 
-  // Rutas D4: demostración hasta integrar K7.
+  // D7: el mapa en vivo ya se inicializo.
   if (map) {
-    requestAnimationFrame(() => {
-      map.invalidateSize();
-
-      showRoutes(
-        map,
-        window.RUTAVIDA_RUTAS_DEMO,
-        {
-          tabs: byId("route-tabs"),
-          list: byId("route-list"),
-          note: byId("route-note"),
-        },
-      );
-    });
+    requestAnimationFrame(() => map.invalidateSize());
   }
 }
 
