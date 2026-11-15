@@ -735,7 +735,7 @@ Crea o edita un hospital (DTO `HospitalRequest`):
 
 ### 15.13 `GET /api/audit`
 
-Consulta la tabla `AUDITORIA` (CU-21): quién hizo qué y cuándo. Solo lee; las entradas las escriben `AuditService` y los disparadores de `04_plsql.sql`. Permiso `AUDITORIA/CONSULTAR` (solo el Administrador). Es una acción del usuario: mantiene viva la sesión.
+Consulta la tabla `AUDITORIA` (CU-21): quién hizo qué y cuándo. Solo lee; las entradas las escriben `AuditService` y los disparadores de `04_plsql.sql`. Permiso `AUDITORIA/CONSULTAR`, que tienen el Administrador y el Coordinador (`02_datos_iniciales.sql`). Es una acción del usuario: mantiene viva la sesión.
 
 Filtros (todos opcionales, en la URL):
 

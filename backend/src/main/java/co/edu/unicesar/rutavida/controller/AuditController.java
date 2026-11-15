@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** Consult the audit (CU-21): needs AUDITORIA/CONSULTAR (the administrator). */
+/** Consult the audit (CU-21): needs AUDITORIA/CONSULTAR (administrator and coordinator). */
 public class AuditController {
 
     private static final Logger LOG = Logger.getLogger(AuditController.class.getName());
