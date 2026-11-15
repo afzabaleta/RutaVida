@@ -364,7 +364,7 @@ if (!usesSummary) {
   );
 }
 
-function renderUnits(map, units) {
+function renderUnits(map, units, live) {
   const list = byId("unit-list");
   list.replaceChildren();
 
@@ -395,14 +395,20 @@ function renderUnits(map, units) {
       `${unit.type || "Unidad"} · ` +
       `${unit.status || "Sin estado"}`;
 
+    // The marker is drawn by the live map (D7); clicking the card centers the map on it.
+    const canFocus = Boolean(live && unit.location);
+
     list.appendChild(
       makeDataCard({
         title,
         label,
         description,
-        status: unit.location
-          ? "Posición disponible en el mapa en vivo"
+        status: canFocus
+          ? "Clic para verla en el mapa en vivo"
           : "Sin posición conocida",
+        action: canFocus
+          ? () => live.focus(unit.id)
+          : null,
       })
     );
   }
@@ -474,11 +480,17 @@ async function initializeDashboard() {
       if (missionList) {
         missionList.replaceChildren();
 
+        // The mission only brings the vehicle id; its code comes in the units of the same snapshot.
+        const unitsById = new Map(
+          (snapshot.units ?? []).map((unit) => [unit.vehicleId, unit])
+        );
+
         for (const mission of snapshot.missions ?? []) {
+          const unit = unitsById.get(mission.vehicleId);
           const card = makeDataCard({
-            title: `Misión ${mission.assignmentId}`,
-            label: "ORACLE",
-            description: `Unidad ${mission.unitCode ?? mission.vehicleId ?? "Sin datos"}`,
+            title: `Misión ${mission.assignmentId} · Emergencia #${mission.emergencyId}`,
+            label: unit?.example ? "EJEMPLO" : "ORACLE",
+            description: `Unidad ${unit?.unitCode ?? mission.vehicleId ?? "Sin datos"}`,
             status: mission.status ?? "En seguimiento",
             action: mission.activeRouteId != null
               ? () => live.showRoute(mission.assignmentId)
@@ -565,6 +577,7 @@ startIncidents(
     renderUnits(
       map,
       units.value,
+      live,
     );
   } else {
     showFailure(
