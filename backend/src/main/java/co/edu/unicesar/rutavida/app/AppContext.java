@@ -4,6 +4,7 @@ import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.AuditController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
@@ -43,6 +44,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcReportDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditQueryService;
 import co.edu.unicesar.rutavida.service.AuditService;
@@ -50,6 +52,7 @@ import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.DashboardService;
+import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.FleetService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
@@ -105,6 +108,7 @@ public final class AppContext {
     private final CatalogController catalogController;
     private final EmergencyController emergencyController;
     private final DashboardController dashboardController;
+    private final ReportController reportController;
     private final IncidentController incidentController;
     private final RoadMapController roadMapController;
     private final AlertService alertService;
@@ -162,6 +166,9 @@ public final class AppContext {
         // Dashboard (A14): one query on the views and fn_tiempo_respuesta of 04_plsql.sql
         this.dashboardController = new DashboardController(
                 new DashboardService(new JdbcDashboardDAO(jdbc), clock));
+
+        // Operations report of a period (A23): by type, severity, vehicle type and day
+        this.reportController = new ReportController(new ReportService(new JdbcReportDAO(jdbc), clock));
 
         // Road incidents (S7) and their segments on the map (A12c)
         IncidentService incidentService = new IncidentService(new JdbcRoadIncidentDAO(jdbc),
@@ -246,6 +253,11 @@ public final class AppContext {
     /** Indicators of the main panel (A14). */
     public DashboardController dashboardController() {
         return dashboardController;
+    }
+
+    /** Operations report of a period (A23). */
+    public ReportController reportController() {
+        return reportController;
     }
 
     /** Road incidents: report, validate and list (S7, A12c). */

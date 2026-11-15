@@ -14,6 +14,7 @@ import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.UserController;
 import co.edu.unicesar.rutavida.controller.WebTestSupport;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.dto.SegmentView;
 import co.edu.unicesar.rutavida.graph.Edge;
 import co.edu.unicesar.rutavida.graph.Node;
@@ -39,9 +40,12 @@ import co.edu.unicesar.rutavida.service.InMemoryUserDAO;
 import co.edu.unicesar.rutavida.service.IncidentTestSupport;
 import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.service.DashboardService;
+import co.edu.unicesar.rutavida.service.ReportService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import co.edu.unicesar.rutavida.dto.DashboardSummary;
+import co.edu.unicesar.rutavida.dto.OperationsReport;
+import co.edu.unicesar.rutavida.dto.ReportCount;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -123,6 +127,13 @@ class ApiServerTest {
         DashboardController dashboard = new DashboardController(new DashboardService(
                 (since, start, end) -> new DashboardSummary(3, 3, 1, 2, 1, 4, 0, null), support.clock));
 
+        // EXAMPLE operations report (A23): 2 emergencies on the first day of the period, none later.
+        ReportController reports = new ReportController(new ReportService((first, last) -> new OperationsReport(
+                first, last, 2, 1, 1, 8.25, 8.25, 8.25, 2, 6, 1, 1, 3, 1,
+                List.of(new ReportCount("EMERGENCIA_MEDICA", 2, 8.25)), List.of(new ReportCount("ALTA", 2, 8.25)),
+                List.of(new ReportCount("AMBULANCIA", 2, 8.25)), List.of(new ReportCount(first.toString(), 2, 8.25))),
+                support.clock));
+
         // Dispatch on the small city of DispatchTestSupport (K7): 3 x 3 test streets, EXAMPLE units.
         city = new DispatchTestSupport();
         DispatchController dispatch = new DispatchController(city.service(), support.authService,
@@ -161,7 +172,7 @@ class ApiServerTest {
                 support.clock), support.authService, support.sessionContext);
 
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
-                dashboard, incidents, roadMap, alerts, dispatch, admin, tracking,
+                dashboard, reports, incidents, roadMap, alerts, dispatch, admin, tracking,
                 new PanicTestSupport().controller(support.authService, support.sessionContext), frontend);
         int port = freePort();
         server.start(port);
@@ -416,6 +427,38 @@ class ApiServerTest {
         assertEquals(403, send("GET", "/api/dashboard/summary", login("luis.gomez"), null).statusCode(),
                 "a role without REPORTES / CONSULTAR");
         assertEquals(401, send("GET", "/api/dashboard/summary", null, null).statusCode());
+    }
+
+    // ------------------------------------------------------------ operations report (A23)
+
+    @Test
+    void theOperationsReportCoversWholeDaysAndRejectsBadDates() throws Exception {
+        String marta = login("marta.ruiz");
+        HttpResponse<String> response = send("GET", "/api/reports/operations?from=2026-11-01&to=2026-11-03",
+                marta, null);
+
+        assertEquals(200, response.statusCode(), response.body());
+        JsonNode report = value(response);
+        assertEquals("2026-11-01", report.get("from").asText());
+        assertEquals("2026-11-03", report.get("to").asText());
+        assertEquals(2, report.get("reportedEmergencies").asInt());
+        assertEquals(8.3, report.get("averageResponseMinutes").asDouble(), "one decimal");
+        assertEquals("EMERGENCIA_MEDICA", report.get("byEmergencyType").get(0).get("label").asText());
+        JsonNode days = report.get("byDay");
+        assertEquals(3, days.size(), "every day of the period, both ends included");
+        assertEquals(2, days.get(0).get("count").asInt());
+        assertEquals("2026-11-03", days.get(2).get("label").asText());
+        assertEquals(0, days.get(2).get("count").asInt());
+        assertTrue(days.get(2).get("averageResponseMinutes").isNull(), "null, never 0");
+
+        assertEquals(7, value(send("GET", "/api/reports/operations", marta, null)).get("byDay").size(),
+                "without dates, the last 7 days");
+        assertEquals(400, send("GET", "/api/reports/operations?from=01/11/2026", marta, null).statusCode());
+        assertEquals(400, send("GET", "/api/reports/operations?from=2026-11-05&to=2026-11-01", marta, null)
+                .statusCode(), "the first day after the last one");
+        assertEquals(403, send("GET", "/api/reports/operations", login("luis.gomez"), null).statusCode(),
+                "a role without REPORTES / CONSULTAR");
+        assertEquals(401, send("GET", "/api/reports/operations", null, null).statusCode());
     }
 
     // ------------------------------------------------------------ road incidents (A12c)
