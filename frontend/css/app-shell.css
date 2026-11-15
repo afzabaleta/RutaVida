@@ -15,6 +15,20 @@
   --shell-red-light: #ff4d5e;
   --shell-green: #18a865;
   --shell-focus: #79adff;
+  --shell-title: #d6deeb;
+  --shell-icon-fg: #ffffff;
+  --shell-tag-border: #3a4a66;
+  --shell-sos-border: #ff4d5e;
+  --shell-sos-text: #ff8b96;
+  --shell-sim-border: #2a5a45;
+  --shell-sim-bg: rgb(24 168 101 / 8%);
+  --shell-sim-text: #9fe3c2;
+  --shell-sim-sub: #8fcaae;
+  --shell-avatar-bg: #1d2a44;
+  --shell-avatar-text: #c9d3e3;
+  --shell-active-shadow: 0 8px 22px rgb(0 0 0 / 45%), 0 6px 18px rgb(229 48 63 / 28%);
+  --shell-backdrop: rgb(3 6 14 / 65%);
+  --shell-drawer-shadow: 20px 0 60px rgb(0 0 0 / 60%);
   --shell-width: 284px;
 }
 
@@ -132,7 +146,7 @@ a.shell-item:not(.is-active):hover {
 .shell-item.is-active {
   background: linear-gradient(90deg, #d42335, var(--shell-red-dark));
   color: #fff;
-  box-shadow: 0 8px 22px rgb(0 0 0 / 45%), 0 6px 18px rgb(229 48 63 / 28%);
+  box-shadow: var(--shell-active-shadow);
 }
 
 .shell-item.is-disabled {
@@ -162,12 +176,14 @@ a.shell-item:not(.is-active):hover {
 .shell-icon-check { --icon: url("../img/icons/check.svg"); }
 .shell-icon-hospital { --icon: url("../img/icons/hospital.svg"); }
 .shell-icon-clock { --icon: url("../img/icons/clock.svg"); }
+.shell-icon-sun { --icon: url("../img/icons/sun.svg"); }
+.shell-icon-moon { --icon: url("../img/icons/moon.svg"); }
 
 .shell-tag {
   flex: 0 0 auto;
   margin-left: auto;
   padding: 2px 7px;
-  border: 1px solid #3a4a66;
+  border: 1px solid var(--shell-tag-border);
   border-radius: 99px;
   color: var(--shell-muted);
   font-size: .75rem;
@@ -176,8 +192,8 @@ a.shell-item:not(.is-active):hover {
 }
 
 .shell-tag-sos {
-  border-color: var(--shell-red-light);
-  color: #ff8b96;
+  border-color: var(--shell-sos-border);
+  color: var(--shell-sos-text);
 }
 
 .shell-tag-soon {
@@ -195,17 +211,17 @@ a.shell-item:not(.is-active):hover {
   gap: 10px;
   margin: 0 6px 6px;
   padding: 11px 13px;
-  border: 1px solid #2a5a45;
+  border: 1px solid var(--shell-sim-border);
   border-radius: 12px;
-  background: rgb(24 168 101 / 8%);
-  color: #9fe3c2;
+  background: var(--shell-sim-bg);
+  color: var(--shell-sim-text);
   font-size: .875rem;
   line-height: 1.35;
 }
 
 .shell-sim small {
   display: block;
-  color: #8fcaae;
+  color: var(--shell-sim-sub);
   font-size: .75rem;
 }
 
@@ -234,8 +250,8 @@ a.shell-item:not(.is-active):hover {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #1d2a44;
-  color: var(--shell-item);
+  background: var(--shell-avatar-bg);
+  color: var(--shell-avatar-text);
   font-weight: 800;
   font-size: .85rem;
 }
@@ -276,7 +292,7 @@ a.shell-item:not(.is-active):hover {
 
 .shell-title {
   margin: 0;
-  color: #d6deeb;
+  color: var(--shell-title);
   font-size: 1rem;
   font-weight: 600;
 }
@@ -310,7 +326,7 @@ a.shell-item:not(.is-active):hover {
   border: 1px solid var(--shell-border);
   border-radius: 12px;
   background: transparent;
-  color: #fff;
+  color: var(--shell-icon-fg);
   cursor: pointer;
 }
 
@@ -334,7 +350,7 @@ a.shell-item:not(.is-active):hover {
   height: 44px;
   border-color: var(--shell-border);
   background: transparent;
-  color: #fff;
+  color: var(--shell-icon-fg);
 }
 
 .shell-header .bell-button:hover {
@@ -347,13 +363,52 @@ a.shell-item:not(.is-active):hover {
 }
 
 .shell-header .bell-count {
-  background: var(--shell-red);
+  background: #d42335;
+}
+
+/* Theme switch: sun = light, moon = dark; the pressed one is red. */
+.theme-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--shell-border);
+  border-radius: 12px;
+}
+
+.theme-switch button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--shell-icon-fg);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.theme-switch button:hover {
+  background: var(--shell-hover);
+}
+
+.theme-switch button[aria-pressed="true"] {
+  background: #d42335;
+  color: #fff;
+}
+
+.theme-switch .shell-icon {
+  flex-basis: 20px;
+  width: 20px;
+  height: 20px;
 }
 
 /* ---------- Keyboard focus ---------- */
 
 .shell-sidebar a:focus-visible,
 .shell-burger:focus-visible,
+.theme-switch button:focus-visible,
 .shell-header .bell-button:focus-visible {
   outline: 2px solid var(--shell-focus);
   outline-offset: 2px;
@@ -388,7 +443,7 @@ a.shell-item:not(.is-active):hover {
   .shell-sidebar.is-open {
     transform: none;
     visibility: visible;
-    box-shadow: 20px 0 60px rgb(0 0 0 / 60%);
+    box-shadow: var(--shell-drawer-shadow);
     transition: transform 240ms cubic-bezier(.2, .8, .2, 1), visibility 0s;
   }
 
@@ -397,7 +452,7 @@ a.shell-item:not(.is-active):hover {
     inset: 0;
     z-index: 2900;
     display: block;
-    background: rgb(3 6 14 / 65%);
+    background: var(--shell-backdrop);
   }
 
   .shell-backdrop[hidden] {

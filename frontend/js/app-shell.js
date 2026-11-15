@@ -6,6 +6,7 @@ import { hasPermission } from "./api-client.js";
 
 const PAGE_TITLE = "Centro de coordinación de emergencias de Valledupar";
 const MOBILE_QUERY = "(max-width: 899.98px)";
+const THEME_KEY = "rutavida.theme";
 
 // Menu options in display order. An option shows only if the role has its permission;
 // a group with no visible options is not shown.
@@ -223,9 +224,59 @@ function buildHeader() {
   const mobileBrand = wordmark("shell-mobile-brand");
   const title = el("p", "shell-title", PAGE_TITLE);
   const actions = el("div", "shell-actions");
+  actions.appendChild(buildThemeSwitch());
 
   header.append(burger, mobileBrand, title, actions);
   return { header, burger, actions };
+}
+
+/** Sun / moon switch. theme-boot.js already set data-theme before paint. */
+function buildThemeSwitch() {
+  const group = el("div", "theme-switch");
+  group.setAttribute("role", "group");
+  group.setAttribute("aria-label", "Tema de colores");
+
+  const options = [
+    { theme: "light", icon: "sun", label: "Modo claro" },
+    { theme: "dark", icon: "moon", label: "Modo oscuro" },
+  ];
+
+  const buttons = options.map((option) => {
+    const button = el("button");
+    button.type = "button";
+    button.dataset.theme = option.theme;
+    button.setAttribute("aria-label", option.label);
+    button.title = option.label;
+    button.appendChild(icon(option.icon));
+    button.addEventListener("click", () => applyTheme(option.theme));
+    group.appendChild(button);
+    return button;
+  });
+
+  function sync() {
+    const current = document.documentElement.getAttribute("data-theme") === "light"
+      ? "light"
+      : "dark";
+
+    for (const button of buttons) {
+      button.setAttribute("aria-pressed", String(button.dataset.theme === current));
+    }
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+
+    try {
+      window.localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Storage blocked: the theme still applies to this page.
+    }
+
+    sync();
+  }
+
+  sync();
+  return group;
 }
 
 /** Mobile drawer: opens from the left over a dark backdrop. */

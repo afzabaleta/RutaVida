@@ -6,10 +6,10 @@
 
 .operation-notice {
   padding: 14px 18px;
-  border: 1px solid rgba(246, 185, 75, 0.4);
+  border: 1px solid var(--notice-border);
   border-radius: 12px;
-  background: rgba(246, 185, 75, 0.08);
-  color: #f6d69b;
+  background: var(--notice-bg);
+  color: var(--notice-text);
   font-size: .9375rem;
   line-height: 1.5;
 }
@@ -42,7 +42,7 @@
 .form-field label,
 .form-field legend,
 .field-label {
-  color: #e8edf2;
+  color: var(--text);
   font-weight: 600;
   font-size: .9375rem;
 }
@@ -53,29 +53,29 @@
   width: 100%;
   min-height: 46px;
   padding: 12px 14px;
-  border: 1px solid #2a3a58;
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: #0b1424;
-  color: #f4f7fa;
+  background: var(--field-bg);
+  color: var(--text);
   font: inherit;
   transition: border-color 150ms ease;
 }
 
 .form-field input::placeholder,
 .form-field textarea::placeholder {
-  color: #8592a8;
+  color: var(--placeholder);
 }
 
 .form-field input:hover,
 .form-field select:hover,
 .form-field textarea:hover {
-  border-color: #3a4f75;
+  border-color: var(--border-hover);
 }
 
 .form-field input:focus,
 .form-field select:focus,
 .form-field textarea:focus {
-  outline: 2px solid #79adff;
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 
@@ -104,41 +104,41 @@
   gap: 7px;
   min-height: 44px;
   padding: 10px 14px;
-  border: 1px solid #2a3a58;
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: #0b1424;
+  background: var(--field-bg);
   font-weight: 600;
   cursor: pointer;
   transition: background-color 150ms ease;
 }
 
 .severity-chip:focus-within {
-  outline: 2px solid #79adff;
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 
 .severity-chip input {
-  accent-color: #79adff;
+  accent-color: var(--blue);
 }
 
 .severity-critica {
-  border-color: #ff6674;
+  border-color: var(--red);
 }
 
 .severity-alta {
-  border-color: #f6b94b;
+  border-color: var(--amber);
 }
 
 .severity-media {
-  border-color: #79adff;
+  border-color: var(--blue);
 }
 
 .severity-baja {
-  border-color: #4bd6a0;
+  border-color: var(--green);
 }
 
 .severity-chip:has(input:checked) {
-  background: #17263f;
+  background: var(--selected-bg);
   border-width: 2px;
   padding: 9px 13px;
 }
@@ -160,14 +160,14 @@
 
 /* Same pair as the dashboard: red primary, white outline secondary. */
 .secondary-button {
-  border: 1.5px solid #c9d3e3;
+  border: 1.5px solid var(--outline);
   background: transparent;
-  color: #eef2f8;
+  color: var(--text);
 }
 
 .secondary-button:hover:not(:disabled) {
-  border-color: #fff;
-  background: rgb(255 255 255 / 6%);
+  border-color: var(--outline-hover);
+  background: var(--outline-hover-bg);
 }
 
 .primary-button {
@@ -183,7 +183,7 @@
 
 .secondary-button:focus-visible,
 .primary-button:focus-visible {
-  outline: 2px solid #79adff;
+  outline: 2px solid var(--blue);
   outline-offset: 3px;
 }
 
@@ -193,7 +193,7 @@
 }
 
 .point-text {
-  color: #79adff;
+  color: var(--blue);
   font-size: .9375rem;
   overflow-wrap: anywhere;
 }
@@ -213,21 +213,21 @@
 
 .form-message.error {
   background: rgba(255, 102, 116, 0.12);
-  border: 1px solid #ff6674;
-  color: #ffb2b9;
+  border: 1px solid var(--red);
+  color: var(--error-text);
 }
 
 .form-message.ok {
   background: rgba(75, 214, 160, 0.12);
-  border: 1px solid #4bd6a0;
-  color: #9aebcb;
+  border: 1px solid var(--green);
+  color: var(--ok-text);
 }
 
 .operation-map-panel #map {
   width: 100%;
   height: 560px;
   margin-top: 18px;
-  border: 1px solid #1e2b44;
+  border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -267,9 +267,9 @@
   margin-top: 6px;
   min-height: 46px;
   padding: 10px 12px;
-  border: 1px solid #2a3a58;
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: #0b1424;
+  background: var(--field-bg);
   color: var(--text);
   font: inherit;
 }
@@ -280,7 +280,7 @@
 }
 
 .side-panel select option {
-  background: #0f1a2e;
+  background: var(--surface);
 }
 
 .unit-choice {
@@ -366,7 +366,7 @@
 .route-difference {
   margin: 0;
   font-size: .875rem;
-  color: #f6b94b;
+  color: var(--amber);
 }
 
 .secondary-button:disabled {

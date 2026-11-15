@@ -15,6 +15,51 @@
   --border: #1e2b44;
   --text: #eef2f8;
   --muted: #9aa8bf;
+  /* Colour roles; css/theme.css redefines them for the light theme. */
+  --border-strong: #2a3a58;
+  --border-hover: #33466a;
+  --text-soft: #d6deeb;
+  --text-sub: #b8c4d8;
+  --placeholder: #8592a8;
+  --field-bg: #0b1424;
+  --selected-bg: #17263f;
+  --red-text: #ff8b96;
+  --title-accent: #ff4d5e;
+  --outline: #c9d3e3;
+  --outline-hover: #ffffff;
+  --outline-hover-bg: rgb(255 255 255 / 6%);
+  --control-border: #4a5d80;
+  --control-bg: #1d2a44;
+  --control-hover-bg: #26365a;
+  --control-text: #ffffff;
+  --action-border: #284a7a;
+  --notice-border: rgba(246, 185, 75, .45);
+  --notice-bg: rgba(246, 185, 75, .08);
+  --notice-text: #f6d69b;
+  --tag-amber-bg: rgba(246, 185, 75, .1);
+  --tag-green-bg: rgba(75, 214, 160, .1);
+  --error-text: #ffb2b9;
+  --ok-text: #9aebcb;
+  --kpi-red-bg: linear-gradient(135deg, #3a0f18, #1a0d16);
+  --kpi-red-border: #7a2230;
+  --kpi-blue-bg: linear-gradient(135deg, #0d2547, #0c1529);
+  --kpi-blue-border: #1e4c8f;
+  --kpi-green-bg: linear-gradient(135deg, #0b3326, #0b1a1a);
+  --kpi-green-border: #1b6b4c;
+  --kpi-amber-bg: linear-gradient(135deg, #3a2a0c, #18140d);
+  --kpi-amber-border: #7d5c18;
+  --kpi-sub: rgb(238 242 248 / 68%);
+  --unread-border: #2c5d96;
+  --unread-bg: #10284a;
+  --pill-blue: #2f7cf6;
+  --sos-pending-border: #7d5c18;
+  --sos-validated-border: #7a2230;
+  --sos-pending-pill-bg: rgb(232 160 32 / 18%);
+  --sos-pending-pill-text: #f6c066;
+  --sos-validated-pill-bg: rgb(229 48 63 / 20%);
+  --sos-validated-pill-text: #ff8b96;
+  --map-bg: #0b1424;
+  --tile-filter: invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.55);
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
@@ -24,11 +69,11 @@
 .demo-notice {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(246, 185, 75, .45);
+  border: 1px solid var(--notice-border);
   border-radius: 10px;
   padding: 8px 12px;
   color: var(--amber);
-  background: rgba(246, 185, 75, .08);
+  background: var(--notice-bg);
   font-size: .8125rem;
   font-weight: 700;
 }
@@ -63,7 +108,7 @@
 }
 
 .page-title span {
-  color: #ff4d5e;
+  color: var(--title-accent);
 }
 
 .muted {
@@ -112,13 +157,14 @@
 }
 
 .button-outline {
-  border: 1.5px solid #c9d3e3;
+  border: 1.5px solid var(--outline);
   background: transparent;
+  color: var(--text);
 }
 
 .button-outline:hover {
-  border-color: #fff;
-  background: rgb(255 255 255 / 6%);
+  border-color: var(--outline-hover);
+  background: var(--outline-hover-bg);
 }
 
 .button-emergency:active,
@@ -127,7 +173,7 @@
 }
 
 .button:focus-visible {
-  outline: 2px solid #79adff;
+  outline: 2px solid var(--blue);
   outline-offset: 3px;
 }
 
@@ -158,26 +204,26 @@
 
 .kpi-red {
   --kpi: #e5303f;
-  border-color: #7a2230;
-  background: linear-gradient(135deg, #3a0f18, #1a0d16);
+  border-color: var(--kpi-red-border);
+  background: var(--kpi-red-bg);
 }
 
 .kpi-blue {
   --kpi: #2f7cf6;
-  border-color: #1e4c8f;
-  background: linear-gradient(135deg, #0d2547, #0c1529);
+  border-color: var(--kpi-blue-border);
+  background: var(--kpi-blue-bg);
 }
 
 .kpi-green {
   --kpi: #18a865;
-  border-color: #1b6b4c;
-  background: linear-gradient(135deg, #0b3326, #0b1a1a);
+  border-color: var(--kpi-green-border);
+  background: var(--kpi-green-bg);
 }
 
 .kpi-amber {
   --kpi: #e8a020;
-  border-color: #7d5c18;
-  background: linear-gradient(135deg, #3a2a0c, #18140d);
+  border-color: var(--kpi-amber-border);
+  background: var(--kpi-amber-bg);
 }
 
 .kpi-icon {
@@ -199,7 +245,7 @@
 
 .kpi-card p {
   margin: 0 0 2px;
-  color: #d6deeb;
+  color: var(--text-soft);
   font-size: .9375rem;
   line-height: 1.35;
 }
@@ -215,7 +261,7 @@
 .kpi-card small {
   display: block;
   margin-top: 4px;
-  color: rgb(238 242 248 / 68%);
+  color: var(--kpi-sub);
   font-size: .8125rem;
 }
 
@@ -289,11 +335,11 @@
 }
 
 .data-card[role="button"]:hover {
-  border-color: #33466a;
+  border-color: var(--border-hover);
 }
 
 .data-card[role="button"]:focus-visible {
-  outline: 2px solid #79adff;
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 
@@ -335,7 +381,7 @@
   padding: 3px 8px;
   border-radius: 6px;
   color: var(--amber);
-  background: rgba(246, 185, 75, .1);
+  background: var(--tag-amber-bg);
   font-size: .75rem;
   font-weight: 800;
   letter-spacing: .03em;
@@ -343,7 +389,7 @@
 
 .data-tag.real-tag {
   color: var(--green);
-  background: rgba(75, 214, 160, .1);
+  background: var(--tag-green-bg);
 }
 
 .status-text {
@@ -397,18 +443,18 @@
   width: 100%;
   height: 530px;
   min-height: 360px;
-  background: #0b1424;
+  background: var(--map-bg);
 }
 
 .leaflet-container {
   font-family: inherit;
-  background: #0b1424;
+  background: var(--map-bg);
 }
 
 /* Dark map: filter only the OpenStreetMap tiles. Markers, routes,
    popups and the attribution live in other panes and keep their colours. */
 .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.55);
+  filter: var(--tile-filter);
 }
 
 .leaflet-control-attribution {
@@ -569,7 +615,7 @@
   margin-top: 11px;
   min-height: 36px;
   padding: 7px 11px;
-  border: 1px solid #284a7a;
+  border: 1px solid var(--action-border);
   border-radius: 8px;
   color: var(--blue);
   background: var(--blue-soft);
@@ -587,7 +633,7 @@
 .panic-report button:focus-visible,
 .bell-read:focus-visible,
 .panel-link:focus-visible {
-  outline: 2px solid #79adff;
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 
@@ -852,10 +898,10 @@
   max-height: 440px;
   overflow-y: auto;
   padding: 16px;
-  border: 1px solid #2a3a58;
+  border: 1px solid var(--border-strong);
   border-radius: 14px;
-  background: #0f1a2e;
-  color: #eef2f8;
+  background: var(--surface);
+  color: var(--text);
   box-shadow: 0 18px 44px rgb(0 0 0 / 50%);
 }
 
@@ -871,15 +917,15 @@
 
 .bell-item {
   padding: 12px;
-  border: 1px solid #1e2b44;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #142238;
+  background: var(--surface-raised);
 }
 
 /* Unread: tinted border and background plus a text label, not colour alone. */
 .bell-unread {
-  border-color: #2c5d96;
-  background: #10284a;
+  border-color: var(--unread-border);
+  background: var(--unread-bg);
 }
 
 .bell-unread::before {
@@ -888,7 +934,7 @@
   margin-bottom: 8px;
   padding: 2px 8px;
   border-radius: 99px;
-  background: #2f7cf6;
+  background: var(--pill-blue);
   color: #fff;
   font-size: .75rem;
   font-weight: 800;
@@ -903,17 +949,17 @@
 .bell-item small {
   display: block;
   margin-bottom: 8px;
-  color: #b8c4d8;
+  color: var(--text-sub);
   font-size: .8125rem;
 }
 
 .bell-read {
   min-height: 36px;
   padding: 7px 12px;
-  border: 1px solid #4a5d80;
+  border: 1px solid var(--control-border);
   border-radius: 8px;
   background: transparent;
-  color: #eef2f8;
+  color: var(--text);
   font: inherit;
   font-size: .8125rem;
   cursor: pointer;
@@ -965,7 +1011,7 @@
 }
 
 .panel-link {
-  color: #ff8b96;
+  color: var(--red-text);
   font-size: .875rem;
   font-weight: 700;
   text-underline-offset: 3px;
@@ -1000,11 +1046,11 @@
 
 /* State shows as colour and as the status text (PENDIENTE / VALIDADA). */
 .panic-report-pending {
-  border-color: #7d5c18;
+  border-color: var(--sos-pending-border);
 }
 
 .panic-report-validated {
-  border-color: #7a2230;
+  border-color: var(--sos-validated-border);
 }
 
 .panic-report-status {
@@ -1017,30 +1063,30 @@
 }
 
 .panic-report-pending .panic-report-status {
-  background: rgb(232 160 32 / 18%);
-  color: #f6c066;
+  background: var(--sos-pending-pill-bg);
+  color: var(--sos-pending-pill-text);
 }
 
 .panic-report-validated .panic-report-status {
-  background: rgb(229 48 63 / 20%);
-  color: #ff8b96;
+  background: var(--sos-validated-pill-bg);
+  color: var(--sos-validated-pill-text);
 }
 
 .panic-report button {
   width: fit-content;
   min-height: 36px;
   padding: 8px 12px;
-  border: 1px solid #4a5d80;
+  border: 1px solid var(--control-border);
   border-radius: 8px;
-  background: #1d2a44;
-  color: #fff;
+  background: var(--control-bg);
+  color: var(--control-text);
   font: inherit;
   font-size: .875rem;
   cursor: pointer;
 }
 
 .panic-report button:hover {
-  background: #26365a;
+  background: var(--control-hover-bg);
 }
 
 .panic-report .panic-discard {
