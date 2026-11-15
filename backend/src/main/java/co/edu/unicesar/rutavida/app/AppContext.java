@@ -3,6 +3,7 @@ package co.edu.unicesar.rutavida.app;
 import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.AuditController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
+import co.edu.unicesar.rutavida.controller.CitizenController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
@@ -43,6 +44,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcCitizenSessionDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcReportDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
@@ -51,6 +53,7 @@ import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
+import co.edu.unicesar.rutavida.service.CitizenService;
 import co.edu.unicesar.rutavida.service.DashboardService;
 import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
@@ -128,6 +131,8 @@ public final class AppContext {
     private DispatchService dispatchService;
     private DispatchController dispatchController;
     private PanicController panicController;
+    private final CitizenService citizenService;
+    private final CitizenController citizenController;
 
     private AppContext(DatabaseConnection database, Clock clock) {
         this.database = Objects.requireNonNull(database, "database");
@@ -147,7 +152,6 @@ public final class AppContext {
         this.adminBootstrap = new AdminBootstrapService(
                 userDao, roleDao, passwordHasher, auditService, jdbc, clock);
         this.loginController = new LoginController(authService, session);
-        this.webSessionController = new WebSessionController(authService, session, clock);
         // Consult the audit (CU-21, A18)
         this.auditController = new AuditController(new AuditQueryService(auditDao, userDao, clock),
                 authService, session);
@@ -180,6 +184,13 @@ public final class AppContext {
         // create them through alertService(), so everyone shares this instance.
         this.alertService = new AlertService(new JdbcAlertDAO(jdbc), userDao, roleDao, jdbc, clock);
         this.alertController = new AlertController(alertService, session);
+
+        // Citizens of the panic button (DT-13): registration, 30-day phone sessions and blocking.
+        // The web sessions need them, so they are created after the alerts.
+        this.citizenService = new CitizenService(userDao, roleDao, new JdbcCitizenSessionDAO(jdbc),
+                passwordHasher, auditService, alertService, jdbc, clock);
+        this.citizenController = new CitizenController(citizenService);
+        this.webSessionController = new WebSessionController(authService, session, clock, citizenService);
 
         // Administration (S9, S10, A17): users and roles, hospitals, units and stations
         this.userController = new UserController(new UserService(userDao, roleDao, passwordHasher,
@@ -364,10 +375,15 @@ public final class AppContext {
         if (panicController == null) {
             PanicService panicService = new PanicService(new JdbcPanicReportDAO(jdbc),
                     new JdbcEmergencyTypeDAO(jdbc), userDao, roleDao, emergencyService, dispatchService(),
-                    routeService(), alertService, auditService, jdbc, clock);
+                    routeService(), alertService, auditService, citizenService, jdbc, clock);
             panicController = new PanicController(panicService, authService, session);
         }
         return panicController;
+    }
+
+    /** Citizen registration of the panic button (CU-23, DT-13). */
+    public CitizenController citizenController() {
+        return citizenController;
     }
 
     /** Only for the CreateAdminUser tool: creating users normally needs a session. */

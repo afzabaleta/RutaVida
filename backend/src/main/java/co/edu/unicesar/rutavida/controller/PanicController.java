@@ -19,15 +19,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Panic button (CU-22). Reporting needs no session: a citizen presses it without an
- * account, and a police officer with a session validates the alert alone. Listing needs
- * PANICO/CONSULTAR and discarding PANICO/GESTIONAR.
+ * Panic button (CU-22, DT-13). Reporting needs a session with PANICO/REPORTAR: a registered
+ * citizen (whose phone stays logged in), a police officer, whose report validates the alert
+ * alone, or an administrator. Listing needs PANICO/CONSULTAR and discarding PANICO/GESTIONAR.
  */
 public class PanicController {
 
     private static final Logger LOG = Logger.getLogger(PanicController.class.getName());
 
     static final String MODULE = "PANICO";
+    static final String REPORT = "REPORTAR";
     static final String VIEW = "CONSULTAR";
     static final String MANAGE = "GESTIONAR";
 
@@ -48,15 +49,12 @@ public class PanicController {
         this.session = Objects.requireNonNull(session, "session");
     }
 
-    /** CU-22: someone pressed the button. The session is used only if there is one. */
+    /** CU-22: a registered person pressed the button. */
     public OperationResult<PanicResult> report(PanicAlertRequest request) {
-        try {
-            UserSession reporter = session.isActive() ? session.current() : null;
-            PanicResult result = panicService.report(request, reporter);
-            return new OperationResult<>(true, messageFor(result), result);
-        } catch (RuntimeException e) {
-            return failure(e);
-        }
+        OperationResult<PanicResult> result = run(REPORT, user -> panicService.report(request, user));
+        return result.success()
+                ? new OperationResult<>(true, messageFor(result.value()), result.value())
+                : result;
     }
 
     /** Reports of the last 2 hours for the map; all of them when {@code status} is null. */

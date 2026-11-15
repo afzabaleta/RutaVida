@@ -45,7 +45,7 @@ public final class WebServer {
                 context.roadMapController(), context.alertController(), dispatch,
                 new AdminControllers(context.userController(), context.fleetController(), context.hospitalController(),
                         context.auditController()),
-                context.trackingController(), context.panicController(), frontend);
+                context.trackingController(), context.panicController(), context.citizenController(), frontend);
         try {
             server.start(port);
         } catch (RuntimeException e) {
