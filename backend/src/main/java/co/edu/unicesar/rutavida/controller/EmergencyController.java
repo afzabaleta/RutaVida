@@ -11,6 +11,7 @@ import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.util.Messages;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -59,6 +60,11 @@ public class EmergencyController {
     /** CU-07: needs EMERGENCIAS / CONSULTAR. */
     public OperationResult<List<Emergency>> listActive() {
         return run(VIEW, user -> emergencyService.listActive());
+    }
+
+    /** The emergencies of a period, closed ones too (CU-15, D10): needs EMERGENCIAS / CONSULTAR. */
+    public OperationResult<List<Emergency>> listByPeriod(LocalDate from, LocalDate to) {
+        return run(VIEW, user -> emergencyService.listByPeriod(from, to));
     }
 
     /** One emergency (GET /api/emergencies/{id}): needs EMERGENCIAS / CONSULTAR. */
