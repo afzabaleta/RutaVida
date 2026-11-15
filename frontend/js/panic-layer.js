@@ -106,7 +106,7 @@ export function startPanicLayer(map, session, elements = {}) {
           card.appendChild(focus);
         }
 
-        if (pending && hasPermission(session, "EMERGENCIAS:GESTIONAR")) {
+        if (pending && hasPermission(session, "PANICO:GESTIONAR")) {
           const discard = document.createElement("button");
           discard.type = "button";
           discard.className = "panic-discard";
