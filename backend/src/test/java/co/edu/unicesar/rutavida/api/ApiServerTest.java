@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.api;
 
+import co.edu.unicesar.rutavida.controller.AuditController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.AlertController;
@@ -19,6 +20,7 @@ import co.edu.unicesar.rutavida.graph.Node;
 import co.edu.unicesar.rutavida.model.Alert;
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.enums.AlertType;
+import co.edu.unicesar.rutavida.service.AuditQueryService;
 import co.edu.unicesar.rutavida.service.PanicTestSupport;
 import co.edu.unicesar.rutavida.service.LiveMapService;
 import co.edu.unicesar.rutavida.service.AdministrationTestSupport;
@@ -149,7 +151,9 @@ class ApiServerTest {
         AdminControllers admin = new AdminControllers(
                 new UserController(administration.userService(), support.authService, support.sessionContext),
                 new FleetController(new FleetTestSupport().fleetService(), support.authService, support.sessionContext),
-                new HospitalController(administration.hospitalService(), support.authService, support.sessionContext));
+                new HospitalController(administration.hospitalService(), support.authService, support.sessionContext),
+                new AuditController(new AuditQueryService(support.auditDao, new InMemoryUserDAO(), support.clock),
+                        support.authService, support.sessionContext));
 
         // Live map (A12e) on the same small city and the same alerts.
         TrackingController tracking = new TrackingController(new LiveMapService(city.vehicles,

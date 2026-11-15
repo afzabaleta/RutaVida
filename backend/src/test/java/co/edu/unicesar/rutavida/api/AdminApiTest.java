@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.api;
 
+import co.edu.unicesar.rutavida.controller.AuditController;
 import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
@@ -21,6 +22,7 @@ import co.edu.unicesar.rutavida.model.Role;
 import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.VehicleType;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.service.AuditQueryService;
 import co.edu.unicesar.rutavida.service.PanicTestSupport;
 import co.edu.unicesar.rutavida.service.TrackingTestSupport;
 import co.edu.unicesar.rutavida.service.AlertService;
@@ -99,7 +101,8 @@ class AdminApiTest {
                 new Permission(5, "UNIDADES", "CONSULTAR", "Prueba"),
                 new Permission(6, "UNIDADES", "GESTIONAR", "Prueba"),
                 new Permission(7, "HOSPITALES", "CONSULTAR", "Prueba"),
-                new Permission(8, "HOSPITALES", "GESTIONAR", "Prueba"))));
+                new Permission(8, "HOSPITALES", "GESTIONAR", "Prueba"),
+                new Permission(20, "AUDITORIA", "CONSULTAR", "Prueba"))));
         roleDao.add(new Role(2, "OPERADOR_CENTRAL", "Prueba", RecordStatus.ACTIVE, Set.of(
                 new Permission(5, "UNIDADES", "CONSULTAR", "Prueba"),
                 new Permission(7, "HOSPITALES", "CONSULTAR", "Prueba"))));
@@ -117,7 +120,8 @@ class AdminApiTest {
         stationDao.insert(new EmergencyStation(0, "EJEMPLO - Base de prueba", "Calle de EJEMPLO 1", null, null,
                 new GeoPoint(10.4631, -73.2532), RecordStatus.ACTIVE));
 
-        AuditService audit = new AuditService(new InMemoryAuditDAO(), CLOCK);
+        InMemoryAuditDAO auditDao = new InMemoryAuditDAO();
+        AuditService audit = new AuditService(auditDao, CLOCK);
         EmergencyTestSupport.CountingTransactions transactions = new EmergencyTestSupport.CountingTransactions();
         AuthService auth = new AuthService(userDao, roleDao, hasher, audit, CLOCK);
         SessionContext session = new SessionContext();
@@ -129,7 +133,8 @@ class AdminApiTest {
                 new FleetController(new FleetService(new InMemoryEmergencyVehicleDAO(), stationDao, () -> TYPES,
                         alertService, audit, transactions), auth, session),
                 new HospitalController(new HospitalService(new InMemoryHospitalDAO(), audit, transactions),
-                        auth, session));
+                        auth, session),
+                new AuditController(new AuditQueryService(auditDao, userDao, CLOCK), auth, session));
 
         // The other routes are not tested here; they only need their controllers.
         EmergencyController emergencies = new EmergencyController(new EmergencyService(new InMemoryEmergencyDAO(),
@@ -154,6 +159,36 @@ class AdminApiTest {
     @AfterEach
     void stop() {
         server.stop();
+    }
+
+    @Test
+    void theAdministratorConsultsTheAuditWithFilters() throws Exception {
+        String admin = login("admin.prueba", PASSWORD);
+        loginResponse("operador.prueba", "Clave-Equivocada9");
+
+        HttpResponse<String> all = send("GET", "/api/audit", admin, null);
+        assertEquals(200, all.statusCode(), all.body());
+        JsonNode entries = json.readTree(all.body()).get("value");
+        assertEquals(2, entries.size(), "the login of the admin and the failed one, last 24 hours");
+        assertEquals("FALLO", entries.get(0).get("result").asText(), "newest first");
+        assertEquals("admin.prueba", entries.get(1).get("username").asText());
+
+        JsonNode failed = json.readTree(send("GET", "/api/audit?module=seguridad&result=fallo&limit=5", admin, null)
+                .body()).get("value");
+        assertEquals(1, failed.size());
+        assertEquals("FALLO", failed.get(0).get("result").asText());
+
+        String day = LocalDateTime.now(CLOCK).toLocalDate().toString();
+        assertEquals(2, json.readTree(send("GET", "/api/audit?from=" + day + "&to=" + day, admin, null).body())
+                .get("value").size(), "a whole day");
+
+        assertEquals(400, send("GET", "/api/audit?from=14/11/2026", admin, null).statusCode());
+        assertEquals(400, send("GET", "/api/audit?result=QUIZAS", admin, null).statusCode());
+        assertEquals(400, send("GET", "/api/audit?limit=9000", admin, null).statusCode());
+        assertEquals(400, send("GET", "/api/audit?from=2026-01-01&to=2026-11-03", admin, null).statusCode(),
+                "more than 31 days");
+        assertEquals(403, send("GET", "/api/audit", login("operador.prueba", PASSWORD), null).statusCode());
+        assertEquals(401, send("GET", "/api/audit", null, null).statusCode());
     }
 
     @Test

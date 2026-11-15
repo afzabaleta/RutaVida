@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.api;
 
+import co.edu.unicesar.rutavida.controller.AuditController;
 import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
@@ -18,6 +19,7 @@ import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.Role;
 import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.service.AuditQueryService;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
@@ -114,7 +116,8 @@ class PanicApiTest {
                 new FleetController(new FleetService(new InMemoryEmergencyVehicleDAO(),
                         new InMemoryEmergencyStationDAO(), List::of, alertService, audit, transactions), auth, session),
                 new HospitalController(new HospitalService(new InMemoryHospitalDAO(), audit, transactions),
-                        auth, session));
+                        auth, session),
+                new AuditController(new AuditQueryService(new InMemoryAuditDAO(), panic.users, CLOCK), auth, session));
         EmergencyController emergencies = new EmergencyController(new EmergencyService(new InMemoryEmergencyDAO(),
                 new InMemoryEmergencyTypeDAO(), new EmergencyTestSupport.FixedAssignments(),
                 new EmergencyTestSupport.FixedRoutes(), audit, transactions, CLOCK), auth, session);
