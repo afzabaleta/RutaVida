@@ -650,6 +650,7 @@ classDiagram
         +insert(log: AuditLog) void
         +findByRecord(module: String, recordId: long) List~AuditLog~
         +findByPeriod(from: LocalDateTime, to: LocalDateTime) List~AuditLog~
+        +search(from: LocalDateTime, to: LocalDateTime, module: String, userId: Long, result: AuditResult, limit: int) List~AuditLog~
     }
     class EmergencyTypeDAO {
         <<interface>>
@@ -1056,6 +1057,12 @@ class UserService {
         +record(userId: Long, module: String, operation: String, recordId: Long, result: AuditResult, detail: String) void
         +findByRecord(module: String, recordId: long) List~AuditLog~
     }
+    class AuditQueryService {
+        -auditDao : AuditDAO
+        -userDao : UserDAO
+        -clock : Clock
+        +search(query: AuditQuery) List~AuditEntry~
+    }
 
     class AdminBootstrapService {
         -userDao : UserDAO
@@ -1237,6 +1244,7 @@ class HospitalService {
     PanicService ..> RouteService : zona de la red
     PanicService ..> AlertService : avisa
     PanicService ..> AuditService
+    AuditQueryService ..> AuditService : lee lo que escribe
 ```
 
 `PasswordHasher` (paquete `util`) es una clase concreta con PBKDF2: no tiene interfaz porque hay una sola forma de proteger contraseñas en el sistema.
@@ -1305,6 +1313,29 @@ classDiagram
         +status : PanicReportStatus
         +emergencyId : Long
         +of(report: PanicReport) PanicReportView$
+    }
+    class AuditQuery {
+        <<record>>
+        +from : LocalDateTime
+        +to : LocalDateTime
+        +module : String
+        +userId : Long
+        +result : AuditResult
+        +limit : Integer
+        +recent() AuditQuery$
+    }
+    class AuditEntry {
+        <<record>>
+        +id : long
+        +occurredAt : LocalDateTime
+        +userId : Long
+        +username : String
+        +module : String
+        +operation : String
+        +recordId : Long
+        +result : AuditResult
+        +detail : String
+        +of(log: AuditLog, username: String) AuditEntry$
     }
     class HospitalOption {
         <<record>>
@@ -1488,6 +1519,7 @@ class Messages {
     class FleetService
     class DashboardService
     class LiveMapService
+    class AuditQueryService
 
     DispatchService ..> HospitalService
     EmergencyService ..> EmergencyRequest
@@ -1512,6 +1544,8 @@ class Messages {
     PanicService ..> PanicAlertRequest
     PanicService ..> PanicResult
     PanicService ..> PanicReportView
+    AuditQueryService ..> AuditQuery
+    AuditQueryService ..> AuditEntry
     EmergencyService ..> ValidationUtil
 ```
 
@@ -2102,6 +2136,12 @@ class IncidentController {
         +listRecent(status: PanicReportStatus) OperationResult~List~PanicReportView~~
         +discard(reportId: long) OperationResult~PanicReportView~
     }
+    class AuditController {
+        -auditQueryService : AuditQueryService
+        -authService : AuthService
+        -session : SessionContext
+        +search(query: AuditQuery) OperationResult~List~AuditEntry~~
+    }
     class TrackingController {
         -liveMapService : LiveMapService
         -authService : AuthService
@@ -2216,6 +2256,7 @@ classDiagram
         -hospitalController : HospitalController
         -fleetController : FleetController
         -trackingController : TrackingController
+        -auditController : AuditController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -2234,6 +2275,7 @@ classDiagram
         +hospitalController() HospitalController
         +fleetController() FleetController
         +trackingController() TrackingController
+        +auditController() AuditController
         +isSimulationRunning() boolean
         +graphLoader() GraphLoader
         +routeService() RouteService
@@ -2301,6 +2343,7 @@ classDiagram
     AppContext ..> FleetController : crea e inyecta
     AppContext ..> HospitalController : crea e inyecta
     AppContext ..> TrackingController : crea e inyecta
+    AppContext ..> AuditController : crea e inyecta
     WebServer ..> AppContext : crea
     WebServer ..> ApiServer : inicia en el puerto 8080
 ```
@@ -2379,6 +2422,7 @@ classDiagram
         +users : UserController
         +fleet : FleetController
         +hospitals : HospitalController
+        +audit : AuditController
     }
     class RecordStatusRequest {
         <<record>>
@@ -2481,6 +2525,7 @@ classDiagram
     AdminControllers --> UserController
     AdminControllers --> FleetController
     AdminControllers --> HospitalController
+    AdminControllers --> AuditController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
@@ -2540,6 +2585,7 @@ classDiagram
 | `PanicReport`, `PanicReportStatus`, `PanicReportDAO`, `JdbcPanicReportDAO` | `model`, `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A20, botón de pánico, DT-12). `PanicService` (S11) y sus rutas (A20b) pendientes |
 | `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22) |
 | `PanicStatusRequest`, `RequestRateLimiter` y las rutas `/api/panic` de `ApiServer` | `api` | **Programado y probado** sin Oracle (A20b): `POST /api/panic` sin sesión obligatoria y limitado por dirección de red, `GET /api/panic/reports` y `PATCH /api/panic/reports/{id}/status` |
+| `AuditQueryService`, `AuditController`, `AuditQuery`, `AuditEntry`, `AuditDAO.search` y la ruta `GET /api/audit` | `service`, `controller`, `dto`, `dao`, `api` | **Programado y probado** sin Oracle (A18, CU-21); `JdbcAuditDAO.search` tiene su prueba de integración contra Oracle |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |

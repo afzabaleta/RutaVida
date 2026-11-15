@@ -42,7 +42,8 @@ public final class WebServer {
         ApiServer server = new ApiServer(context.webSessionController(), context.catalogController(),
                 context.emergencyController(), context.dashboardController(), context.incidentController(),
                 context.roadMapController(), context.alertController(), dispatch,
-                new AdminControllers(context.userController(), context.fleetController(), context.hospitalController()),
+                new AdminControllers(context.userController(), context.fleetController(), context.hospitalController(),
+                        context.auditController()),
                 context.trackingController(), context.panicController(), frontend);
         try {
             server.start(port);

@@ -113,6 +113,24 @@ class JdbcAuditDAOIntegrationTest {
     }
 
     @Test
+    void searchFiltersNewestFirstAndRespectsTheLimit() {
+        inRolledBackTransaction(jdbc, () -> {
+            dao.insert(entry(null, null, AT, "primera"));
+            dao.insert(entry(null, null, AT.plusMinutes(1), "segunda"));
+            dao.insert(new AuditLog(0, null, MODULE, "PROBAR", null, AT.plusMinutes(2), AuditResult.FAILURE,
+                    "fallida"));
+
+            List<AuditLog> all = dao.search(AT, AT.plusMinutes(5), MODULE.toLowerCase(), null, null, 10);
+            assertEquals(List.of("fallida", "segunda", "primera"),
+                    all.stream().map(AuditLog::getDetail).toList(), "newest first");
+
+            assertEquals(1, dao.search(AT, AT.plusMinutes(5), MODULE, null, AuditResult.FAILURE, 10).size());
+            assertEquals(2, dao.search(AT, AT.plusMinutes(5), MODULE, null, null, 2).size(), "limit");
+            assertEquals(0, dao.search(AT, AT.plusMinutes(5), MODULE, 999_999L, null, 10).size(), "user");
+        });
+    }
+
+    @Test
     void invalidArgumentsAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> dao.findByPeriod(AT, AT.minusSeconds(1)));
         AuditLog saved = new AuditLog(5, null, MODULE, "PROBAR", null, AT, AuditResult.SUCCESS, null);

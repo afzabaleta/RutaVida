@@ -1,6 +1,7 @@
 package co.edu.unicesar.rutavida.app;
 
 import co.edu.unicesar.rutavida.controller.AlertController;
+import co.edu.unicesar.rutavida.controller.AuditController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
@@ -43,6 +44,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
+import co.edu.unicesar.rutavida.service.AuditQueryService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuthService;
@@ -111,6 +113,7 @@ public final class AppContext {
     private final HospitalController hospitalController;
     private final FleetController fleetController;
     private final TrackingController trackingController;
+    private final AuditController auditController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
     private final AuditService auditService;
@@ -141,6 +144,9 @@ public final class AppContext {
                 userDao, roleDao, passwordHasher, auditService, jdbc, clock);
         this.loginController = new LoginController(authService, session);
         this.webSessionController = new WebSessionController(authService, session, clock);
+        // Consult the audit (CU-21, A18)
+        this.auditController = new AuditController(new AuditQueryService(auditDao, userDao, clock),
+                authService, session);
 
         // Catalogs for the web (A12a + A12b, DAOs of A7b and A7c)
         EmergencyTypeDAO emergencyTypeDao = new JdbcEmergencyTypeDAO(jdbc);
@@ -276,6 +282,11 @@ public final class AppContext {
     /** Units and stations (CU-04, S10). */
     public FleetController fleetController() {
         return fleetController;
+    }
+
+    /** Consult the audit (CU-21, A18). */
+    public AuditController auditController() {
+        return auditController;
     }
 
     /** Live map (docs/api.md 8.1, A12e). */

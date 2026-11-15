@@ -10,6 +10,7 @@ import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.dto.AuditQuery;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.HospitalRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
@@ -23,6 +24,7 @@ import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
+import co.edu.unicesar.rutavida.model.enums.AuditResult;
 import co.edu.unicesar.rutavida.model.enums.IncidentStatus;
 import co.edu.unicesar.rutavida.model.enums.PanicReportStatus;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
@@ -39,6 +41,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -74,6 +80,9 @@ public final class ApiServer {
     private static final String BAD_RECORD_STATUS = "El estado debe ser A (activo) o I (inactivo).";
     private static final String BAD_UNIT_STATUS = "El estado de la unidad no es válido.";
     private static final String BAD_PASSWORD = "Escriba la contraseña actual y la nueva.";
+    private static final String BAD_DATE = "La fecha debe tener la forma 2026-11-14 o 2026-11-14T08:30.";
+    private static final String BAD_LIMIT = "El límite debe ser un número entero.";
+    private static final String BAD_RESULT = "El resultado debe ser EXITO o FALLO.";
     private static final String BAD_PANIC_STATUS = "Una alerta de pánico solo se puede marcar DESCARTADO.";
     private static final String BAD_PANIC_FILTER = "El estado del reporte de pánico no es válido.";
     private static final String TOO_MANY_PANIC =
@@ -259,6 +268,10 @@ public final class ApiServer {
         config.routes.patch("/api/stations/{id}/status", secured("UNIDADES", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, admin.fleet().changeStationStatus(pathId(ctx), readRecordStatus(ctx)), ApiStatus.OK)));
 
+        // Audit (CU-21, A18): who did what and when, with filters (docs/api.md 15.13).
+        config.routes.get("/api/audit", secured("AUDITORIA", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, admin.audit().search(readAuditQuery(ctx)), ApiStatus.OK)));
+
         config.routes.post("/api/hospitals", secured("HOSPITALES", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, admin.hospitals().register(readBody(ctx, HospitalRequest.class)), ApiStatus.CREATED)));
         config.routes.put("/api/hospitals/{id}", secured("HOSPITALES", "GESTIONAR", USER_ACTION,
@@ -339,6 +352,68 @@ public final class ApiServer {
             return;
         }
         send(ctx, panic.report(readBody(ctx, PanicAlertRequest.class)), ApiStatus.CREATED);
+    }
+
+    /** The filters of GET /api/audit: from, to, module, userId, result and limit, all optional. */
+    private static AuditQuery readAuditQuery(Context ctx) {
+        return new AuditQuery(
+                dateTimeParam(ctx, "from", false),
+                dateTimeParam(ctx, "to", true),
+                blankToNull(ctx.queryParam("module")),
+                longParam(ctx, "userId"),
+                resultParam(ctx),
+                intParam(ctx, "limit"));
+    }
+
+    /**
+     * "2026-11-14T08:30" or "2026-11-14". A day alone means its first moment, or its last moment
+     * when {@code endOfDay} (so ?from=2026-11-14&to=2026-11-14 is the whole day).
+     */
+    private static LocalDateTime dateTimeParam(Context ctx, String name, boolean endOfDay) {
+        String value = blankToNull(ctx.queryParam(name));
+        if (value == null) {
+            return null;
+        }
+        try {
+            if (value.length() == 10) {
+                LocalDate day = LocalDate.parse(value);
+                return endOfDay ? day.atTime(LocalTime.MAX) : day.atStartOfDay();
+            }
+            return LocalDateTime.parse(value);
+        } catch (DateTimeParseException e) {
+            throw new ValidationException(BAD_DATE);
+        }
+    }
+
+    private static Long longParam(Context ctx, String name) {
+        String value = blankToNull(ctx.queryParam(name));
+        try {
+            return value == null ? null : Long.valueOf(value);
+        } catch (NumberFormatException e) {
+            throw new ValidationException(BAD_ID);
+        }
+    }
+
+    private static Integer intParam(Context ctx, String name) {
+        String value = blankToNull(ctx.queryParam(name));
+        try {
+            return value == null ? null : Integer.valueOf(value);
+        } catch (NumberFormatException e) {
+            throw new ValidationException(BAD_LIMIT);
+        }
+    }
+
+    private static AuditResult resultParam(Context ctx) {
+        String value = blankToNull(ctx.queryParam("result"));
+        try {
+            return value == null ? null : AuditResult.fromCode(value.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(BAD_RESULT);
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     /** ?status=PENDIENTE (or another code of PanicReportStatus); null for all. */
