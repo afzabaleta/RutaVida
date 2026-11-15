@@ -87,8 +87,11 @@ class JdbcPanicReportDAOIntegrationTest {
             assertEquals(2, dao.countByDeviceSince("PRUEBA-A20-1", T));
             assertEquals(0, dao.countByDeviceSince("PRUEBA-A20-1", T.plusMinutes(5)));
 
-            assertEquals(1, dao.expirePendingBefore(T.minusMinutes(10)));
+            // The real PENDIENTE reports of the database (the D9 tests) are also older than 2099 and
+            // expire too, inside this rolled-back transaction: count at least ours, not exactly one.
+            assertTrue(dao.expirePendingBefore(T.minusMinutes(10)) >= 1);
             assertEquals(PanicReportStatus.EXPIRED, dao.findById(old).orElseThrow().getStatus());
+            assertEquals(3, dao.findPendingSince(T).size(), "the recent ones stay pending");
             assertEquals(4, dao.findSince(T.minusHours(1)).size(), "the map sees every status");
         });
     }
