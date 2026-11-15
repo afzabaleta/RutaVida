@@ -7,6 +7,7 @@ import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.PanicController;
+import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
@@ -61,9 +62,10 @@ import java.util.logging.Logger;
  * handler with that session (so the controllers and the audit triggers see that user).
  *
  * <p>Routes: session (A12a), emergencies and catalogs (A12b), dashboard (A14), road incidents
- * (A12c), alerts (A12f), dispatch and routes (A12d), closing an emergency (A16) and
- * administration of users, units, stations and hospitals (A17). Tracking and simulation are
- * added when their controllers exist (K9, A12e).
+ * (A12c), alerts (A12f), dispatch and routes (A12d), closing an emergency (A16),
+ * administration of users, units, stations and hospitals (A17), audit (A18), tracking
+ * (A12e), panic button (A20b) and the operations report (A23). The simulation is added when
+ * its controller exists (K9).
  */
 public final class ApiServer {
 
@@ -81,6 +83,7 @@ public final class ApiServer {
     private static final String BAD_UNIT_STATUS = "El estado de la unidad no es válido.";
     private static final String BAD_PASSWORD = "Escriba la contraseña actual y la nueva.";
     private static final String BAD_DATE = "La fecha debe tener la forma 2026-11-14 o 2026-11-14T08:30.";
+    private static final String BAD_DAY = "La fecha debe tener la forma 2026-11-14.";
     private static final String BAD_LIMIT = "El límite debe ser un número entero.";
     private static final String BAD_RESULT = "El resultado debe ser EXITO o FALLO.";
     private static final String BAD_PANIC_STATUS = "Una alerta de pánico solo se puede marcar DESCARTADO.";
@@ -104,6 +107,7 @@ public final class ApiServer {
     private final CatalogController catalogs;
     private final EmergencyController emergencies;
     private final DashboardController dashboard;
+    private final ReportController reports;
     private final IncidentController incidents;
     private final RoadMapController roadMap;
     private final AlertController alerts;
@@ -120,7 +124,7 @@ public final class ApiServer {
      * @param frontendDirectory folder with index.html; null to serve only the API (tests)
      */
     public ApiServer(WebSessionController sessions, CatalogController catalogs,
-                     EmergencyController emergencies, DashboardController dashboard,
+                     EmergencyController emergencies, DashboardController dashboard, ReportController reports,
                      IncidentController incidents, RoadMapController roadMap, AlertController alerts,
                      DispatchController dispatch, AdminControllers admin, TrackingController tracking,
                      PanicController panic, Path frontendDirectory) {
@@ -128,6 +132,7 @@ public final class ApiServer {
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
         this.dashboard = Objects.requireNonNull(dashboard, "dashboard");
+        this.reports = Objects.requireNonNull(reports, "reports");
         this.incidents = Objects.requireNonNull(incidents, "incidents");
         this.roadMap = Objects.requireNonNull(roadMap, "roadMap");
         this.alerts = Objects.requireNonNull(alerts, "alerts");
@@ -220,6 +225,9 @@ public final class ApiServer {
         // 11. Dashboard. The panel refreshes it by itself, so it does not keep the session alive.
         config.routes.get("/api/dashboard/summary", secured("REPORTES", "CONSULTAR", AUTOMATIC,
                 ctx -> send(ctx, dashboard.summary(), ApiStatus.OK)));
+        // Operations report of a period (A23, RF-11): asked by the user, so it keeps the session alive.
+        config.routes.get("/api/reports/operations", secured("REPORTES", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, reports.operations(dateParam(ctx, "from"), dateParam(ctx, "to")), ApiStatus.OK)));
 
         // 9. Road incidents. The map refreshes the list by itself, so reading it does not
         // keep the session alive; reporting and validating do.
@@ -363,6 +371,16 @@ public final class ApiServer {
                 longParam(ctx, "userId"),
                 resultParam(ctx),
                 intParam(ctx, "limit"));
+    }
+
+    /** "2026-11-14": a whole day, for the reports. */
+    private static LocalDate dateParam(Context ctx, String name) {
+        String value = blankToNull(ctx.queryParam(name));
+        try {
+            return value == null ? null : LocalDate.parse(value);
+        } catch (DateTimeParseException e) {
+            throw new ValidationException(BAD_DAY);
+        }
     }
 
     /**

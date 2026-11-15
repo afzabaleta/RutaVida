@@ -5,6 +5,7 @@ import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.FleetController;
@@ -29,6 +30,7 @@ import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.DashboardService;
+import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.DispatchTestSupport;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
@@ -147,8 +149,13 @@ class AdminApiTest {
         AlertController alerts = new AlertController(alertService, session);
         DispatchController dispatch = new DispatchController(new DispatchTestSupport().service(), auth, session);
 
+        // The operations report (A23) has its own test in ApiServerTest; here it only has to exist.
+        ReportController reports = new ReportController(new ReportService((first, last) -> {
+            throw new UnsupportedOperationException("not used here");
+        }, CLOCK));
+
         server = new ApiServer(new WebSessionController(auth, session, CLOCK),
-                new CatalogController(new CatalogTestSupport().service()), emergencies, dashboard, incidents,
+                new CatalogController(new CatalogTestSupport().service()), emergencies, dashboard, reports, incidents,
                 roadMap, alerts, dispatch, admin, new TrackingTestSupport().controller(auth, session),
                 new PanicTestSupport().controller(auth, session), null);
         int port = freePort();

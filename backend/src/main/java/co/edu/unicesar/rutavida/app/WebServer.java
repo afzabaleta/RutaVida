@@ -40,7 +40,8 @@ public final class WebServer {
             return;
         }
         ApiServer server = new ApiServer(context.webSessionController(), context.catalogController(),
-                context.emergencyController(), context.dashboardController(), context.incidentController(),
+                context.emergencyController(), context.dashboardController(), context.reportController(),
+                context.incidentController(),
                 context.roadMapController(), context.alertController(), dispatch,
                 new AdminControllers(context.userController(), context.fleetController(), context.hospitalController(),
                         context.auditController()),
