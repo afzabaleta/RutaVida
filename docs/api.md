@@ -73,7 +73,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 
    Si el servidor se reinicia, todos tienen que volver a iniciar sesión.
 4. Cada ruta exige el permiso de la columna **Permiso** (módulo y acción de la tabla `PERMISO`). El servidor lo revisa con `AuthService.requirePermission` antes de llamar al controlador. Que la web oculte un botón no reemplaza esta revisión.
-5. Las únicas rutas sin token son `POST /api/auth/login`, `POST /api/panic` (sección 16) y las páginas de `frontend/`.
+5. Las únicas rutas sin token son `POST /api/auth/login`, `POST /api/panic` y `GET /api/panic/emergency-types` (sección 16) y las páginas de `frontend/`.
 
 ## 3. Resumen de rutas
 
@@ -129,6 +129,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` | CU-22 |
 | 49 | `GET` | `/api/audit` | `AUDITORIA/CONSULTAR` | CU-21 |
 | 50 | `GET` | `/api/reports/operations` | `REPORTES/CONSULTAR` | RF-11 |
+| 51 | `GET` | `/api/panic/emergency-types` | Ninguno (pública, solo lectura) | CU-22 |
 
 "Sesión" significa que basta con un token válido, sin un permiso específico.
 
@@ -812,7 +813,7 @@ Errores: `400` si una fecha no tiene la forma indicada, si `from` es posterior a
 
 ## 16. Botón de pánico (CU-22, DT-12)
 
-**Estado:** programado (A20 la tabla y el DAO, S11 el servicio, A20b las rutas). Reglas: `docs/analysis.md`, CU-22 y RN-13 a RN-15.
+**Estado:** programado (A20 la tabla y el DAO, S11 el servicio, A20b las rutas, A20c los tipos públicos). Reglas: `docs/analysis.md`, CU-22 y RN-13 a RN-15.
 
 - **Sesión opcional en 16.1:** con un token válido se usa ese usuario; sin token, o con uno vencido, el reporte entra como de un ciudadano anónimo. En una emergencia el botón nunca responde "inicie sesión".
 - **Límite por dirección de red:** además del límite de 3 reportes por dispositivo (RN-13), `POST /api/panic` acepta como máximo 20 reportes por dirección de red cada 10 minutos, porque el identificador del dispositivo lo genera el navegador y se puede cambiar. Al pasarlo responde `409` con "Se enviaron demasiadas alertas desde esta conexión. Si la emergencia sigue, llame al 123.". El conteo vive en memoria: se reinicia con el servidor.
@@ -823,6 +824,7 @@ Errores: `400` si una fecha no tiene la forma indicada, si `from` es posterior a
 | 46 | `POST` | `/api/panic` | **Ninguno** (la única ruta pública además del login). Con sesión, se usa el usuario |
 | 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` |
 | 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` |
+| 51 | `GET` | `/api/panic/emergency-types` | **Ninguno**: los tipos para que el ciudadano elija (16.4) |
 
 ### 16.1 `POST /api/panic`
 
@@ -866,3 +868,15 @@ Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del
 ### 16.3 `PATCH /api/panic/reports/{id}/status`
 
 `{ "status": "DESCARTADO" }` (cualquier otro estado da `400`): un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).
+
+### 16.4 `GET /api/panic/emergency-types`
+
+Los tipos de emergencia para la página del botón (D9), **sin sesión**: un ciudadano sin cuenta tiene que poder decir que es un incendio para que la alerta despache bomberos. Es la misma lista de 5.1 (`GET /api/emergency-types`, que sigue pidiendo `EMERGENCIAS/CONSULTAR`); solo lee un catálogo y no tiene datos personales.
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 1, "name": "EMERGENCIA_MEDICA", "priority": 9, "description": "Urgencia medica sin accidente de transito" }
+] }
+```
+
+Si la persona no elige tipo, la alerta validada usa el que eligieron la mayoría de los reportes cercanos, y si nadie eligió, `EMERGENCIA_MEDICA` (`PanicService`).
