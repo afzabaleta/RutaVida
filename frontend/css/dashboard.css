@@ -15,53 +15,6 @@
   color: var(--text, #edf3fa);
 }
 
-.dashboard-header {
-  min-height: 76px;
-  padding: 14px clamp(16px, 3vw, 40px);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  border-bottom: 1px solid var(--border, #293746);
-  background: var(--surface, #172330);
-}
-
-.dashboard-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  color: inherit;
-  text-decoration: none;
-}
-
-.dashboard-brand span,
-.header-user > div {
-  display: grid;
-  gap: 4px;
-}
-
-.dashboard-brand strong {
-  font-size: 1.15rem;
-  letter-spacing: .02em;
-}
-
-.dashboard-brand small,
-.header-user small {
-  color: var(--muted, #9aabba);
-  font-size: .76rem;
-}
-
-.header-user {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-}
-
-.header-user strong {
-  font-size: .88rem;
-}
-
 .example-badge,
 .demo-notice {
   display: inline-flex;
@@ -74,17 +27,6 @@
   font-size: .68rem;
   font-weight: 800;
   letter-spacing: .045em;
-}
-
-.logout-link {
-  color: var(--blue);
-  text-decoration: none;
-  font-size: .85rem;
-  font-weight: 700;
-}
-
-.logout-link:hover {
-  text-decoration: underline;
 }
 
 .dashboard-main {
@@ -558,18 +500,6 @@
 }
 
 @media (max-width: 700px) {
-  .dashboard-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .header-user {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-
   .example-badge { font-size: .6rem; }
   .dashboard-main { padding-top: 22px; }
 
@@ -604,7 +534,6 @@
 
 @media (max-width: 390px) {
   .kpi-grid { grid-template-columns: minmax(0, 1fr); }
-  .header-user { justify-content: flex-start; }
 }
 
 /* D6 — Incidentes viales */
