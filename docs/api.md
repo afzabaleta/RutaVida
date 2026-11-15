@@ -73,7 +73,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 
    Si el servidor se reinicia, todos tienen que volver a iniciar sesión.
 4. Cada ruta exige el permiso de la columna **Permiso** (módulo y acción de la tabla `PERMISO`). El servidor lo revisa con `AuthService.requirePermission` antes de llamar al controlador. Que la web oculte un botón no reemplaza esta revisión.
-5. Las únicas rutas sin token son `POST /api/auth/login` y las páginas de `frontend/`.
+5. Las únicas rutas sin token son `POST /api/auth/login`, `POST /api/panic` (sección 16) y las páginas de `frontend/`.
 
 ## 3. Resumen de rutas
 
@@ -124,6 +124,10 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 43 | `POST` | `/api/hospitals` | `HOSPITALES/GESTIONAR` | CU-05 |
 | 44 | `PUT` | `/api/hospitals/{id}` | `HOSPITALES/GESTIONAR` | CU-05 |
 | 45 | `PATCH` | `/api/hospitals/{id}/status` | `HOSPITALES/GESTIONAR` | CU-05 |
+| 46 | `POST` | `/api/panic` | Ninguno (sesión opcional, sección 16) | CU-22 |
+| 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` | CU-22 |
+| 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` | CU-22 |
+| 49 | `GET` | `/api/audit` | `AUDITORIA/CONSULTAR` | CU-21 |
 
 "Sesión" significa que basta con un token válido, sin un permiso específico.
 
@@ -621,8 +625,7 @@ sequenceDiagram
 
 ## 13. Fuera de este contrato
 
-- **Botón de pánico**: su contrato está en la sección 16 (DT-12); las rutas se programan cuando esté su servicio (S11). **Patrullas de policía simuladas** (DT-10): llegan por `/api/tracking` como cualquier unidad, con `vehicleType` = `"POLICIA"`.
-- **Auditoría** (CU-21): consultar la tabla `AUDITORIA` con filtros. Se agrega en su tarea. La administración de usuarios, unidades, estaciones y hospitales ya está en la sección 15.
+- **Botón de pánico**: su contrato y sus rutas están en la sección 16 (DT-12). **Patrullas de policía simuladas** (DT-10): llegan por `/api/tracking` como cualquier unidad, con `vehicleType` = `"POLICIA"`.
 - **Servicios de cada hospital** (`SERVICIO_HOSPITAL`, CU-05): se agregan con el traslado al hospital (K7b), que los necesita para elegir el destino.
 - **Reporte ciudadano por QR**: reemplazado por el botón de pánico (DT-12).
 
@@ -635,7 +638,7 @@ sequenceDiagram
 
 ## 15. Administración (A17)
 
-Rutas de las pantallas de administración: usuarios (CU-03), unidades y estaciones (CU-04) y hospitales (CU-05). Cada ruta revisa el permiso y el controlador lo vuelve a revisar. Toda operación que cambia datos queda en `AUDITORIA` con el usuario de la sesión. Las respuestas tienen la forma de la sección 1.1.
+Rutas de las pantallas de administración: usuarios (CU-03), unidades y estaciones (CU-04), hospitales (CU-05) y la consulta de la auditoría (CU-21, A18). Cada ruta revisa el permiso y el controlador lo vuelve a revisar. Toda operación que cambia datos queda en `AUDITORIA` con el usuario de la sesión. Las respuestas tienen la forma de la sección 1.1.
 
 ### 15.1 `GET /api/users`
 
@@ -729,6 +732,35 @@ Crea o edita un hospital (DTO `HospitalRequest`):
 ### 15.12 `PATCH /api/hospitals/{id}/status`
 
 `{ "status": "I" }` o `{ "status": "A" }`. Un hospital inactivo deja de aparecer como destino de traslado. Salida `200`: el hospital.
+
+### 15.13 `GET /api/audit`
+
+Consulta la tabla `AUDITORIA` (CU-21): quién hizo qué y cuándo. Solo lee; las entradas las escriben `AuditService` y los disparadores de `04_plsql.sql`. Permiso `AUDITORIA/CONSULTAR` (solo el Administrador). Es una acción del usuario: mantiene viva la sesión.
+
+Filtros (todos opcionales, en la URL):
+
+| Parámetro | Forma | Si falta |
+|---|---|---|
+| `from` | `2026-11-14` (desde las 00:00) o `2026-11-14T08:30` | 24 horas antes de `to` |
+| `to` | `2026-11-14` (hasta el final del día) o `2026-11-14T18:00` | ahora |
+| `module` | `SEGURIDAD`, `EMERGENCIAS`, `DESPACHO`, `USUARIOS`, `UNIDADES`, `PANICO`, ... (se pasa a mayúsculas) | todos |
+| `userId` | id del usuario | todos |
+| `result` | `EXITO` o `FALLO` (sin importar mayúsculas) | todos |
+| `limit` | 1 a 500 | 200 |
+
+Límites: el periodo es como máximo de **31 días** y la respuesta trae como máximo 500 entradas, para que una consulta nunca lea la tabla entera. Las entradas salen de la más reciente a la más antigua.
+
+Salida `200` (DTO `AuditEntry`; `username` es `null` cuando no había sesión, por ejemplo un login fallido de un usuario que no existe):
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 812, "occurredAt": "2026-11-14T09:12:40", "userId": 1, "username": "admin.ejemplo",
+    "module": "SEGURIDAD", "operation": "LOGIN", "recordId": null, "result": "EXITO",
+    "detail": "EJEMPLO: inicio de sesión" }
+] }
+```
+
+Errores: `400` si una fecha no tiene la forma indicada, si `from` es posterior a `to`, si el periodo pasa de 31 días, si `module` tiene algo distinto de letras y guiones bajos, o si `result` o `limit` no son válidos; `401` sin sesión; `403` sin el permiso.
 
 ## 16. Botón de pánico (CU-22, DT-12)
 
