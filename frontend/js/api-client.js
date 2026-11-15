@@ -56,7 +56,7 @@ export function hasToken() {
   return Boolean(readToken());
 }
 
-async function request(method, path, body) {
+async function call(method, path, body) {
   const headers = { Accept: "application/json" };
   const token = readToken();
 
@@ -89,7 +89,7 @@ async function request(method, path, body) {
   }
 
   if (response.ok && answer?.success === true) {
-    return answer.value;
+    return answer;
   }
 
   if (response.status === 401) {
@@ -102,6 +102,9 @@ async function request(method, path, body) {
   );
 }
 
+async function request(method, path, body) {
+  return (await call(method, path, body)).value;
+}
 export async function login(username, password) {
   const session = await request("POST", "/api/auth/login", {
     username,
@@ -456,5 +459,46 @@ export function markAlertRead(alertId) {
   return request(
     "PATCH",
     `/api/alerts/${encodeURIComponent(alertId)}/read`
+  );
+}
+
+
+// ------------------------------------------------------------------ panic button (D9)
+
+/** Public emergency types for the panic button. */
+export async function listPanicEmergencyTypes() {
+  const types = await request("GET", "/api/panic/emergency-types");
+  return types.map((type) => ({ ...type, label: typeLabel(type.name) }));
+}
+
+/** Sends a panic alert and keeps the server response message. */
+export async function sendPanicAlert({ deviceId, location, emergencyTypeId, description }) {
+  const answer = await call("POST", "/api/panic", {
+    deviceId,
+    location: {
+      latitude: round6(location[0]),
+      longitude: round6(location[1]),
+    },
+    emergencyTypeId: emergencyTypeId ?? null,
+    description: description || null,
+  });
+  return { ...answer.value, message: answer.message };
+}
+
+/** Lists panic reports with Leaflet-compatible coordinates. */
+export async function listPanicReports() {
+  const reports = await request("GET", "/api/panic/reports");
+  return reports.map((report) => ({
+    ...report,
+    location: toPoint(report.location),
+  }));
+}
+
+/** Discards a pending false alarm. */
+export function discardPanicReport(reportId) {
+  return request(
+    "PATCH",
+    `/api/panic/reports/${encodeURIComponent(reportId)}/status`,
+    { status: "DESCARTADO" }
   );
 }
