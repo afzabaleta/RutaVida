@@ -150,6 +150,19 @@ class PanicApiTest {
     }
 
     @Test
+    void theButtonPageReadsTheEmergencyTypesWithoutAccount() throws Exception {
+        HttpResponse<String> response = send("GET", "/api/panic/emergency-types", null, null);
+
+        assertEquals(200, response.statusCode(), response.body());
+        JsonNode types = value(response);
+        assertEquals(CatalogTestSupport.EMERGENCY_TYPES.size(), types.size());
+        assertEquals("EMERGENCIA_MEDICA", types.get(0).get("name").asText());
+        assertEquals(1, types.get(0).get("id").asLong());
+        assertEquals(401, send("GET", "/api/emergency-types", null, null).statusCode(),
+                "the full catalog route still needs a session");
+    }
+
+    @Test
     void aCitizenPressesTheButtonWithoutAccountAndIsToldToWait() throws Exception {
         HttpResponse<String> response = send("POST", "/api/panic", null, press("celular-1", 0));
 

@@ -291,6 +291,9 @@ public final class ApiServer {
         // 16. Panic button (CU-22, A20b). Reporting is public: anyone presses it without an account,
         // and a police officer with a session validates the alert alone (docs/api.md 16).
         config.routes.post("/api/panic", optionalSession(this::reportPanic));
+        // The types for the button page (A20c): public like POST /api/panic, so a citizen without an
+        // account can say it is a fire and the alert sends firefighters. Read only, no personal data.
+        config.routes.get("/api/panic/emergency-types", ctx -> send(ctx, catalogs.emergencyTypes(), ApiStatus.OK));
         // The panel map refreshes the reports by itself, so reading them does not keep the session alive.
         config.routes.get("/api/panic/reports", secured("PANICO", "CONSULTAR", AUTOMATIC,
                 ctx -> send(ctx, panic.listRecent(readPanicFilter(ctx)), ApiStatus.OK)));
