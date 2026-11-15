@@ -10,6 +10,7 @@ import {
 } from "./api-client.js";
 
 import { startIncidents } from "./incident-panel.js";
+import { startPanicLayer } from "./panic-layer.js";
 import { paintLegend, placeIcon, UNIT_Z, unitIcon, unitSlots } from "./map-icons.js";
 
 import {
@@ -520,6 +521,11 @@ async function initializeDashboard() {
     }
   }
 
+  startPanicLayer(map, session, {
+    list: byId("panic-list"),
+    pill: byId("panic-pill"),
+    message: byId("panic-message"),
+  });
 startIncidents(
   map,
   session,
