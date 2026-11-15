@@ -340,4 +340,5 @@ Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
 - La campana de alertas (`alert-bell.js`, sin cambios en su lógica) está en el encabezado del panel, de `emergencia.html` y de `despacho.html`. Fuera del panel, el contador se actualiza al abrir la campana.
 - El mapa oscuro es un filtro CSS sobre `.leaflet-tile-pane`: solo cambian las teselas de OpenStreetMap; los íconos, las rutas y la atribución conservan sus colores.
 - Los íconos son SVG propios en `img/icons/`. No se agregaron librerías, fuentes ni CDN.
+- **Modo claro y oscuro:** el botón ☀/☾ del encabezado cambia el tema. La primera vez se usa el tema del sistema; la elección se guarda en `localStorage` (`rutavida.theme`), y si el navegador lo bloquea, el botón igual funciona. `js/theme-boot.js` pone el tema en el `<head>` antes de pintar, para que no parpadee, y `css/theme.css` redefine las variables de color del modo claro. En modo claro el mapa va sin filtro. Solo aplica a las páginas internas; el login y el botón de pánico conservan su diseño.
 - Ningún texto funcional mide menos de 12 px, para que el panel se lea proyectado.

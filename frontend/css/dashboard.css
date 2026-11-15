@@ -741,7 +741,7 @@
 }
 
 .incident-message.is-error {
-  color: #ff6674;
+  color: var(--red);
 }
 
 .incident-actions {
@@ -773,7 +773,8 @@
 }
 
 .incidents-panel .active-tag {
-  color: #4bd6a0;
+  color: var(--green);
+  background: var(--tag-green-bg);
 }
 
 @media (max-width: 700px) {
