@@ -1118,6 +1118,7 @@ class UserService {
         +advance(assignmentId: long, next: AssignmentStatus) EmergencyAssignment
         +findAssignment(assignmentId: long) EmergencyAssignment
         +missionRoutes(assignmentId: long) List~Route~
+        +activeMissions() List~ActiveMission~
         +suits(emergencyType: String, vehicleType: String) boolean
         +isDispatchable(vehicle: EmergencyVehicle) boolean
         +validateNew(assignment: EmergencyAssignment) void
@@ -1440,6 +1441,13 @@ classDiagram
         +streetName : String
         +from : GeoPoint
         +to : GeoPoint
+    }
+    class SimulationStatus {
+        <<record>>
+        +running : boolean
+        +startedAt : LocalDateTime
+        +tickSeconds : long
+        +source : TrafficSource
     }
     class IncidentView {
         <<record>>
@@ -1768,6 +1776,16 @@ classDiagram
         +applyTraffic(updates: List~EdgeUpdate~) Set~Long~
         ~penaltyFor(severity: Severity) double$
     }
+    class TrafficRecorder {
+        -graph : RoadGraph
+        -readingDao : TrafficReadingDAO
+        -transactions : TransactionManager
+        -clock : Clock
+        -last : Map~Integer, Saved~
+        +levelOf(congestion: double) TrafficLevel$
+        +congestionOf(level: TrafficLevel) double$
+        +record(updates: List~EdgeUpdate~, source: TrafficSource) int
+    }
     class TrafficProvider {
         <<interface>>
         +poll() List~EdgeUpdate~
@@ -1855,6 +1873,7 @@ RoadConditionService ..> RoadIncidentDAO : lee los ACTIVO
 IncidentService ..> IncidentRequest
 RouteMonitor --> RouteService
 RouteMonitor ..> AlertService : avisa (S8)
+    TrafficRecorder ..> TrafficReadingDAO : solo cambios de nivel
 ```
 
 **Cómo se detecta que una ruta se afectó (sin eventos).** Las llamadas son directas y se pueden seguir con el depurador:
@@ -1879,15 +1898,25 @@ classDiagram
     direction LR
 
     class SimulationEngine {
-        -scheduler : ScheduledExecutorService
-        -tickMillis : long
+        +DEFAULT_TICK : Duration$
+        +DEFAULT_TRAFFIC_EVERY : Duration$
+        -graph : RoadGraph
+        -traffic : SimulatedTrafficProvider
         -roadConditions : RoadConditionService
-        -tracking : TrackingService
+        -trafficRecorder : TrafficRecorder
         -routeMonitor : RouteMonitor
-        -running : boolean
+        -movement : VehicleMovementSimulator
+        -tracking : TrackingService
+        -dispatch : DispatchService
+        -following : Map~Long, Long~
+        -scheduler : ScheduledExecutorService
         +start() void
         +stop() void
         +isRunning() boolean
+        +startedAt() LocalDateTime
+        +tickSeconds() long
+        +source() TrafficSource
+        +forceCongestion(segmentId: long, level: TrafficLevel) void
         +tick() void
     }
     class TrackingService {
@@ -1913,6 +1942,7 @@ classDiagram
         +follow(vehicleId: long, route: Route, vehicle: VehicleProfile) void
         +stopFollowing(vehicleId: long) void
         +isFollowing(vehicleId: long) boolean
+        +resume() void
     }
     class GpsPositionSource {
         <<fase 2>>
@@ -1940,16 +1970,20 @@ classDiagram
     class SimulatedTrafficProvider
     class RouteMonitor
     class DispatchService
+    class TrafficRecorder
 
     VehiclePositionSource <|.. VehicleMovementSimulator
     VehiclePositionSource <|.. GpsPositionSource
     DemoScenario <|.. RoadClosureScenario
     DemoScenario <|.. RushHourScenario
-    IncidentService ..> RoadConditionService : K7
     TrackingService --> VehiclePositionSource
     SimulationEngine --> RoadConditionService
     SimulationEngine --> TrackingService
     SimulationEngine --> RouteMonitor
+    SimulationEngine --> TrafficRecorder
+    SimulationEngine --> SimulatedTrafficProvider
+    SimulationEngine --> VehicleMovementSimulator : follow
+    SimulationEngine ..> DispatchService : activeMissions, advance
     TrackingService ..> DispatchService : moveVehicle
     VehicleMovementSimulator --> RoadGraph : lee tramos y tráfico
     RoadClosureScenario --> IncidentService
@@ -2197,12 +2231,12 @@ class IncidentController {
     }
     class SimulationController {
         -engine : SimulationEngine
-        -scenarios : List~DemoScenario~
+        -authService : AuthService
         -session : SessionContext
-        +start() OperationResult~Void~
-        +stop() OperationResult~Void~
-        +scenarioNames() List~String~
-        +run(scenarioName: String) OperationResult~Void~
+        +status() OperationResult~SimulationStatus~
+        +start() OperationResult~SimulationStatus~
+        +stop() OperationResult~SimulationStatus~
+        +forceTraffic(segmentId: long, level: TrafficLevel) OperationResult~Void~
     }
 
 class UserController {
@@ -2660,7 +2694,8 @@ classDiagram
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. `SimulationEngine` lo llama en cada ciclo (K9) |
 | `LiveMapService`, `TrackingController`, `TrackingSnapshot`, `TrackedUnit`, `TrackedMission`, `SimulationState` | `service`, `controller`, `dto` | **Programado y probado** (A12e) sin Oracle: `GET /api/tracking` lee lo que guardó `TrackingService`. `running` es falso hasta que K9 cambie `AppContext.isSimulationRunning()` |
-| Demás clases de simulación (`SimulationEngine`, escenarios) | `simulation` | Diseñado |
+| Motor de la simulación: `SimulationEngine`, `TrafficRecorder`, `DispatchService.activeMissions`, `VehicleMovementSimulator.resume`, `SimulationController`, `SimulationStatus` | `simulation`, `service`, `controller`, `dto` | **Programado y probado** (K9) con DAO falsos y una red de prueba, sin Oracle. Falta conectarlo en `AppContext` y en la API (A12e) |
+| Escenarios de la demostración (`DemoScenario`, `RoadClosureScenario`, `RushHourScenario`) | `simulation` | Diseñado (opcional): la demostración usa `POST /api/simulation/traffic` y los incidentes |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
 | `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos. `find` y el uso de `OperationResult.failure` se agregaron en A12b |
 | Demás controladores | `controller` | Diseñado |
