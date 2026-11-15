@@ -1,6 +1,8 @@
 
 package co.edu.unicesar.rutavida.service;
 
+import co.edu.unicesar.rutavida.controller.PanicController;
+import co.edu.unicesar.rutavida.controller.SessionContext;
 import co.edu.unicesar.rutavida.dto.PanicAlertRequest;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.PanicReport;
@@ -103,5 +105,10 @@ public final class PanicTestSupport {
                 0, roleId, "PRUEBA" + next, "Prueba", "Panico",
                 username + "@ejemplo.com", username, "NO_ES_UN_HASH",
                 status, LocalDateTime.now(CLOCK)));
+    }
+
+    /** The controller of the panic button with this support, for the tests of the API (A20b). */
+    public PanicController controller(AuthService authService, SessionContext session) {
+        return new PanicController(service(), authService, session);
     }
 }

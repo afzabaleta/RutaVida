@@ -2201,7 +2201,9 @@ classDiagram
         -loginController : LoginController
         -graphLoader : GraphLoader
         -routeService : RouteService
+        -dispatchService : DispatchService
         -dispatchController : DispatchController
+        -panicController : PanicController
         -webSessionController : WebSessionController
         -catalogController : CatalogController
         -emergencyController : EmergencyController
@@ -2235,7 +2237,9 @@ classDiagram
         +isSimulationRunning() boolean
         +graphLoader() GraphLoader
         +routeService() RouteService
+        +dispatchService() DispatchService
         +dispatchController() DispatchController
+        +panicController() PanicController
         +adminBootstrap() AdminBootstrapService
     }
     class Main {
@@ -2329,12 +2333,15 @@ classDiagram
         -dispatch : DispatchController
         -admin : AdminControllers
         -tracking : TrackingController
+        -panic : PanicController
+        -panicLimiter : RequestRateLimiter
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
         +stop() void
         ~secured(module: String, action: String, countsAsUse: boolean, handler: Handler) Handler
         ~authenticated(countsAsUse: boolean, handler: Handler) Handler
+        ~optionalSession(handler: Handler) Handler
         ~send(ctx: Context, result: OperationResult, successStatus: int) void
         ~pathId(ctx: Context) long$
     }
@@ -2385,6 +2392,17 @@ classDiagram
         <<record>>
         +currentPassword : String
         +newPassword : String
+    }
+    class PanicStatusRequest {
+        <<record>>
+        +status : PanicReportStatus
+    }
+    class RequestRateLimiter {
+        -limit : int
+        -window : Duration
+        -clock : Clock
+        -requests : Map~String, Deque~Instant~~
+        +tryAcquire(key: String) boolean
     }
     class JsonMapperFactory {
         +create() ObjectMapper$
@@ -2458,6 +2476,8 @@ classDiagram
     ApiServer --> DispatchController
     ApiServer --> AdminControllers
     ApiServer --> TrackingController
+    ApiServer --> PanicController
+    ApiServer --> RequestRateLimiter : botón de pánico
     AdminControllers --> UserController
     AdminControllers --> FleetController
     AdminControllers --> HospitalController
@@ -2470,6 +2490,7 @@ classDiagram
     ApiServer ..> RecordStatusRequest
     ApiServer ..> VehicleStatusRequest
     ApiServer ..> PasswordChangeRequest
+    ApiServer ..> PanicStatusRequest
     ApiServer ..> JsonMapperFactory
     ApiStatus ..> ErrorKind
     WebSessionController --> AuthService
@@ -2517,7 +2538,8 @@ classDiagram
 | `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) |
 | `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y `updateService` siguen diseñados |
 | `PanicReport`, `PanicReportStatus`, `PanicReportDAO`, `JdbcPanicReportDAO` | `model`, `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A20, botón de pánico, DT-12). `PanicService` (S11) y sus rutas (A20b) pendientes |
-| `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22). Sus rutas de la API: A20b |
+| `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22) |
+| `PanicStatusRequest`, `RequestRateLimiter` y las rutas `/api/panic` de `ApiServer` | `api` | **Programado y probado** sin Oracle (A20b): `POST /api/panic` sin sesión obligatoria y limitado por dirección de red, `GET /api/panic/reports` y `PATCH /api/panic/reports/{id}/status` |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |

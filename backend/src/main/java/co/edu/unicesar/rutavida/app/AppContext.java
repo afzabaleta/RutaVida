@@ -10,6 +10,7 @@ import co.edu.unicesar.rutavida.controller.FleetController;
 import co.edu.unicesar.rutavida.controller.HospitalController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
+import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.SessionContext;
@@ -34,6 +35,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadMapDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadNodeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadSegmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcPanicReportDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRouteDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
@@ -52,6 +54,7 @@ import co.edu.unicesar.rutavida.service.GraphLoader;
 import co.edu.unicesar.rutavida.service.HospitalService;
 import co.edu.unicesar.rutavida.service.IncidentService;
 import co.edu.unicesar.rutavida.service.LiveMapService;
+import co.edu.unicesar.rutavida.service.PanicService;
 import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.service.RouteService;
 import co.edu.unicesar.rutavida.service.UserService;
@@ -111,8 +114,13 @@ public final class AppContext {
     private final GraphLoader graphLoader;
     private final AuthService authService;
     private final AuditService auditService;
+    private final UserDAO userDao;
+    private final RoleDAO roleDao;
+    private final EmergencyService emergencyService;
     private RouteService routeService;
+    private DispatchService dispatchService;
     private DispatchController dispatchController;
+    private PanicController panicController;
 
     private AppContext(DatabaseConnection database, Clock clock) {
         this.database = Objects.requireNonNull(database, "database");
@@ -123,8 +131,8 @@ public final class AppContext {
                 new ClientIdentifierConnectionFactory(database::open, this::currentUserId));
 
         // Security (A2 + S2 + S3)
-        UserDAO userDao = new JdbcUserDAO(jdbc);
-        RoleDAO roleDao = new JdbcRoleDAO(jdbc);
+        this.userDao = new JdbcUserDAO(jdbc);
+        this.roleDao = new JdbcRoleDAO(jdbc);
         AuditDAO auditDao = new JdbcAuditDAO(jdbc);
         PasswordHasher passwordHasher = new PasswordHasher();
         this.auditService = new AuditService(auditDao, clock);
@@ -141,7 +149,7 @@ public final class AppContext {
                 new JdbcEmergencyVehicleDAO(jdbc), new JdbcHospitalDAO(jdbc)));
 
         // Emergencies (S6 + A7d): register, active, history
-        EmergencyService emergencyService = new EmergencyService(new JdbcEmergencyDAO(jdbc), emergencyTypeDao,
+        this.emergencyService = new EmergencyService(new JdbcEmergencyDAO(jdbc), emergencyTypeDao,
                 new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), auditService, jdbc, clock);
         this.emergencyController = new EmergencyController(emergencyService, authService, session);
 
@@ -305,14 +313,38 @@ public final class AppContext {
      */
     public synchronized DispatchController dispatchController() {
         if (dispatchController == null) {
-            DispatchService dispatchService = new DispatchService(new JdbcEmergencyDAO(jdbc),
+            dispatchController = new DispatchController(dispatchService(), authService, session);
+        }
+        return dispatchController;
+    }
+
+    /**
+     * The dispatch rules (K7), shared by the dispatch page and the panic button. Created the
+     * first time, because it needs the road graph (routeService()).
+     */
+    public synchronized DispatchService dispatchService() {
+        if (dispatchService == null) {
+            dispatchService = new DispatchService(new JdbcEmergencyDAO(jdbc),
                     new JdbcEmergencyTypeDAO(jdbc), new JdbcEmergencyVehicleDAO(jdbc),
                     new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyStationDAO(jdbc),
                     new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), routeService(),
                     auditService, jdbc, clock);
-            dispatchController = new DispatchController(dispatchService, authService, session);
         }
-        return dispatchController;
+        return dispatchService;
+    }
+
+    /**
+     * Panic button (CU-22, S11 + A20b). Created the first time, like the dispatch: a validated
+     * alert is dispatched with the same DispatchService and the zone is the loaded road graph.
+     */
+    public synchronized PanicController panicController() {
+        if (panicController == null) {
+            PanicService panicService = new PanicService(new JdbcPanicReportDAO(jdbc),
+                    new JdbcEmergencyTypeDAO(jdbc), userDao, roleDao, emergencyService, dispatchService(),
+                    routeService(), alertService, auditService, jdbc, clock);
+            panicController = new PanicController(panicService, authService, session);
+        }
+        return panicController;
     }
 
     /** Only for the CreateAdminUser tool: creating users normally needs a session. */
