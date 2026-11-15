@@ -328,3 +328,16 @@ las transiciones de estado se verifican en el servidor.
 Pendiente de verificación específica: respuestas reales
 de la API, estados recibidos, permisos de descarte y
 flujo completo de validación automática.
+
+## 12. Rediseño visual con menú lateral
+
+Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
+
+- `js/app-shell.js` arma el menú lateral y el encabezado de todas las páginas internas. Lo llama `startPage()` (`page-session.js`) después de validar la sesión. Estilos en `css/app-shell.css`.
+- Cada opción del menú aparece solo si el rol tiene su permiso (`hasPermission`); un grupo sin opciones no se muestra. La opción activa lleva `aria-current="page"`.
+- «Historial y reportes» está en la lista con `available: false` hasta que se fusione `reportes.html` (D10). «Administración» se ve gris y no es un enlace hasta D11.
+- En pantallas de menos de 900 px el menú es un cajón que se abre con ☰ y se cierra con el fondo, con Escape o al elegir una opción.
+- La campana de alertas (`alert-bell.js`, sin cambios en su lógica) está en el encabezado del panel, de `emergencia.html` y de `despacho.html`. Fuera del panel, el contador se actualiza al abrir la campana.
+- El mapa oscuro es un filtro CSS sobre `.leaflet-tile-pane`: solo cambian las teselas de OpenStreetMap; los íconos, las rutas y la atribución conservan sus colores.
+- Los íconos son SVG propios en `img/icons/`. No se agregaron librerías, fuentes ni CDN.
+- Ningún texto funcional mide menos de 12 px, para que el panel se lea proyectado.

@@ -19,6 +19,7 @@ import {
 } from "./api-client.js";
 
 import { startPage } from "./page-session.js";
+import { startAlertBell } from "./alert-bell.js";
 
 import {
   byId,
@@ -514,6 +515,14 @@ async function loadEmergency(id, resetMessage = true) {
 async function initialize() {
   session = await startPage();
   if (!session) return;
+
+  // Alert bell in the header (same alert-bell.js as the dashboard).
+  startAlertBell({
+    button: byId("alert-bell"),
+    count: byId("alert-count"),
+    panel: byId("alert-panel"),
+    list: byId("alert-list"),
+  });
 
   map = createBaseMap("map");
   if (map) {
