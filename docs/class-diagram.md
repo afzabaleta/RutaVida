@@ -2575,3 +2575,25 @@ classDiagram
 
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
+## 10. Integración frontend D7
+
+Los módulos JavaScript del panel se relacionan con la API REST y los servicios del backend de la siguiente manera:
+
+```mermaid
+flowchart TD
+    DASH[dashboard.js] --> LIVE[live-map.js]
+    DASH --> BELL[alert-bell.js]
+    LIVE --> API[api-client.js]
+    BELL --> API
+    API --> TRACK[GET /api/tracking]
+    API --> ROUTES[GET /api/dispatches/id/routes]
+    API --> ALERTS[GET /api/alerts]
+    API --> READ[PATCH /api/alerts/id/read]
+    TRACK --> SNAP[TrackingSnapshot]
+    SNAP --> UNITS[TrackedUnit]
+    SNAP --> MISSIONS[TrackedMission]
+    ROUTES --> MROUTE[MissionRoute]
+    ALERTS --> ALERT[Alert]
+```
+
+`live-map.js` administra los marcadores y las rutas activas. `alert-bell.js` presenta las alertas del usuario. Los módulos del frontend no implementan reglas de negocio ni realizan cálculos de rutas.
