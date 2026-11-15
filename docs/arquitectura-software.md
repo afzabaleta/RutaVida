@@ -251,3 +251,16 @@ El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
 - **Sin framework de inyección (sin Spring) por ahora.** `AppContext` cumple esa función en pocas líneas y es fácil de explicar en la sustentación.
 - **Vista web (DT-01, 15/10/2026).** Se agregará un paquete `api` con adaptadores REST que llamen a los mismos controladores, sin tocar `service` ni `dao`. El paquete `view` del backend se reemplazará por `api` cuando se programe, ajustando `ArchitectureTest` y el diagrama de clases en el mismo PR. El servidor HTTP, la librería JSON y el mecanismo de tiempo real están pendientes (ver `docs/decisiones-tecnicas.md`).
 - **Contratos de `RouteService` (K6) y `DispatchService` (K7):** programados. Sus métodos están en `docs/class-diagram.md` (sección 5) y su uso desde la web, en `docs/api.md` (sección 6).
+## 12. Integración web del seguimiento en vivo (D7)
+
+El frontend consulta `GET /api/tracking` cada 5 segundos mientras la pestaña permanece visible. La respuesta `TrackingSnapshot` contiene `serverTime`, `simulation`, `units`, `missions` y `unreadAlerts`.
+
+El módulo `live-map.js` representa las posiciones entregadas por el servidor y anima los marcadores durante 1,2 segundos. No calcula desplazamientos ni modifica la simulación.
+
+Cada `TrackedMission` identifica una asignación, emergencia, vehículo, estado, ruta activa y versión de rutas. Cuando cambia `routesVersion`, el frontend vuelve a consultar las rutas guardadas mediante `GET /api/dispatches/{id}/routes`.
+
+El módulo `alert-bell.js` utiliza el contador `unreadAlerts` y consulta `GET /api/alerts` al abrir la campana. La lectura de alertas se registra mediante `PATCH /api/alerts/{id}/read`.
+
+El acceso al seguimiento depende de `EMERGENCIAS:CONSULTAR`; la consulta de rutas depende de `RUTAS:CONSULTAR`.
+
+El backend conserva la responsabilidad sobre los datos operativos, el cálculo de rutas, la simulación y las reglas de negocio. El frontend únicamente consulta y presenta la información.

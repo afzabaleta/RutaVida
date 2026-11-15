@@ -1,4 +1,4 @@
-﻿# RutaVida — Frontend Web
+# RutaVida — Frontend Web
 
 Aplicación web del **Sistema Inteligente de Rutas de Emergencia para Valledupar**.
 
@@ -21,7 +21,7 @@ La aplicación web permite:
 - Ver cada unidad en el mapa con el ícono de su vehículo (ambulancia, bomberos o patrulla) y un anillo con su estado (verde `DISPONIBLE`, naranja `OCUPADO`, gris en mantenimiento o fuera de servicio), y los hospitales, estaciones y emergencias con su propio ícono (`map-icons.js`). Las unidades se dibujan encima de los demás íconos, y las que están en el mismo punto (por ejemplo, en su estación) se reparten alrededor de él para que todas se vean.
 - Despachar una unidad en `despacho.html`: las unidades ordenadas por su tiempo de llegada, las 3 rutas del motor con su explicación, el despacho, el estado de la misión y el cierre de la emergencia (D6b).
 
-**Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. Las rutas del panel principal continúan siendo rutas de demostración (D4); las de `despacho.html` las calcula el motor de rutas en el servidor (D6b).
+**Importante:** las unidades cuyo código comienza por `EJEMPLO-` son datos de demostración. No representan unidades operativas reales. El panel principal utiliza seguimiento D7 desde Oracle y la simulación del servidor. Las rutas de las misiones proceden de la API; no se calculan en el navegador.
 
 El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad haya llegado al sitio hoy (las llegadas las registra el despacho, K7). Nunca se muestra un 0 inventado.
 
@@ -123,7 +123,7 @@ Las secciones se cargan independientemente. Si una consulta falla, el panel mues
 - **ORACLE:** información consultada mediante la API.
 - **EJEMPLO:** unidades de demostración identificadas por el prefijo `EJEMPLO-`.
 - **D2:** hospitales y estaciones cuentan con información geográfica y fuentes documentadas en `valledupar-data.js`.
-- **Rutas:** continúan siendo rutas de demostración hasta la integración operativa de K7.
+- **Rutas:** las misiones activas utilizan rutas obtenidas de la API REST mediante D7.
 
 Cuando una unidad, estación u hospital no tiene coordenadas disponibles, se muestra «Sin posición conocida» y no se agrega un marcador al mapa.
 
@@ -207,3 +207,54 @@ Cuando termines las pruebas:
 - `docs/`: documentación técnica, arquitectura y registros de implementación.
 
 **Proyecto académico:** Sistema Inteligente de Rutas de Emergencia para Valledupar — RutaVida.
+## 10. Mapa en vivo y alertas (D7)
+
+El panel principal incorpora seguimiento de unidades y misiones mediante la API REST.
+
+### Mapa en vivo
+
+- `GET /api/tracking`: obtiene unidades, misiones abiertas, estado de simulación y alertas sin leer.
+- La consulta se realiza cada 5 segundos mientras la pestaña está visible.
+- Los marcadores se desplazan mediante una transición de 1,2 segundos.
+- Las posiciones proceden del servidor; el navegador no calcula movimientos ni posiciones GPS.
+- Las unidades de demostración se identifican como `EJEMPLO`.
+- `live-map.js` administra los marcadores dinámicos para evitar duplicaciones.
+- Las misiones muestran su estado y permiten visualizar su ruta activa.
+- `GET /api/dispatches/{id}/routes`: consulta las rutas guardadas para una misión.
+- Las rutas se actualizan cuando cambia `routesVersion`.
+- La visualización de rutas requiere `RUTAS:CONSULTAR`.
+- El seguimiento requiere `EMERGENCIAS:CONSULTAR`.
+
+### Campana de alertas
+
+- El contador de alertas sin leer proviene de `unreadAlerts` en `/api/tracking`.
+- `GET /api/alerts`: carga las alertas al abrir la campana.
+- `PATCH /api/alerts/{id}/read`: marca una alerta como leída.
+- El panel muestra el mensaje, la fecha y la emergencia relacionada cuando existe.
+- Las alertas corresponden al usuario autenticado.
+
+### Archivos principales
+
+| Archivo | Responsabilidad |
+|---|---|
+| `js/live-map.js` | Seguimiento, marcadores y rutas activas |
+| `js/alert-bell.js` | Campana, listado y lectura de alertas |
+| `js/api-client.js` | Consultas REST de seguimiento y alertas |
+| `js/dashboard.js` | Integración del seguimiento con el panel |
+| `dashboard.html` | Interfaz del mapa, misiones y campana |
+| `css/dashboard.css` | Presentación visual y adaptación a pantallas pequeñas |
+
+### Pruebas funcionales D7
+
+Se verificaron satisfactoriamente:
+
+1. Inicio de sesión y acceso al dashboard.
+2. Carga del mapa de Valledupar.
+3. Unidades sin marcadores duplicados.
+4. Indicador de seguimiento activo y simulación.
+5. Apertura de la campana de alertas.
+6. Marcación de alertas como leídas.
+7. Visualización de misiones y sus rutas activas.
+8. Conservación del panel de incidentes e indicadores.
+
+El seguimiento es una visualización de la simulación del servidor; no debe presentarse como rastreo GPS real.

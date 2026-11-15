@@ -425,3 +425,36 @@ export async function closeEmergency(emergencyId) {
 
   return toEmergency(emergency, types);
 }
+
+/**
+ * Live map tracking (D7).
+ * Updates every 5 seconds without extending the session.
+ */
+export async function getTracking() {
+  const snapshot = await request("GET", "/api/tracking");
+
+  return {
+    ...snapshot,
+    units: snapshot.units.map((unit) => ({
+      ...unit,
+      location: toPoint(unit.location),
+      example: unit.unitCode.startsWith("EJEMPLO-"),
+    })),
+  };
+}
+
+/** Lists alerts of the current user. */
+export function listAlerts(onlyUnread = false) {
+  return request(
+    "GET",
+    onlyUnread ? "/api/alerts?unread=true" : "/api/alerts"
+  );
+}
+
+/** Marks an alert as read. */
+export function markAlertRead(alertId) {
+  return request(
+    "PATCH",
+    `/api/alerts/${encodeURIComponent(alertId)}/read`
+  );
+}
