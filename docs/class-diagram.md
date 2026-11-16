@@ -757,7 +757,7 @@ classDiagram
     HospitalDAO ..> HospitalServiceOffering
 ```
 
-`HospitalDAO.findServices` y `updateService` todavía no están programados: se agregan cuando exista la entidad `HospitalServiceOffering`. `EmergencyVehicleDAO.update` cambia solo los datos de registro (tipo, estación, código y placa); el estado y la posición tienen sus propios métodos para que el simulador y el despacho no se sobrescriban.
+`HospitalDAO.findServices` y la entidad `HospitalServiceOffering` están programados (lectura de `SERVICIO_HOSPITAL` para el traslado, K10); `updateService` sigue diseñado. `EmergencyVehicleDAO.update` cambia solo los datos de registro (tipo, estación, código y placa); el estado y la posición tienen sus propios métodos para que el simulador y el despacho no se sobrescriban.
 
 ### 3.3 Red vial, tráfico e incidentes
 
@@ -2633,7 +2633,7 @@ classDiagram
 | `TrafficReadingDAO`, `RoadIncidentDAO`, `JdbcTrafficReadingDAO`, `JdbcRoadIncidentDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A5) |
 | `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
 | `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) |
-| `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y `updateService` siguen diseñados |
+| `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y la entidad `HospitalServiceOffering`: programados (A24, para el traslado K10); la prueba con Oracle está escrita y pendiente de correr. `updateService` sigue diseñado |
 | `PanicReport`, `PanicReportStatus`, `PanicReportDAO`, `JdbcPanicReportDAO` | `model`, `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A20, botón de pánico, DT-12). `PanicService` (S11) y sus rutas (A20b) pendientes |
 | `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22) |
 | `PanicStatusRequest`, `RequestRateLimiter` y las rutas `/api/panic` de `ApiServer` | `api` | **Programado y probado** sin Oracle (A20b): `POST /api/panic` sin sesión obligatoria y limitado por dirección de red, `GET /api/panic/reports` y `PATCH /api/panic/reports/{id}/status`. `GET /api/panic/emergency-types` pública (A20c) |
