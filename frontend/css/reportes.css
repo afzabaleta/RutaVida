@@ -1,0 +1,384 @@
+/* D10 - Historial y reportes de RutaVida */
+
+.reports-main {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+  padding-bottom: 48px;
+}
+
+.reports-main > * {
+  min-width: 0;
+}
+
+.reports-panel {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid #304354;
+  border-radius: 16px;
+  background: #172430;
+  color: #f3f7fa;
+}
+
+.reports-panel h2 {
+  margin: 0 0 20px;
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+.reports-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.reports-filters label,
+.reports-history-actions label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.reports-filters input,
+.reports-history-actions select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #526476;
+  border-radius: 9px;
+  background: #101923;
+  color: #fff;
+  font: inherit;
+  color-scheme: dark;
+}
+
+.reports-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reports-presets button {
+  min-height: 44px;
+  padding: 9px 14px;
+  border: 1px solid #526476;
+  border-radius: 9px;
+  background: #243746;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.reports-presets button:hover {
+  background: #345269;
+}
+
+.reports-filters input:focus-visible,
+.reports-history-actions select:focus-visible,
+.reports-presets button:focus-visible {
+  outline: 3px solid #69b9ed;
+  outline-offset: 2px;
+}
+
+#report-message {
+  margin: 16px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.reports-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.reports-kpis .kpi-card {
+  min-width: 0;
+  height: 100%;
+}
+
+.reports-kpis .kpi-card strong {
+  overflow-wrap: anywhere;
+}
+
+.reports-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.report-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  min-width: 0;
+}
+
+.report-chart-row {
+  display: grid;
+  grid-template-columns: minmax(95px, 1fr) minmax(50px, 2fr) 40px;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.report-chart-label {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.report-chart-track {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #304354;
+}
+
+.report-chart-bar {
+  height: 100%;
+  min-width: 0;
+  border-radius: 999px;
+  background: #53a6d8;
+}
+
+.report-chart-row strong {
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.reports-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.reports-section-heading h2 {
+  margin: 0;
+}
+
+.reports-history-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.reports-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.reports-table {
+  width: 100%;
+  min-width: 690px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.reports-table th,
+.reports-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid #304354;
+  vertical-align: middle;
+}
+
+.reports-table th {
+  color: #b9cddd;
+  font-size: 0.85rem;
+}
+
+.reports-table td {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.reports-table tbody tr:hover {
+  background: #203342;
+}
+
+.reports-table .button {
+  white-space: nowrap;
+}
+
+#history-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-detail-section {
+  margin-top: 24px;
+}
+
+.report-detail-section h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.report-detail-item {
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #304354;
+  border-radius: 12px;
+  background: #101923;
+}
+
+.report-detail-item p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
+/* Pantallas medianas */
+@media (max-width: 1100px) {
+  .reports-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reports-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Celulares */
+@media (max-width: 600px) {
+  .reports-main {
+    gap: 16px;
+    padding-bottom: 32px;
+  }
+
+  .reports-panel {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .reports-kpis {
+    gap: 10px;
+  }
+
+  .reports-kpis .kpi-card {
+    padding: 14px;
+  }
+
+  .reports-kpis .kpi-card strong {
+    font-size: 1.5rem;
+  }
+
+  .reports-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .reports-filters > .button {
+    width: 100%;
+  }
+
+  .reports-presets {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .reports-presets button {
+    padding: 9px 6px;
+    font-size: 0.85rem;
+  }
+
+  .reports-section-heading,
+  .reports-history-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reports-history-actions .button {
+    width: 100%;
+  }
+
+  .report-chart-row {
+    grid-template-columns: minmax(72px, 1fr) minmax(35px, 1.3fr) 28px;
+    gap: 7px;
+  }
+
+  .report-chart-label {
+    font-size: 0.75rem;
+  }
+
+  .report-detail-item {
+    padding: 12px;
+  }
+
+  .reports-main .welcome-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* Impresion y exportacion PDF desde el navegador */
+@media print {
+  body.reports-body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .reports-body .dashboard-header,
+  .reports-body .welcome-actions,
+  .reports-filters,
+  .reports-history-actions,
+  #report-message,
+  .reports-table button {
+    display: none !important;
+  }
+
+  .reports-main,
+  .reports-kpis,
+  .reports-charts {
+    display: block;
+  }
+
+  .reports-panel,
+  .reports-kpis .kpi-card {
+    margin-bottom: 16px;
+    border: 1px solid #aaa;
+    background: #fff !important;
+    color: #111 !important;
+    break-inside: avoid;
+  }
+
+  .reports-panel *,
+  .reports-kpis * {
+    color: #111 !important;
+  }
+
+  .reports-table-scroll {
+    overflow: visible;
+  }
+
+  .reports-table {
+    min-width: 0;
+  }
+
+  .reports-table th,
+  .reports-table td {
+    padding: 7px;
+    border-color: #bbb;
+  }
+
+  .report-chart-track {
+    border: 1px solid #999;
+    background: #eee !important;
+  }
+
+  .report-chart-bar {
+    background: #555 !important;
+    print-color-adjust: exact;
+  }
+
+  .report-detail-item {
+    background: #fff !important;
+    border-color: #aaa;
+  }
+}

@@ -287,7 +287,49 @@ export async function listHospitals() {
   }));
 }
 
-/** Indicators of the main panel, counted in Oracle (docs/api.md, 11.1). */
+  // ------------------------------------------------------------------ D10: history and reports
+
+  /** Build query parameters for a period. */
+  function periodQuery(from, to) {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    return params.toString();
+  }
+
+  /** Operations report calculated in Oracle. */
+  export function getOperationsReport(from, to) {
+    return request("GET", `/api/reports/operations?${periodQuery(from, to)}`);
+  }
+
+  /** All emergencies in the period, including closed ones. */
+  export async function listEmergenciesByPeriod(from, to) {
+    const query = periodQuery(from, to) || `to=${encodeURIComponent(todayIso())}`;
+    const [types, emergencies] = await Promise.all([
+      listEmergencyTypes(),
+      request("GET", `/api/emergencies?${query}`),
+    ]);
+
+    return emergencies.map((emergency) => ({
+      ...toEmergency(emergency, types),
+      closedAt: emergency.closedAt,
+    }));
+  }
+
+  /** Complete history of an emergency. */
+  export function getEmergencyHistory(id) {
+    return request("GET", `/api/emergencies/${encodeURIComponent(id)}/history`);
+  }
+
+  /** Local date in YYYY-MM-DD format. */
+  export function todayIso(offsetDays = 0) {
+    const day = new Date();
+    day.setDate(day.getDate() + offsetDays);
+    const month = String(day.getMonth() + 1).padStart(2, "0");
+    const date = String(day.getDate()).padStart(2, "0");
+    return `${day.getFullYear()}-${month}-${date}`;
+  }
+  /** Indicators of the main panel, counted in Oracle (docs/api.md, 11.1). */
 export function getDashboardSummary() {
   return request("GET", "/api/dashboard/summary");
 }
