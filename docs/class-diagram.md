@@ -2730,3 +2730,23 @@ consultados en el dashboard.
 La validación, el cambio de estado, la creación de
 emergencias y el despacho pertenecen al backend.
 La vista no reproduce esas reglas de negocio.
+
+## D10. Historial y reportes en la web
+
+La pagina reportes.html utiliza reportes.js y api-client.js
+para consultar los endpoints REST de historial y reportes.
+
+Flujo de datos:
+
+1. reportes.html y reportes.js
+2. api-client.js
+3. API REST de reportes, emergencias e historial
+4. Servicios y DAO del backend
+5. Base de datos Oracle
+
+La interfaz presenta indicadores, graficos e historial sin
+recalcular los resultados del servidor. No incorpora nuevas
+entidades al modelo de dominio.
+
+El acceso requiere una sesion valida y permisos autorizados.
+La pagina es adaptable a escritorio y celular.

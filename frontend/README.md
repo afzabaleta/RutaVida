@@ -328,3 +328,22 @@ las transiciones de estado se verifican en el servidor.
 Pendiente de verificación específica: respuestas reales
 de la API, estados recibidos, permisos de descarte y
 flujo completo de validación automática.
+
+## 12. Historial y reportes (D10)
+
+La pagina reportes.html permite consultar indicadores historicos desde Oracle.
+
+- Archivos: reportes.html, css/reportes.css y js/reportes.js.
+- API: GET /api/reports/operations?from=&to=
+- API: GET /api/emergencies?from=&to=
+- API: GET /api/emergencies/{id}/history
+- Permisos: REPORTES:CONSULTAR y EMERGENCIAS:CONSULTAR.
+- Periodos: hoy, 7 dias, 30 dias y fechas personalizadas.
+- Indicadores: emergencias, tiempo de respuesta, despachos e incidentes.
+- Graficos por dia, tipo, gravedad y tipo de vehiculo.
+- Historial de emergencias, misiones, rutas y auditoria.
+- Exportacion CSV e impresion en PDF.
+- Interfaz responsive para computadores y celulares.
+- Los indicadores proceden de Oracle; no se inventan resultados.
+
+Pendiente: verificar el funcionamiento real y la visualizacion movil.
