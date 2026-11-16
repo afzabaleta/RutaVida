@@ -179,8 +179,12 @@ public final class ApiServer {
         // 5. Emergencies
         config.routes.get("/api/emergency-types", secured("EMERGENCIAS", "CONSULTAR", USER_ACTION,
                 ctx -> send(ctx, catalogs.emergencyTypes(), ApiStatus.OK)));
+        // Without dates: the open emergencies (CU-07). With from or to: every emergency reported in
+        // that period, closed ones too, for the history page (CU-15, D10).
         config.routes.get("/api/emergencies", secured("EMERGENCIAS", "CONSULTAR", USER_ACTION,
-                ctx -> send(ctx, emergencies.listActive(), ApiStatus.OK)));
+                ctx -> send(ctx, hasPeriod(ctx)
+                        ? emergencies.listByPeriod(dateParam(ctx, "from"), dateParam(ctx, "to"))
+                        : emergencies.listActive(), ApiStatus.OK)));
         config.routes.post("/api/emergencies", secured("EMERGENCIAS", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, emergencies.register(readBody(ctx, EmergencyRequest.class)), ApiStatus.CREATED)));
         config.routes.get("/api/emergencies/{id}", secured("EMERGENCIAS", "CONSULTAR", USER_ACTION,
@@ -377,6 +381,10 @@ public final class ApiServer {
     }
 
     /** "2026-11-14": a whole day, for the reports. */
+    private static boolean hasPeriod(Context ctx) {
+        return blankToNull(ctx.queryParam("from")) != null || blankToNull(ctx.queryParam("to")) != null;
+    }
+
     private static LocalDate dateParam(Context ctx, String name) {
         String value = blankToNull(ctx.queryParam(name));
         try {

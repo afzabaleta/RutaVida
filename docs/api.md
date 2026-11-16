@@ -83,7 +83,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 2 | `POST` | `/api/auth/logout` | Sesión | CU-02 |
 | 3 | `GET` | `/api/auth/session` | Sesión | CU-01 |
 | 4 | `GET` | `/api/emergency-types` | `EMERGENCIAS/CONSULTAR` | CU-06 |
-| 5 | `GET` | `/api/emergencies` | `EMERGENCIAS/CONSULTAR` | CU-07 |
+| 5 | `GET` | `/api/emergencies` (con `?from=&to=`: las de un periodo) | `EMERGENCIAS/CONSULTAR` | CU-07, CU-15 |
 | 6 | `POST` | `/api/emergencies` | `EMERGENCIAS/GESTIONAR` | CU-06 |
 | 7 | `GET` | `/api/emergencies/{id}` | `EMERGENCIAS/CONSULTAR` | CU-07 |
 | 8 | `GET` | `/api/emergencies/{id}/history` | `EMERGENCIAS/CONSULTAR` | CU-15 |
@@ -207,6 +207,8 @@ Las emergencias que no están `CERRADA`, la más reciente primero (`EmergencyDAO
 ```
 
 El nombre del tipo se toma del catálogo (5.1) con `emergencyTypeId`.
+
+**Con periodo (historial, CU-15 y D10):** `GET /api/emergencies?from=2026-11-08&to=2026-11-14` devuelve **todas** las emergencias reportadas entre esos dos días, también las `CERRADA`, la más reciente primero y con la misma forma. Los parámetros siguen las reglas de 11.4: `from` desde las 00:00, `to` hasta las 24:00; si falta `to` es hoy, si falta `from` son los 7 días que terminan en `to`; como máximo 366 días. Basta con enviar uno de los dos para pedir el periodo; sin ninguno, la ruta devuelve las abiertas, como siempre. Errores: `400` si una fecha no tiene la forma `2026-11-14`, si `from` es posterior a `to` o si el periodo pasa de 366 días.
 
 ### 5.3 `POST /api/emergencies`
 

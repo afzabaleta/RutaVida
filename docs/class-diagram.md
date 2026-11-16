@@ -1097,6 +1097,7 @@ class UserService {
         +isActive(emergency: Emergency) boolean
         +register(request: EmergencyRequest, session: UserSession) Emergency
         +listActive() List~Emergency~
+        +listByPeriod(from: LocalDate, to: LocalDate) List~Emergency~
         +findById(id: long) Emergency
         +getHistory(id: long) EmergencyHistory
     }
@@ -2121,6 +2122,7 @@ classDiagram
         -session : SessionContext
         +register(request: EmergencyRequest) OperationResult~Emergency~
         +listActive() OperationResult~List~Emergency~~
+        +listByPeriod(from: LocalDate, to: LocalDate) OperationResult~List~Emergency~~
         +find(emergencyId: long) OperationResult~Emergency~
         +history(emergencyId: long) OperationResult~EmergencyHistory~
     }
