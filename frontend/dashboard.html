@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -17,7 +17,7 @@
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
-  <script defer src="./data/rutas-demo.js"></script>
+
   <script type="module" src="./js/dashboard.js"></script>
 </head>
 
@@ -31,6 +31,23 @@
       </span>
     </a>
 
+      <div class="bell-container">
+        <button
+          id="alert-bell"
+          class="bell-button"
+          type="button"
+          aria-label="Alertas"
+          aria-expanded="false"
+          aria-controls="alert-panel">
+          <span aria-hidden="true">🔔</span>
+          <span id="alert-count" class="bell-count" hidden>0</span>
+        </button>
+
+        <section id="alert-panel" class="bell-panel" hidden>
+          <h2>Alertas</h2>
+          <div id="alert-list" class="bell-list"></div>
+        </section>
+      </div>
     <div class="header-user">
       <div>
         <strong id="user-name">Cargando…</strong>
@@ -54,7 +71,7 @@
         <a class="button" href="./emergencia.html">Registrar emergencia</a>
         <a class="button button-secondary" href="./despacho.html">Despachar unidad</a>
         <span class="demo-notice">
-          Prototipo académico. Las unidades EJEMPLO-… y las rutas de la demo están identificadas.
+          Prototipo académico. Las unidades EJEMPLO-… están identificadas y su movimiento es SIMULACIÓN.
         </span>
       </div>
     </section>
@@ -92,7 +109,7 @@
         <div>
           <p>Tiempo promedio de respuesta</p>
           <strong id="response-time">Sin datos</strong>
-          <small>Se calcula con el despacho (K7)</small>
+          <small>Reporte → llegada, hoy (Oracle)</small>
         </div>
       </article>
     </section>
@@ -130,9 +147,9 @@
         <div class="map-heading">
           <div>
             <p class="eyebrow">UBICACIÓN GEOGRÁFICA</p>
-            <h2>Mapa de Valledupar</h2>
+            <h2>Mapa en vivo de Valledupar</h2>
           </div>
-          <span class="map-status"><span></span> Mapa de referencia</span>
+          <span class="map-status" id="live-status"><span></span> Conectando seguimiento…</span>
         </div>
 
         <div
@@ -141,11 +158,25 @@
           aria-label="Mapa interactivo con emergencias, unidades, estaciones y hospitales">
         </div>
 
+        <section class="panic-dashboard-panel" aria-labelledby="panic-title">
+  <div class="panel-heading">
+    <h2 id="panic-title">Alertas SOS <span id="panic-pill">0</span></h2>
+    <a href="./panico.html">Abrir botón SOS</a>
+  </div>
+  <p id="panic-message" role="status">Cargando reportes SOS...</p>
+  <div id="panic-list" class="panic-dashboard-list"></div>
+</section>
         <div class="map-legend" aria-label="Leyenda del mapa">
-          <span><i class="legend-dot station-dot"></i> Estación</span>
-          <span><i class="legend-dot hospital-dot"></i> Hospital</span>
-          <span><i class="legend-dot emergency-dot"></i> Emergencia</span>
-          <span><i class="legend-dot unit-dot"></i> Unidad</span>
+          <span><i class="legend-icon" data-icon="station"></i> Estación</span>
+          <span><i class="legend-icon" data-icon="hospital"></i> Hospital</span>
+          <span><i class="legend-icon" data-icon="emergency"></i> Emergencia</span>
+          <span><i class="legend-icon" data-icon="panic"></i> SOS pendiente</span>
+          <span><i class="legend-icon" data-icon="panic-validated"></i> SOS validado</span>
+          <span><i class="legend-icon" data-icon="AMBULANCIA"></i> Ambulancia</span>
+          <span><i class="legend-icon" data-icon="BOMBERO"></i> Bomberos</span>
+          <span><i class="legend-icon" data-icon="POLICIA"></i> Patrulla</span>
+          <span><i class="legend-ring available-ring"></i> Disponible</span>
+          <span><i class="legend-ring busy-ring"></i> Ocupada</span>
           <span><i class="legend-zone"></i> Zona vial K4</span>
         </div>
 
@@ -154,24 +185,23 @@
           consulta la fuente de cada sitio en su marcador.
         </p>
 
-        <section class="route-panel" aria-labelledby="route-title">
+        <section class="route-panel" aria-labelledby="mission-title">
           <div class="map-heading">
             <div>
-              <p class="eyebrow">MOTOR DE RUTAS</p>
-              <h2 id="route-title">Rutas calculadas por RutaVida</h2>
+              <p class="eyebrow">SEGUIMIENTO EN VIVO</p>
+              <h2 id="mission-title">Misiones activas</h2>
             </div>
-            <span class="data-tag real-tag">CALCULADAS</span>
+            <span class="data-tag real-tag">ORACLE</span>
           </div>
 
-          <div
-            id="route-tabs"
-            class="route-tabs"
-            role="tablist"
-            aria-label="Escenario de la demostración">
-          </div>
+          <p class="map-footnote">
+            Las posiciones se actualizan cada 5 segundos.
+            SIMULACIÓN: las unidades todavía no transmiten GPS real.
+          </p>
 
-          <div id="route-list" class="route-list"></div>
-          <p id="route-note" class="map-footnote"></p>
+          <div id="mission-list" class="route-list">
+            <p class="empty-state">Cargando misiones…</p>
+          </div>
         </section>
       </section>
 
@@ -187,6 +217,29 @@
         <div id="hospital-list" class="item-list">
           <p class="empty-state">Cargando…</p>
         </div>
+
+          <div class="panel-divider"></div>
+
+          <section class="incidents-panel" aria-labelledby="incidents-title">
+              <div class="panel-heading">
+                  <div>
+                      <p class="eyebrow">ESTADO DE LAS VÍAS</p>
+                      <h2 id="incidents-title">Incidentes viales</h2>
+                  </div>
+                  <span class="count-pill" id="incident-pill">0</span>
+              </div>
+
+              <p class="incident-description">
+                  Incidentes reportados en Oracle. Los pendientes requieren
+                  validación antes de afectar las rutas.
+              </p>
+
+              <div id="incident-list" class="item-list">
+                  <p class="empty-state">Cargando incidentes…</p>
+              </div>
+
+              <p id="incident-message" class="incident-message" role="status"></p>
+          </section>
 
         <div class="panel-divider"></div>
 
@@ -216,7 +269,7 @@
     </section>
 
     <footer class="dashboard-footer">
-      <span>RutaVida · Panel principal (D5c)</span>
+      <span>RutaVida · Panel principal (D7)</span>
       <span>Datos de Oracle; EJEMPLO identificado</span>
     </footer>
   </main>

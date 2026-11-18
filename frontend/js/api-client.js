@@ -56,7 +56,7 @@ export function hasToken() {
   return Boolean(readToken());
 }
 
-async function request(method, path, body) {
+async function call(method, path, body) {
   const headers = { Accept: "application/json" };
   const token = readToken();
 
@@ -89,7 +89,7 @@ async function request(method, path, body) {
   }
 
   if (response.ok && answer?.success === true) {
-    return answer.value;
+    return answer;
   }
 
   if (response.status === 401) {
@@ -102,6 +102,9 @@ async function request(method, path, body) {
   );
 }
 
+async function request(method, path, body) {
+  return (await call(method, path, body)).value;
+}
 export async function login(username, password) {
   const session = await request("POST", "/api/auth/login", {
     username,
@@ -284,4 +287,218 @@ export async function listHospitals() {
   }));
 }
 
-export const DISPATCH_AVAILABLE = false;
+/** Indicators of the main panel, counted in Oracle (docs/api.md, 11.1). */
+export function getDashboardSummary() {
+  return request("GET", "/api/dashboard/summary");
+}
+
+const INCIDENT_LABELS = {
+  ACCIDENTE: "Accidente",
+  OBRA: "Obra",
+  CIERRE: "Cierre de vía",
+  MANIFESTACION: "Manifestación",
+  OTRO: "Incidente",
+};
+
+export function incidentLabel(code) {
+  return INCIDENT_LABELS[code] ?? String(code ?? "").replaceAll("_", " ");
+}
+
+/** A road incident with its segment as two [lat, lng] ends (docs/api.md, 9.1). */
+function toIncident(incident) {
+  const segment = incident.segment;
+
+  return {
+    id: incident.id,
+    segmentId: incident.segmentId,
+    type: incident.type,
+    severity: incident.severity,
+    blocksSegment: incident.blocksSegment,
+    description: incident.description,
+    startedAt: incident.startedAt,
+    status: incident.status,
+    origin: incident.origin,
+    streetName: segment?.streetName ?? null,
+    path: segment ? [toPoint(segment.from), toPoint(segment.to)] : null,
+  };
+}
+
+/** Open road incidents: PENDIENTE and ACTIVO (docs/api.md, 9.1). */
+export async function listIncidents() {
+  const incidents = await request("GET", "/api/incidents");
+  return incidents.map(toIncident);
+}
+
+/** Validates (ACTIVO), rejects (RECHAZADO) or closes (CERRADO) an incident (docs/api.md, 9.3). */
+export async function changeIncidentStatus(id, status) {
+  const incident = await request(
+    "PATCH",
+    `/api/incidents/${encodeURIComponent(id)}/status`,
+    { status }
+  );
+
+  return toIncident(incident);
+}
+
+/** A route of the engine with its path as [lat, lng] points, ready for L.polyline (6.2 and 6.4). */
+function toRoute(route) {
+  return {
+    ...route,
+    path: (route.path ?? []).map(toPoint),
+  };
+}
+
+/** Units that can attend the emergency, the fastest first (docs/api.md, 6.1). */
+export async function listCandidates(emergencyId) {
+  const units = await request(
+    "GET",
+    `/api/emergencies/${encodeURIComponent(emergencyId)}/candidates`
+  );
+
+  return units.map((unit) => ({
+    ...unit,
+    location: toPoint(unit.location),
+    example: unit.unitCode.startsWith("EJEMPLO-"),
+  }));
+}
+
+/** Up to 3 routes from the unit to the emergency, without saving anything (docs/api.md, 6.2). */
+export async function previewRoutes(emergencyId, vehicleId) {
+  const routes = await request("POST", "/api/routes/preview", {
+    emergencyId,
+    vehicleId,
+  });
+
+  return routes.map(toRoute);
+}
+
+/** Dispatches the unit in one transaction and returns the mission with its routes (6.3). */
+export async function dispatchUnit(emergencyId, vehicleId) {
+  const mission = await request("POST", "/api/dispatches", {
+    emergencyId,
+    vehicleId,
+  });
+
+  return {
+    assignment: mission.assignment,
+    routes: mission.routes.map(toRoute),
+  };
+}
+
+/** The routes of a mission that are still in use: ACTIVA and PROPUESTA (6.4). */
+export async function listMissionRoutes(assignmentId) {
+  const routes = await request(
+    "GET",
+    `/api/dispatches/${encodeURIComponent(assignmentId)}/routes`
+  );
+
+  return routes.map(toRoute);
+}
+
+/** Moves the mission: EN_RUTA, EN_SITIO, FINALIZADA or CANCELADA (6.6). */
+export function changeMissionStatus(assignmentId, status) {
+  return request(
+    "PATCH",
+    `/api/dispatches/${encodeURIComponent(assignmentId)}/status`,
+    { status }
+  );
+}
+
+/** The open assignment of an emergency, read from its history (5.5), or null. */
+export async function findOpenAssignment(emergencyId) {
+  const history = await request(
+    "GET",
+    `/api/emergencies/${encodeURIComponent(emergencyId)}/history`
+  );
+
+  return history.assignments.find(
+    (assignment) => !["FINALIZADA", "CANCELADA"].includes(assignment.status)
+  ) ?? null;
+}
+
+/** Closes the emergency with sp_cerrar_emergencia (6.7) and returns it CERRADA. */
+export async function closeEmergency(emergencyId) {
+  const [types, emergency] = await Promise.all([
+    listEmergencyTypes(),
+    request(
+      "POST",
+      `/api/emergencies/${encodeURIComponent(emergencyId)}/close`
+    ),
+  ]);
+
+  return toEmergency(emergency, types);
+}
+
+/**
+ * Live map tracking (D7).
+ * Updates every 5 seconds without extending the session.
+ */
+export async function getTracking() {
+  const snapshot = await request("GET", "/api/tracking");
+
+  return {
+    ...snapshot,
+    units: snapshot.units.map((unit) => ({
+      ...unit,
+      location: toPoint(unit.location),
+      example: unit.unitCode.startsWith("EJEMPLO-"),
+    })),
+  };
+}
+
+/** Lists alerts of the current user. */
+export function listAlerts(onlyUnread = false) {
+  return request(
+    "GET",
+    onlyUnread ? "/api/alerts?unread=true" : "/api/alerts"
+  );
+}
+
+/** Marks an alert as read. */
+export function markAlertRead(alertId) {
+  return request(
+    "PATCH",
+    `/api/alerts/${encodeURIComponent(alertId)}/read`
+  );
+}
+
+
+// ------------------------------------------------------------------ panic button (D9)
+
+/** Public emergency types for the panic button. */
+export async function listPanicEmergencyTypes() {
+  const types = await request("GET", "/api/panic/emergency-types");
+  return types.map((type) => ({ ...type, label: typeLabel(type.name) }));
+}
+
+/** Sends a panic alert and keeps the server response message. */
+export async function sendPanicAlert({ deviceId, location, emergencyTypeId, description }) {
+  const answer = await call("POST", "/api/panic", {
+    deviceId,
+    location: {
+      latitude: round6(location[0]),
+      longitude: round6(location[1]),
+    },
+    emergencyTypeId: emergencyTypeId ?? null,
+    description: description || null,
+  });
+  return { ...answer.value, message: answer.message };
+}
+
+/** Lists panic reports with Leaflet-compatible coordinates. */
+export async function listPanicReports() {
+  const reports = await request("GET", "/api/panic/reports");
+  return reports.map((report) => ({
+    ...report,
+    location: toPoint(report.location),
+  }));
+}
+
+/** Discards a pending false alarm. */
+export function discardPanicReport(reportId) {
+  return request(
+    "PATCH",
+    `/api/panic/reports/${encodeURIComponent(reportId)}/status`,
+    { status: "DESCARTADO" }
+  );
+}

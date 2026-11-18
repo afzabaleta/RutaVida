@@ -3,6 +3,7 @@ package co.edu.unicesar.rutavida.service;
 
 import co.edu.unicesar.rutavida.dao.AuditDAO;
 import co.edu.unicesar.rutavida.model.AuditLog;
+import co.edu.unicesar.rutavida.model.enums.AuditResult;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -48,6 +49,20 @@ public class InMemoryAuditDAO implements AuditDAO {
                 .toList();
     }
 
+
+    @Override
+    public List<AuditLog> search(LocalDateTime from, LocalDateTime to, String module, Long userId,
+                                 AuditResult result, int limit) {
+        return saved.stream()
+                .filter(log -> !log.getOccurredAt().isBefore(from) && !log.getOccurredAt().isAfter(to))
+                .filter(log -> module == null || log.getModule().equals(module))
+                .filter(log -> userId == null || userId.equals(log.getUserId()))
+                .filter(log -> result == null || log.getResult() == result)
+                .sorted(java.util.Comparator.comparing(AuditLog::getOccurredAt)
+                        .thenComparing(AuditLog::getId).reversed())
+                .limit(limit)
+                .toList();
+    }
 
     public AuditLog last() {
 

@@ -1,15 +1,22 @@
 package co.edu.unicesar.rutavida.app;
 
 import co.edu.unicesar.rutavida.controller.AlertController;
+import co.edu.unicesar.rutavida.controller.AuditController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
+import co.edu.unicesar.rutavida.controller.FleetController;
+import co.edu.unicesar.rutavida.controller.HospitalController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
+import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
+import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.SessionContext;
+import co.edu.unicesar.rutavida.controller.UserController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.dao.AuditDAO;
 import co.edu.unicesar.rutavida.dao.EmergencyTypeDAO;
@@ -30,23 +37,32 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadMapDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadNodeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoadSegmentDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcPanicReportDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRouteDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcReportDAO;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
+import co.edu.unicesar.rutavida.service.AuditQueryService;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.DashboardService;
+import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
+import co.edu.unicesar.rutavida.service.FleetService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
+import co.edu.unicesar.rutavida.service.HospitalService;
 import co.edu.unicesar.rutavida.service.IncidentService;
+import co.edu.unicesar.rutavida.service.LiveMapService;
+import co.edu.unicesar.rutavida.service.PanicService;
 import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.service.RouteService;
+import co.edu.unicesar.rutavida.service.UserService;
 import co.edu.unicesar.rutavida.util.DatabaseConnection;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
 
@@ -92,15 +108,26 @@ public final class AppContext {
     private final CatalogController catalogController;
     private final EmergencyController emergencyController;
     private final DashboardController dashboardController;
+    private final ReportController reportController;
     private final IncidentController incidentController;
     private final RoadMapController roadMapController;
     private final AlertService alertService;
     private final AlertController alertController;
+    private final UserController userController;
+    private final HospitalController hospitalController;
+    private final FleetController fleetController;
+    private final TrackingController trackingController;
+    private final AuditController auditController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
     private final AuditService auditService;
+    private final UserDAO userDao;
+    private final RoleDAO roleDao;
+    private final EmergencyService emergencyService;
     private RouteService routeService;
+    private DispatchService dispatchService;
     private DispatchController dispatchController;
+    private PanicController panicController;
 
     private AppContext(DatabaseConnection database, Clock clock) {
         this.database = Objects.requireNonNull(database, "database");
@@ -111,8 +138,8 @@ public final class AppContext {
                 new ClientIdentifierConnectionFactory(database::open, this::currentUserId));
 
         // Security (A2 + S2 + S3)
-        UserDAO userDao = new JdbcUserDAO(jdbc);
-        RoleDAO roleDao = new JdbcRoleDAO(jdbc);
+        this.userDao = new JdbcUserDAO(jdbc);
+        this.roleDao = new JdbcRoleDAO(jdbc);
         AuditDAO auditDao = new JdbcAuditDAO(jdbc);
         PasswordHasher passwordHasher = new PasswordHasher();
         this.auditService = new AuditService(auditDao, clock);
@@ -121,6 +148,9 @@ public final class AppContext {
                 userDao, roleDao, passwordHasher, auditService, jdbc, clock);
         this.loginController = new LoginController(authService, session);
         this.webSessionController = new WebSessionController(authService, session, clock);
+        // Consult the audit (CU-21, A18)
+        this.auditController = new AuditController(new AuditQueryService(auditDao, userDao, clock),
+                authService, session);
 
         // Catalogs for the web (A12a + A12b, DAOs of A7b and A7c)
         EmergencyTypeDAO emergencyTypeDao = new JdbcEmergencyTypeDAO(jdbc);
@@ -129,13 +159,16 @@ public final class AppContext {
                 new JdbcEmergencyVehicleDAO(jdbc), new JdbcHospitalDAO(jdbc)));
 
         // Emergencies (S6 + A7d): register, active, history
-        EmergencyService emergencyService = new EmergencyService(new JdbcEmergencyDAO(jdbc), emergencyTypeDao,
+        this.emergencyService = new EmergencyService(new JdbcEmergencyDAO(jdbc), emergencyTypeDao,
                 new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), auditService, jdbc, clock);
         this.emergencyController = new EmergencyController(emergencyService, authService, session);
 
         // Dashboard (A14): one query on the views and fn_tiempo_respuesta of 04_plsql.sql
         this.dashboardController = new DashboardController(
                 new DashboardService(new JdbcDashboardDAO(jdbc), clock));
+
+        // Operations report of a period (A23): by type, severity, vehicle type and day
+        this.reportController = new ReportController(new ReportService(new JdbcReportDAO(jdbc), clock));
 
         // Road incidents (S7) and their segments on the map (A12c)
         IncidentService incidentService = new IncidentService(new JdbcRoadIncidentDAO(jdbc),
@@ -147,6 +180,21 @@ public final class AppContext {
         // create them through alertService(), so everyone shares this instance.
         this.alertService = new AlertService(new JdbcAlertDAO(jdbc), userDao, roleDao, jdbc, clock);
         this.alertController = new AlertController(alertService, session);
+
+        // Administration (S9, S10, A17): users and roles, hospitals, units and stations
+        this.userController = new UserController(new UserService(userDao, roleDao, passwordHasher,
+                auditService, jdbc, clock), authService, session);
+        this.hospitalController = new HospitalController(
+                new HospitalService(new JdbcHospitalDAO(jdbc), auditService, jdbc), authService, session);
+        this.fleetController = new FleetController(new FleetService(new JdbcEmergencyVehicleDAO(jdbc),
+                new JdbcEmergencyStationDAO(jdbc), new JdbcVehicleTypeDAO(jdbc), alertService, auditService, jdbc),
+                authService, session);
+
+        // Live map (A12e): positions, open missions and unread alerts. The simulation engine
+        // (K9) gives the "running" flag through isSimulationRunning().
+        this.trackingController = new TrackingController(new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
+                new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc),
+                new JdbcAlertDAO(jdbc), this::isSimulationRunning, clock), authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
@@ -207,6 +255,11 @@ public final class AppContext {
         return dashboardController;
     }
 
+    /** Operations report of a period (A23). */
+    public ReportController reportController() {
+        return reportController;
+    }
+
     /** Road incidents: report, validate and list (S7, A12c). */
     public IncidentController incidentController() {
         return incidentController;
@@ -226,6 +279,39 @@ public final class AppContext {
     /** Alerts of the user of the session (A12f). */
     public AlertController alertController() {
         return alertController;
+    }
+
+    /** Users and roles (CU-03, S9). */
+    public UserController userController() {
+        return userController;
+    }
+
+    /** Hospitals (CU-05, S9). */
+    public HospitalController hospitalController() {
+        return hospitalController;
+    }
+
+    /** Units and stations (CU-04, S10). */
+    public FleetController fleetController() {
+        return fleetController;
+    }
+
+    /** Consult the audit (CU-21, A18). */
+    public AuditController auditController() {
+        return auditController;
+    }
+
+    /** Live map (docs/api.md 8.1, A12e). */
+    public TrackingController trackingController() {
+        return trackingController;
+    }
+
+    /**
+     * True while the simulation moves the units. Always false until the simulation engine
+     * (K9) exists; K9 changes this method to ask its engine.
+     */
+    public boolean isSimulationRunning() {
+        return false;
     }
 
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */
@@ -250,14 +336,38 @@ public final class AppContext {
      */
     public synchronized DispatchController dispatchController() {
         if (dispatchController == null) {
-            DispatchService dispatchService = new DispatchService(new JdbcEmergencyDAO(jdbc),
+            dispatchController = new DispatchController(dispatchService(), authService, session);
+        }
+        return dispatchController;
+    }
+
+    /**
+     * The dispatch rules (K7), shared by the dispatch page and the panic button. Created the
+     * first time, because it needs the road graph (routeService()).
+     */
+    public synchronized DispatchService dispatchService() {
+        if (dispatchService == null) {
+            dispatchService = new DispatchService(new JdbcEmergencyDAO(jdbc),
                     new JdbcEmergencyTypeDAO(jdbc), new JdbcEmergencyVehicleDAO(jdbc),
                     new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyStationDAO(jdbc),
                     new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), routeService(),
                     auditService, jdbc, clock);
-            dispatchController = new DispatchController(dispatchService, authService, session);
         }
-        return dispatchController;
+        return dispatchService;
+    }
+
+    /**
+     * Panic button (CU-22, S11 + A20b). Created the first time, like the dispatch: a validated
+     * alert is dispatched with the same DispatchService and the zone is the loaded road graph.
+     */
+    public synchronized PanicController panicController() {
+        if (panicController == null) {
+            PanicService panicService = new PanicService(new JdbcPanicReportDAO(jdbc),
+                    new JdbcEmergencyTypeDAO(jdbc), userDao, roleDao, emergencyService, dispatchService(),
+                    routeService(), alertService, auditService, jdbc, clock);
+            panicController = new PanicController(panicService, authService, session);
+        }
+        return panicController;
     }
 
     /** Only for the CreateAdminUser tool: creating users normally needs a session. */

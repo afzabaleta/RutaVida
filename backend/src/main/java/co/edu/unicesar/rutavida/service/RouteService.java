@@ -10,6 +10,7 @@ import co.edu.unicesar.rutavida.graph.AlternativeRouteFinder;
 import co.edu.unicesar.rutavida.graph.CostFunction;
 import co.edu.unicesar.rutavida.graph.EdgeState;
 import co.edu.unicesar.rutavida.graph.EmergencyCost;
+import co.edu.unicesar.rutavida.graph.Node;
 import co.edu.unicesar.rutavida.graph.RoadGraph;
 import co.edu.unicesar.rutavida.graph.RouteResult;
 import co.edu.unicesar.rutavida.graph.VehicleProfile;
@@ -103,6 +104,54 @@ public class RouteService {
         }
         Optional<RouteResult> best = router.route(graph, src, dst, vehicle, cost, null, true);
         return best.isPresent() ? OptionalDouble.of(best.get().seconds()) : OptionalDouble.empty();
+    }
+
+    /**
+     * Seconds the unit still needs on its route with the traffic and incidents of now,
+     * counted from the segment of the route nearest to its position (CU-17). Empty when a
+     * segment that is still ahead is closed or is no longer in the loaded network.
+     */
+    public OptionalDouble remainingSeconds(Route route, GeoPoint position, VehicleProfile vehicle) {
+        ValidationUtil.requireNonNull(route, "ruta");
+        ValidationUtil.requireLocation(position);
+        ValidationUtil.requireNonNull(vehicle, "tipo de vehículo");
+        List<RouteSegment> segments = route.getSegments();
+        int start = 0;
+        double nearest = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < segments.size(); i++) {
+            int edge = graph.edgeIndexOf(segments.get(i).segmentId());
+            if (edge < 0) {
+                return OptionalDouble.empty();
+            }
+            double meters = graph.node(graph.edge(edge).from())
+                    .distanceMetersTo(position.latitude(), position.longitude());
+            if (meters < nearest) {
+                nearest = meters;
+                start = i;
+            }
+        }
+        double seconds = 0;
+        for (int i = start; i < segments.size(); i++) {
+            int edge = graph.edgeIndexOf(segments.get(i).segmentId());
+            double part = cost.seconds(graph.edge(edge), graph.state(edge), vehicle);
+            if (Double.isInfinite(part)) {
+                return OptionalDouble.empty();
+            }
+            seconds += part;
+        }
+        return OptionalDouble.of(seconds);
+    }
+
+    /** Where a saved route ends: the last node of its last segment (the emergency or the hospital). */
+    public GeoPoint destinationOf(Route route) {
+        ValidationUtil.requireNonNull(route, "ruta");
+        List<RouteSegment> segments = route.getSegments();
+        int edge = segments.isEmpty() ? -1 : graph.edgeIndexOf(segments.get(segments.size() - 1).segmentId());
+        if (edge < 0) {
+            throw new BusinessRuleException("La ruta usa un tramo que no está en la red vial cargada.");
+        }
+        Node end = graph.node(graph.edge(edge).to());
+        return new GeoPoint(end.lat(), end.lon());
     }
 
     /**

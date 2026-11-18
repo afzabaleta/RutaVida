@@ -294,6 +294,17 @@ classDiagram
         -headingDegrees : Double
         -source : PositionSource
     }
+    class PanicReport {
+        -id : Long
+        -location : GeoPoint
+        -reportedAt : LocalDateTime
+        -deviceId : String
+        -userId : Long
+        -emergencyTypeId : Long
+        -description : String
+        -status : PanicReportStatus
+        -emergencyId : Long
+    }
     class User
     class RoadSegment
 
@@ -311,6 +322,9 @@ classDiagram
     Route "1" *-- "1..*" RouteSegment : ordered path
     RouteSegment "0..*" --> "1" RoadSegment : crosses
     VehicleLocation "0..*" --> "1" EmergencyVehicle : position of
+    PanicReport "0..*" --> "0..1" User : sent by (police)
+    PanicReport "0..*" --> "0..1" EmergencyType : classified as
+    PanicReport "1..*" --> "0..1" Emergency : validated into
 ```
 
 ### 1.4 Red vial y tráfico
@@ -392,7 +406,7 @@ classDiagram
 
 ## 2. Capa Model — enumeraciones
 
-Las 19 enumeraciones implementan `CodedEnum`: la constante va en inglés y `code()` devuelve el valor que guarda Oracle (por ejemplo, `EN_ROUTE` → `"EN_RUTA"`). `EnumSqlContractTest` comprueba que coincidan con los CHECK de la base de datos.
+Las 20 enumeraciones implementan `CodedEnum`: la constante va en inglés y `code()` devuelve el valor que guarda Oracle (por ejemplo, `EN_ROUTE` → `"EN_RUTA"`). `EnumSqlContractTest` comprueba que coincidan con los CHECK de la base de datos.
 
 Las enumeraciones solo nombran valores. Las reglas sobre ellos están en los servicios:
 
@@ -453,7 +467,15 @@ classDiagram
     CodedEnum <|.. EmergencyStatus
     CodedEnum <|.. AssignmentStatus
     CodedEnum <|.. IncidentStatus
+    class PanicReportStatus {
+        <<enumeration>>
+        PENDING
+        VALIDATED
+        DISCARDED
+        EXPIRED
+    }
     CodedEnum <|.. VehicleOperationalStatus
+    CodedEnum <|.. PanicReportStatus
 ```
 
 ### 2.2 Catálogos
@@ -628,6 +650,7 @@ classDiagram
         +insert(log: AuditLog) void
         +findByRecord(module: String, recordId: long) List~AuditLog~
         +findByPeriod(from: LocalDateTime, to: LocalDateTime) List~AuditLog~
+        +search(from: LocalDateTime, to: LocalDateTime, module: String, userId: Long, result: AuditResult, limit: int) List~AuditLog~
     }
     class EmergencyTypeDAO {
         <<interface>>
@@ -641,6 +664,7 @@ classDiagram
         +findActive() List~Emergency~
         +findByPeriod(from: LocalDateTime, to: LocalDateTime) List~Emergency~
         +updateStatus(id: long, status: EmergencyStatus, closedAt: LocalDateTime) void
+        +close(id: long, closedAt: LocalDateTime) void
     }
     class EmergencyAssignmentDAO {
         <<interface>>
@@ -651,12 +675,24 @@ classDiagram
         +findByEmergency(emergencyId: long) List~EmergencyAssignment~
         +update(assignment: EmergencyAssignment) void
     }
+    class PanicReportDAO {
+        <<interface>>
+        +insert(report: PanicReport) long
+        +findById(id: long) Optional~PanicReport~
+        +findPendingSince(since: LocalDateTime) List~PanicReport~
+        +findSince(since: LocalDateTime) List~PanicReport~
+        +countByDeviceSince(deviceId: String, since: LocalDateTime) int
+        +markValidated(ids: Collection~Long~, emergencyId: long) void
+        +updateStatus(id: long, status: PanicReportStatus) void
+        +expirePendingBefore(before: LocalDateTime) int
+    }
     class User
     class Role
     class AuditLog
     class EmergencyType
     class Emergency
     class EmergencyAssignment
+    class PanicReport
 
     UserDAO ..> User
     RoleDAO ..> Role
@@ -664,6 +700,7 @@ classDiagram
     EmergencyTypeDAO ..> EmergencyType
     EmergencyDAO ..> Emergency
     EmergencyAssignmentDAO ..> EmergencyAssignment
+    PanicReportDAO ..> PanicReport
 ```
 
 ### 3.2 Flota y hospitales
@@ -815,6 +852,10 @@ classDiagram
         <<interface>>
         +summary(trafficSince: LocalDateTime, dayStart: LocalDateTime, dayEnd: LocalDateTime) DashboardSummary
     }
+    class ReportDAO {
+        <<interface>>
+        +operations(firstDay: LocalDate, lastDay: LocalDate) OperationsReport
+    }
 
     class RoadMapDAO {
         <<interface>>
@@ -826,6 +867,7 @@ classDiagram
     class Alert
     class Notification
     class DashboardSummary
+    class OperationsReport
     class SegmentView
 
 
@@ -834,9 +876,10 @@ classDiagram
     AlertDAO ..> Alert
     NotificationDAO ..> Notification
     DashboardDAO ..> DashboardSummary : solo lectura
+    ReportDAO ..> OperationsReport : solo lectura
     RoadMapDAO ..> SegmentView : solo lectura
 ```
-`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es una de las dos interfaces DAO que dependen de `dto`, y solo para leer. La otra es `RoadMapDAO` (A12c): un tramo con las coordenadas de sus dos nodos, para dibujarlo en el mapa.
+`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es una de las tres interfaces DAO que dependen de `dto`, y solo para leer. Las otras son `RoadMapDAO` (A12c): un tramo con las coordenadas de sus dos nodos, para dibujarlo en el mapa; y `ReportDAO` (A23): el reporte de operación de un periodo (`OperationsReport`), con una consulta para los totales y una por cada agrupación.
 
 ---
 
@@ -936,7 +979,9 @@ classDiagram
     class JdbcAlertDAO
     class JdbcNotificationDAO
     class JdbcDashboardDAO
+    class JdbcReportDAO
     class JdbcRoadMapDAO
+    class JdbcPanicReportDAO
 
     AbstractJdbcDAO <|-- JdbcUserDAO
     AbstractJdbcDAO <|-- JdbcRoleDAO
@@ -959,10 +1004,12 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcAlertDAO
     AbstractJdbcDAO <|-- JdbcNotificationDAO
     AbstractJdbcDAO <|-- JdbcDashboardDAO
+    AbstractJdbcDAO <|-- JdbcReportDAO
     AbstractJdbcDAO <|-- JdbcRoadMapDAO
+    AbstractJdbcDAO <|-- JdbcPanicReportDAO
 ```
 
-Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 21 flechas de realización no se dibujan para que el diagrama se pueda leer.
+Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 22 flechas de realización no se dibujan para que el diagrama se pueda leer.
 
 ---
 
@@ -1005,6 +1052,7 @@ class UserService {
     -clock : Clock
     +create(request: UserRequest, session: UserSession) User
     +listAll() List~User~
+    +listActiveRoles() List~Role~
     +findById(id: long) User
     +deactivate(userId: long, session: UserSession) User
     +activate(userId: long, session: UserSession) User
@@ -1016,6 +1064,12 @@ class UserService {
         -clock : Clock
         +record(userId: Long, module: String, operation: String, recordId: Long, result: AuditResult, detail: String) void
         +findByRecord(module: String, recordId: long) List~AuditLog~
+    }
+    class AuditQueryService {
+        -auditDao : AuditDAO
+        -userDao : UserDAO
+        -clock : Clock
+        +search(query: AuditQuery) List~AuditEntry~
     }
 
     class AdminBootstrapService {
@@ -1043,6 +1097,7 @@ class UserService {
         +isActive(emergency: Emergency) boolean
         +register(request: EmergencyRequest, session: UserSession) Emergency
         +listActive() List~Emergency~
+        +listByPeriod(from: LocalDate, to: LocalDate) List~Emergency~
         +findById(id: long) Emergency
         +getHistory(id: long) EmergencyHistory
     }
@@ -1072,23 +1127,33 @@ class UserService {
         +isOpen(assignment: EmergencyAssignment) boolean
         +moveVehicle(vehicle: EmergencyVehicle, point: GeoPoint, at: LocalDateTime) void
         +startTransfer(assignmentId: long, hospitalId: long, session: UserSession) void
-        +closeEmergency(emergencyId: long, session: UserSession) void
+        +closeEmergency(emergencyId: long, session: UserSession) Emergency
         +dispatchOptimal(emergencyIds: List~Long~, session: UserSession) List~EmergencyAssignment~
     }
     class HungarianAlgorithm {
         +solve(cost: double[][]) int[]$
     }
-    class FleetService {
-        -vehicleDao : EmergencyVehicleDAO
-        -stationDao : EmergencyStationDAO
-        -vehicleTypeDao : VehicleTypeDAO
-        -transactions : TransactionManager
-        -auditService : AuditService
-        +listAvailable() List~EmergencyVehicle~
-        +listAll() List~EmergencyVehicle~
-        +register(vehicle: EmergencyVehicle, session: UserSession) EmergencyVehicle
-        +changeStatus(vehicleId: long, status: VehicleOperationalStatus, session: UserSession) void
-    }
+
+
+class FleetService {
+    -vehicleDao : EmergencyVehicleDAO
+    -stationDao : EmergencyStationDAO
+    -vehicleTypeDao : VehicleTypeDAO
+    -alertService : AlertService
+    -auditService : AuditService
+    -transactions : TransactionManager
+    +listAll() List~EmergencyVehicle~
+    +listAvailable() List~EmergencyVehicle~
+    +findVehicle(id: long) EmergencyVehicle
+    +registerVehicle(request: VehicleRequest, session: UserSession) EmergencyVehicle
+    +updateVehicle(id: long, request: VehicleRequest, session: UserSession) EmergencyVehicle
+    +changeVehicleStatus(id: long, status: VehicleOperationalStatus, session: UserSession) EmergencyVehicle
+    +listStations() List~EmergencyStation~
+    +findStation(id: long) EmergencyStation
+    +registerStation(request: StationRequest, session: UserSession) EmergencyStation
+    +updateStation(id: long, request: StationRequest, session: UserSession) EmergencyStation
+    +changeStationStatus(id: long, status: RecordStatus, session: UserSession) EmergencyStation
+}
 
 class HospitalService {
     -hospitalDao : HospitalDAO
@@ -1110,6 +1175,21 @@ class HospitalService {
         -clock : Clock
         +getSummary() DashboardSummary
     }
+    class ReportService {
+        -reportDao : ReportDAO
+        -clock : Clock
+        +operations(from: LocalDate, to: LocalDate) OperationsReport
+    }
+    class LiveMapService {
+        -vehicleDao : EmergencyVehicleDAO
+        -vehicleTypeDao : VehicleTypeDAO
+        -assignmentDao : EmergencyAssignmentDAO
+        -routeDao : RouteDAO
+        -alertDao : AlertDAO
+        -simulationRunning : BooleanSupplier
+        -clock : Clock
+        +snapshot(session: UserSession) TrackingSnapshot
+    }
     class RoadMapService {
         -mapDao : RoadMapDAO
         +describe(incidents: List~RoadIncident~) List~IncidentView~
@@ -1127,9 +1207,29 @@ class HospitalService {
         +incidentOnRoute(assignment: EmergencyAssignment, unitCode: String, incident: RoadIncident, roadName: String) Alert
         +congestionOnRoute(assignment: EmergencyAssignment, unitCode: String, roadName: String) Alert
         +availabilityChanged(vehicle: EmergencyVehicle, before: VehicleOperationalStatus) List~Alert~
+        +panicAlert(emergencyId: long, message: String) List~Alert~
         +list(session: UserSession, onlyUnread: boolean) List~Alert~
         +markAsRead(alertId: long, session: UserSession) Alert
     }
+    class PanicService {
+    -reportDao : PanicReportDAO
+    -emergencyTypeDao : EmergencyTypeDAO
+    -userDao : UserDAO
+    -roleDao : RoleDAO
+    -emergencyService : EmergencyService
+    -dispatchService : DispatchService
+    -routeService : RouteService
+    -alertService : AlertService
+    -auditService : AuditService
+    -transactions : TransactionManager
+    -clock : Clock
+    +report(request: PanicAlertRequest, reporter: UserSession) PanicResult
+    +listRecent(status: PanicReportStatus) List~PanicReportView~
+    +discard(reportId: long, session: UserSession) PanicReportView
+    +canValidateAlone(session: UserSession) boolean
+    +hashDevice(deviceId: String) String
+}
+    
     class PasswordHasher {
         -iterations : int
         +hash(raw: char[]) String
@@ -1146,12 +1246,19 @@ class HospitalService {
     EmergencyService ..> AuditService
     DispatchService ..> AuditService
     FleetService ..> AuditService
+    FleetService ..> AlertService : avisa (S8)
     HospitalService ..> AuditService
     DispatchService ..> RouteService
     DispatchService ..> HospitalService : K7b
     DispatchService ..> HungarianAlgorithm : fase 2
     DispatchService ..> AlertService : avisa (S8)
     HospitalService ..> RouteService
+    PanicService ..> EmergencyService : crea la emergencia
+    PanicService ..> DispatchService : despacha sola
+    PanicService ..> RouteService : zona de la red
+    PanicService ..> AlertService : avisa
+    PanicService ..> AuditService
+    AuditQueryService ..> AuditService : lee lo que escribe
 ```
 
 `PasswordHasher` (paquete `util`) es una clase concreta con PBKDF2: no tiene interfaz porque hay una sola forma de proteger contraseñas en el sistema.
@@ -1191,6 +1298,59 @@ classDiagram
         +assignment : EmergencyAssignment
         +routes : List~Route~
     }
+        class PanicAlertRequest {
+        <<record>>
+        +deviceId : String
+        +location : GeoPoint
+        +emergencyTypeId : Long
+        +description : String
+    }
+
+    class PanicResult {
+        <<record>>
+        +reportId : long
+        +status : PanicReportStatus
+        +emergencyId : Long
+        +dispatchedUnit : String
+        +reportsNearby : int
+        +reportsNeeded : int
+    }
+
+    class PanicReportView {
+        <<record>>
+        +id : long
+        +location : GeoPoint
+        +reportedAt : LocalDateTime
+        +byPolice : boolean
+        +emergencyTypeId : Long
+        +description : String
+        +status : PanicReportStatus
+        +emergencyId : Long
+        +of(report: PanicReport) PanicReportView$
+    }
+    class AuditQuery {
+        <<record>>
+        +from : LocalDateTime
+        +to : LocalDateTime
+        +module : String
+        +userId : Long
+        +result : AuditResult
+        +limit : Integer
+        +recent() AuditQuery$
+    }
+    class AuditEntry {
+        <<record>>
+        +id : long
+        +occurredAt : LocalDateTime
+        +userId : Long
+        +username : String
+        +module : String
+        +operation : String
+        +recordId : Long
+        +result : AuditResult
+        +detail : String
+        +of(log: AuditLog, username: String) AuditEntry$
+    }
     class HospitalOption {
         <<record>>
         +hospital : Hospital
@@ -1205,6 +1365,38 @@ classDiagram
         +routes : List~Route~
         +auditTrail : List~AuditLog~
     }
+    class TrackingSnapshot {
+        <<record>>
+        +serverTime : LocalDateTime
+        +simulation : SimulationState
+        +units : List~TrackedUnit~
+        +missions : List~TrackedMission~
+        +unreadAlerts : int
+    }
+    class TrackedUnit {
+        <<record>>
+        +vehicleId : long
+        +unitCode : String
+        +vehicleType : String
+        +operationalStatus : VehicleOperationalStatus
+        +location : GeoPoint
+        +updatedAt : LocalDateTime
+        +source : PositionSource
+    }
+    class TrackedMission {
+        <<record>>
+        +assignmentId : long
+        +emergencyId : long
+        +vehicleId : long
+        +status : AssignmentStatus
+        +activeRouteId : Long
+        +routesVersion : int
+    }
+    class SimulationState {
+        <<record>>
+        +running : boolean
+        +source : PositionSource
+    }
     class DashboardSummary {
         <<record>>
         +activeEmergencies : int
@@ -1214,6 +1406,33 @@ classDiagram
         +activeIncidents : int
         +congestedSegments : int
         +closedToday : int
+        +averageResponseMinutes : Double
+    }
+    class OperationsReport {
+        <<record>>
+        +from : LocalDate
+        +to : LocalDate
+        +reportedEmergencies : int
+        +closedEmergencies : int
+        +attendedEmergencies : int
+        +averageResponseMinutes : Double
+        +fastestResponseMinutes : Double
+        +slowestResponseMinutes : Double
+        +dispatches : int
+        +routesGenerated : int
+        +recalculations : int
+        +roadIncidents : int
+        +panicReports : int
+        +validatedPanicReports : int
+        +byEmergencyType : List~ReportCount~
+        +bySeverity : List~ReportCount~
+        +byVehicleType : List~ReportCount~
+        +byDay : List~ReportCount~
+    }
+    class ReportCount {
+        <<record>>
+        +label : String
+        +count : int
         +averageResponseMinutes : Double
     }
     class SegmentView {
@@ -1294,6 +1513,25 @@ class HospitalRequest {
     +emergencyCapacity : Integer
 }
 
+
+class VehicleRequest {
+    <<record>>
+    +vehicleTypeId : long
+    +stationId : long
+    +unitCode : String
+    +plate : String
+}
+
+class StationRequest {
+    <<record>>
+    +name : String
+    +address : String
+    +neighborhood : String
+    +phone : String
+    +location : GeoPoint
+}
+
+
 class ValidationUtil {
     +requireText(value: String, field: String, maxLength: int) String$
     +optionalText(value: String, field: String, maxLength: int) String$
@@ -1319,7 +1557,11 @@ class Messages {
     class EmergencyService
     class DispatchService
     class HospitalService
+    class FleetService
     class DashboardService
+    class ReportService
+    class LiveMapService
+    class AuditQueryService
 
     DispatchService ..> HospitalService
     EmergencyService ..> EmergencyRequest
@@ -1328,6 +1570,12 @@ class Messages {
     DispatchService ..> DispatchResult
     HospitalService ..> HospitalOption
     DashboardService ..> DashboardSummary
+    ReportService ..> OperationsReport
+    OperationsReport *-- ReportCount
+    LiveMapService ..> TrackingSnapshot
+    TrackingSnapshot *-- TrackedUnit
+    TrackingSnapshot *-- TrackedMission
+    TrackingSnapshot *-- SimulationState
     RoadMapService ..> IncidentView
     IncidentView --> SegmentView
     RoadMapService ..> MissionRoute
@@ -1335,6 +1583,13 @@ class Messages {
     DispatchedMission --> MissionRoute
     UserService ..> UserRequest
     HospitalService ..> HospitalRequest
+    FleetService ..> VehicleRequest
+    FleetService ..> StationRequest
+    PanicService ..> PanicAlertRequest
+    PanicService ..> PanicResult
+    PanicService ..> PanicReportView
+    AuditQueryService ..> AuditQuery
+    AuditQueryService ..> AuditEntry
     EmergencyService ..> ValidationUtil
 ```
 
@@ -1484,6 +1739,8 @@ classDiagram
         +isWithinNetwork(point: GeoPoint) boolean
         +calculateOptions(from: GeoPoint, to: GeoPoint, vehicle: VehicleProfile) List~RouteOption~
         +estimateSeconds(from: GeoPoint, to: GeoPoint, vehicle: VehicleProfile) OptionalDouble
+        +remainingSeconds(route: Route, position: GeoPoint, vehicle: VehicleProfile) OptionalDouble
+        +destinationOf(route: Route) GeoPoint
         +saveForMission(emergencyId: long, vehicleId: long, hospitalId: Long, vehicle: VehicleProfile, options: List~RouteOption~) List~Route~
     }
     class RouteExplanationBuilder {
@@ -1505,14 +1762,12 @@ classDiagram
     }
     class RoadConditionService {
         -graph : RoadGraph
-        -trafficProvider : TrafficProvider
         -incidentDao : RoadIncidentDAO
-        -readingDao : TrafficReadingDAO
         -clock : Clock
-        +loadActiveIncidents() void
-        +refreshTraffic() Set~Long~
-        +applyIncident(incident: RoadIncident) void
-        +removeIncident(incident: RoadIncident) void
+        -applied : Map~Integer, Applied~
+        +syncIncidents() Set~Long~
+        +applyTraffic(updates: List~EdgeUpdate~) Set~Long~
+        ~penaltyFor(severity: Severity) double$
     }
     class TrafficProvider {
         <<interface>>
@@ -1569,16 +1824,20 @@ classDiagram
 }
 
 
-    class RouteMonitor {
-        -routeDao : RouteDAO
-        -routeService : RouteService
-        -trackingService : TrackingService
-        -alertService : AlertService
-        -improvementThreshold : double
-        -minimumSecondsSaved : double
-        +checkActiveRoutes(changedSegmentIds: Set~Long~) List~Route~
-        +recalculate(route: Route) Optional~Route~
-    }
+class RouteMonitor {
+~MIN_IMPROVEMENT : double$
+~MIN_SECONDS_SAVED : double$
+-routeDao : RouteDAO
+-routeService : RouteService
+-vehicleDao : EmergencyVehicleDAO
+-vehicleTypeDao : VehicleTypeDAO
+-assignmentDao : EmergencyAssignmentDAO
+-alertService : AlertService
+-transactions : TransactionManager
++checkActiveRoutes(changedSegmentIds: Set~Long~) List~Route~
++recalculate(route: Route) Optional~Route~
+~shouldReplace(remainingSeconds: double, newSeconds: double) boolean$
+}
     class RoadGraph
     class AlternativeRouteFinder
     class TrackingService
@@ -1588,24 +1847,23 @@ classDiagram
     TrafficProvider ..> EdgeUpdate
     GraphLoader ..> RoadGraph : builds
     RoadConditionService --> RoadGraph : único que escribe
-    RoadConditionService --> TrafficProvider
+RoadConditionService ..> EdgeUpdate : applyTraffic
+RoadConditionService ..> RoadIncidentDAO : lee los ACTIVO
     RouteService --> RoadGraph : lee
     RouteService --> AlternativeRouteFinder
     RouteService --> RouteExplanationBuilder
     RouteService ..> RouteOption
-    IncidentService ..> RoadConditionService : K7
-    IncidentService --> RouteMonitor : revisa rutas activas
-    IncidentService ..> IncidentRequest
-    RouteMonitor --> RouteService
-    RouteMonitor --> TrackingService
+IncidentService ..> IncidentRequest
+RouteMonitor --> RouteService
+RouteMonitor ..> AlertService : avisa (S8)
 ```
 
 **Cómo se detecta que una ruta se afectó (sin eventos).** Las llamadas son directas y se pueden seguir con el depurador:
 
-1. `SimulationEngine.tick()` llama a `RoadConditionService.refreshTraffic()`, que devuelve los ids de los tramos cuyo tráfico cambió.
-2. `SimulationEngine` le pasa esos ids a `RouteMonitor.checkActiveRoutes(...)`, que busca las rutas activas que los usan (`RouteDAO.findActiveUsingSegments`) y las recalcula.
-3. Si la ruta nueva ahorra suficiente tiempo, `RouteMonitor` la guarda y llama a `AlertService.routeRecalculated(...)`.
-4. Cuando se activa un incidente, `IncidentService` hace lo mismo con el tramo afectado.
+1. En cada ciclo, `SimulationEngine` (K9) le pasa el tráfico nuevo a `RoadConditionService.applyTraffic(...)` y llama a `RoadConditionService.syncIncidents()`, que pone el grafo al día con los incidentes `ACTIVO` de Oracle. Los dos devuelven los ids de los tramos que cambiaron.
+2. `SimulationEngine` le pasa esos ids a `RouteMonitor.checkActiveRoutes(...)`, que busca las rutas activas que los usan (`RouteDAO.findActiveUsingSegments`) y las recalcula desde la posición actual de la unidad (K8).
+3. Si un tramo de adelante quedó cerrado, o si la ruta nueva ahorra más del 15 % o más de 30 s (RN-09), `RouteMonitor` la guarda y llama a `AlertService.routeRecalculated(...)`.
+4. Un incidente que el operador activa entra al grafo en el siguiente ciclo (unos segundos), sin que `IncidentService` llame al motor de rutas: así S7 no depende del grafo y un incidente activado por cualquier camino se aplica igual.
 
 La página web recibe el estado nuevo a través de la API REST (consultas periódicas o *Server-Sent Events*: decisión pendiente en `docs/decisiones-tecnicas.md`). Si más adelante varias partes necesitan reaccionar al mismo cambio, se puede volver a introducir un bus de eventos; hoy no hace falta.
 
@@ -1864,6 +2122,7 @@ classDiagram
         -session : SessionContext
         +register(request: EmergencyRequest) OperationResult~Emergency~
         +listActive() OperationResult~List~Emergency~~
+        +listByPeriod(from: LocalDate, to: LocalDate) OperationResult~List~Emergency~~
         +find(emergencyId: long) OperationResult~Emergency~
         +history(emergencyId: long) OperationResult~EmergencyHistory~
     }
@@ -1878,7 +2137,7 @@ classDiagram
         +missionRoutes(assignmentId: long) OperationResult~List~Route~~
         +rankHospitals(assignmentId: long, requiredService: String) OperationResult~List~HospitalOption~~
         +startTransfer(assignmentId: long, hospitalId: long) OperationResult~Void~
-        +close(emergencyId: long) OperationResult~Void~
+        +close(emergencyId: long) OperationResult~Emergency~
     }
     class RouteController {
         -routeService : RouteService
@@ -1901,6 +2160,10 @@ class IncidentController {
         -dashboardService : DashboardService
         +summary() OperationResult~DashboardSummary~
     }
+    class ReportController {
+        -reportService : ReportService
+        +operations(from: LocalDate, to: LocalDate) OperationResult~OperationsReport~
+    }
     class RoadMapController {
         -mapService : RoadMapService
         +incidentsOnMap(incidents: OperationResult~List~RoadIncident~~) OperationResult~List~IncidentView~~
@@ -1913,6 +2176,26 @@ class IncidentController {
         -session : SessionContext
         +list(onlyUnread: boolean) OperationResult~List~Alert~~
         +markAsRead(alertId: long) OperationResult~Alert~
+    }
+    class PanicController {
+        -panicService : PanicService
+        -authService : AuthService
+        -session : SessionContext
+        +report(request: PanicAlertRequest) OperationResult~PanicResult~
+        +listRecent(status: PanicReportStatus) OperationResult~List~PanicReportView~~
+        +discard(reportId: long) OperationResult~PanicReportView~
+    }
+    class AuditController {
+        -auditQueryService : AuditQueryService
+        -authService : AuthService
+        -session : SessionContext
+        +search(query: AuditQuery) OperationResult~List~AuditEntry~~
+    }
+    class TrackingController {
+        -liveMapService : LiveMapService
+        -authService : AuthService
+        -session : SessionContext
+        +snapshot() OperationResult~TrackingSnapshot~
     }
     class SimulationController {
         -engine : SimulationEngine
@@ -1930,17 +2213,25 @@ class UserController {
     -session : SessionContext
     +create(request: UserRequest) OperationResult~UserView~
     +list() OperationResult~List~UserView~~
+    +roles() OperationResult~List~Role~~
     +deactivate(userId: long) OperationResult~UserView~
     +activate(userId: long) OperationResult~UserView~
     +changeOwnPassword(current: char[], next: char[]) OperationResult~Void~
 }
 
-    class FleetController {
-        -fleetService : FleetService
-        -session : SessionContext
-        +listAll() List~EmergencyVehicle~
-        +changeStatus(vehicleId: long, status: VehicleOperationalStatus) OperationResult~Void~
-    }
+class FleetController {
+    -fleetService : FleetService
+    -authService : AuthService
+    -session : SessionContext
+    +listAll() OperationResult~List~EmergencyVehicle~~
+    +registerVehicle(request: VehicleRequest) OperationResult~EmergencyVehicle~
+    +updateVehicle(vehicleId: long, request: VehicleRequest) OperationResult~EmergencyVehicle~
+    +changeVehicleStatus(vehicleId: long, status: VehicleOperationalStatus) OperationResult~EmergencyVehicle~
+    +listStations() OperationResult~List~EmergencyStation~~
+    +registerStation(request: StationRequest) OperationResult~EmergencyStation~
+    +updateStation(stationId: long, request: StationRequest) OperationResult~EmergencyStation~
+    +changeStationStatus(stationId: long, status: RecordStatus) OperationResult~EmergencyStation~
+}
 
 class HospitalController {
     -hospitalService : HospitalService
@@ -1999,15 +2290,23 @@ classDiagram
         -loginController : LoginController
         -graphLoader : GraphLoader
         -routeService : RouteService
+        -dispatchService : DispatchService
         -dispatchController : DispatchController
+        -panicController : PanicController
         -webSessionController : WebSessionController
         -catalogController : CatalogController
         -emergencyController : EmergencyController
         -dashboardController : DashboardController
+        -reportController : ReportController
         -incidentController : IncidentController
         -roadMapController : RoadMapController
         -alertService : AlertService
         -alertController : AlertController
+        -userController : UserController
+        -hospitalController : HospitalController
+        -fleetController : FleetController
+        -trackingController : TrackingController
+        -auditController : AuditController
         +create() AppContext$
         +transactions() TransactionManager
         +clock() Clock
@@ -2018,13 +2317,22 @@ classDiagram
         +catalogController() CatalogController
         +emergencyController() EmergencyController
         +dashboardController() DashboardController
+        +reportController() ReportController
         +incidentController() IncidentController
         +roadMapController() RoadMapController
         +alertService() AlertService
         +alertController() AlertController
+        +userController() UserController
+        +hospitalController() HospitalController
+        +fleetController() FleetController
+        +trackingController() TrackingController
+        +auditController() AuditController
+        +isSimulationRunning() boolean
         +graphLoader() GraphLoader
         +routeService() RouteService
+        +dispatchService() DispatchService
         +dispatchController() DispatchController
+        +panicController() PanicController
         +adminBootstrap() AdminBootstrapService
     }
     class Main {
@@ -2082,6 +2390,12 @@ classDiagram
     AppContext ..> GraphLoader : crea
     AppContext ..> EmergencyController : crea e inyecta
     AppContext ..> DispatchController : crea e inyecta
+    AppContext ..> UserController : crea e inyecta
+    AppContext ..> FleetController : crea e inyecta
+    AppContext ..> HospitalController : crea e inyecta
+    AppContext ..> TrackingController : crea e inyecta
+    AppContext ..> AuditController : crea e inyecta
+    AppContext ..> ReportController : crea e inyecta
     WebServer ..> AppContext : crea
     WebServer ..> ApiServer : inicia en el puerto 8080
 ```
@@ -2108,16 +2422,22 @@ classDiagram
         -catalogs : CatalogController
         -emergencies : EmergencyController
         -dashboard : DashboardController
+        -reports : ReportController
         -incidents : IncidentController
         -roadMap : RoadMapController
         -alerts : AlertController
         -dispatch : DispatchController
+        -admin : AdminControllers
+        -tracking : TrackingController
+        -panic : PanicController
+        -panicLimiter : RequestRateLimiter
         -frontendDirectory : Path
         -json : ObjectMapper
         +start(port: int) ApiServer
         +stop() void
         ~secured(module: String, action: String, countsAsUse: boolean, handler: Handler) Handler
         ~authenticated(countsAsUse: boolean, handler: Handler) Handler
+        ~optionalSession(handler: Handler) Handler
         ~send(ctx: Context, result: OperationResult, successStatus: int) void
         ~pathId(ctx: Context) long$
     }
@@ -2149,6 +2469,37 @@ classDiagram
     class AssignmentStatusRequest {
         <<record>>
         +status : AssignmentStatus
+    }
+    class AdminControllers {
+        <<record>>
+        +users : UserController
+        +fleet : FleetController
+        +hospitals : HospitalController
+        +audit : AuditController
+    }
+    class RecordStatusRequest {
+        <<record>>
+        +status : RecordStatus
+    }
+    class VehicleStatusRequest {
+        <<record>>
+        +status : VehicleOperationalStatus
+    }
+    class PasswordChangeRequest {
+        <<record>>
+        +currentPassword : String
+        +newPassword : String
+    }
+    class PanicStatusRequest {
+        <<record>>
+        +status : PanicReportStatus
+    }
+    class RequestRateLimiter {
+        -limit : int
+        -window : Duration
+        -clock : Clock
+        -requests : Map~String, Deque~Instant~~
+        +tryAcquire(key: String) boolean
     }
     class JsonMapperFactory {
         +create() ObjectMapper$
@@ -2216,16 +2567,29 @@ classDiagram
     ApiServer --> CatalogController
     ApiServer --> EmergencyController
     ApiServer --> DashboardController
+    ApiServer --> ReportController
     ApiServer --> IncidentController
     ApiServer --> RoadMapController
     ApiServer --> AlertController
     ApiServer --> DispatchController
+    ApiServer --> AdminControllers
+    ApiServer --> TrackingController
+    ApiServer --> PanicController
+    ApiServer --> RequestRateLimiter : botón de pánico
+    AdminControllers --> UserController
+    AdminControllers --> FleetController
+    AdminControllers --> HospitalController
+    AdminControllers --> AuditController
     ApiServer ..> ApiStatus
     ApiServer ..> ApiResponse
     ApiServer ..> LoginRequest
     ApiServer ..> IncidentStatusRequest
     ApiServer ..> DispatchRequest
     ApiServer ..> AssignmentStatusRequest
+    ApiServer ..> RecordStatusRequest
+    ApiServer ..> VehicleStatusRequest
+    ApiServer ..> PasswordChangeRequest
+    ApiServer ..> PanicStatusRequest
     ApiServer ..> JsonMapperFactory
     ApiStatus ..> ErrorKind
     WebSessionController --> AuthService
@@ -2243,6 +2607,8 @@ classDiagram
 
 `LoginResponse` y `SessionUser` existen para que el JSON nunca lleve `passwordHash` ni el documento del usuario. `JsonMapperFactory` escribe los enums con su código en español (`"CRITICA"`) sin anotar el modelo, y envía una `Route` sin sus tramos (un *mix-in* de Jackson; `docs/api.md`, 5.5).
 
+`AdminControllers` agrupa los tres controladores de administración (A17: usuarios y roles, unidades y estaciones, hospitales; `docs/api.md`, sección 15) para que `ApiServer` los reciba en un solo argumento. `RecordStatusRequest` sirve para activar o desactivar usuarios, estaciones y hospitales (`"A"` o `"I"`), y `VehicleStatusRequest` para la disponibilidad de una unidad.
+
 `CatalogController` y `EmergencyController` devuelven `OperationResult.failure(e)`, así la API sabe qué tipo de error ocurrió (400, 401, 403, 404, 409 o 503) sin leer el mensaje.
 
 ---
@@ -2251,7 +2617,7 @@ classDiagram
 
 | Clase o grupo | Paquete | Estado |
 |---|---|---|
-| `CodedEnum` y las 19 enumeraciones | `model.enums` | **Programado y probado** |
+| `CodedEnum` y las 20 enumeraciones | `model.enums` | **Programado y probado** |
 | `TransactionManager`, `ConnectionFactory`, `JdbcTransactionManager` | `dao`, `dao.jdbc` | **Programado y probado** |
 | `RutaVidaException`, `ValidationException`, `NotFoundException`, `BusinessRuleException`, `DataAccessException` | `exception` | **Programado** |
 | `DatabaseConnection`, `AppContext`, `DatabaseCheck` | `util`, `app` | **Programado y probado** contra Oracle XE 18c |
@@ -2270,6 +2636,11 @@ classDiagram
 | `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
 | `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) |
 | `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y `updateService` siguen diseñados |
+| `PanicReport`, `PanicReportStatus`, `PanicReportDAO`, `JdbcPanicReportDAO` | `model`, `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A20, botón de pánico, DT-12). `PanicService` (S11) y sus rutas (A20b) pendientes |
+| `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22) |
+| `PanicStatusRequest`, `RequestRateLimiter` y las rutas `/api/panic` de `ApiServer` | `api` | **Programado y probado** sin Oracle (A20b): `POST /api/panic` sin sesión obligatoria y limitado por dirección de red, `GET /api/panic/reports` y `PATCH /api/panic/reports/{id}/status`. `GET /api/panic/emergency-types` pública (A20c) |
+| `AuditQueryService`, `AuditController`, `AuditQuery`, `AuditEntry`, `AuditDAO.search` y la ruta `GET /api/audit` | `service`, `controller`, `dto`, `dao`, `api` | **Programado y probado** sin Oracle (A18, CU-21); `JdbcAuditDAO.search` tiene su prueba de integración contra Oracle |
+| `ReportDAO`, `JdbcReportDAO`, `ReportService`, `ReportController`, `OperationsReport`, `ReportCount`, `AppContext.reportController()` y `GET /api/reports/operations` | `dao`, `dao.jdbc`, `service`, `controller`, `dto`, `app`, `api` | **Programado y probado** sin Oracle (A23, RF-11): servicio y ruta; `JdbcReportDAO` tiene 2 pruebas de integración contra Oracle |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
 | `AuthService`, `AuditService`, `PasswordHasher` | `service`, `util` | **Programado y probado** (S2) |
 | `EmergencyService`, `DispatchService`, `IncidentService`: reglas de estado (`validateNew`, `canChange`, `changeStatus`, `isDispatchable`, `activate`…) | `service` | **Programado y probado** (refactorización de capas). Los métodos de caso de uso con DAO siguen diseñados |
@@ -2280,23 +2651,82 @@ classDiagram
 | `SegmentView`, `IncidentView`, `RoadMapDAO`, `JdbcRoadMapDAO`, `RoadMapService`, `RoadMapController`, `IncidentStatusRequest`, `AppContext.incidentController()`/`roadMapController()` y las rutas `/api/incidents` | `dto`, `dao`, `dao.jdbc`, `service`, `controller`, `app`, `api` | **Programado y probado** (A12c): `IncidentController` (S7) publicado en la API, con el tramo de cada incidente para el mapa; `JdbcRoadMapDAO`, contra Oracle XE 18c. Aplicar el incidente al grafo es de K8 y K9 |
 | `AppContext.alertService()`/`alertController()`, `ApiServer.authenticated` y las rutas `/api/alerts` | `app`, `api` | **Programado y probado** (A12f): `AlertController` (S8) publicado en la API con solo la sesión, sin permiso; `GET` no mantiene viva la sesión (DT-08). Las alertas las crean K7, K8 y K9 con `alertService()` |
 | `MissionRoute`, `DispatchedMission`, `RoadMapService.describeRoutes`/`describeDispatch`, `RoadMapController.routesOnMap`/`dispatchOnMap`, `DispatchRequest`, `AssignmentStatusRequest` y las rutas de despacho (`/api/emergencies/{id}/candidates`, `/api/routes/preview`, `/api/dispatches`) | `dto`, `service`, `controller`, `api`, `app` | **Programado y probado** (A12d): `DispatchController` (K7) publicado en la API, con la línea de cada ruta guardada para el mapa; sin Oracle. `WebServer` carga la red vial al arrancar. El traslado (K7b) y el cierre (CU-12) siguen pendientes |
+| Cerrar emergencia (CU-12): `EmergencyDAO.close` y `JdbcEmergencyDAO.close` (con `sp_cerrar_emergencia`), `DispatchService.closeEmergency`, `DispatchController.close` y `POST /api/emergencies/{id}/close` | `dao`, `dao.jdbc`, `service`, `controller`, `api` | **Programado y probado** (A16): reglas, auditoría y ruta sin Oracle; `JdbcEmergencyDAO.close` contra Oracle XE 18c. Reemplaza a `closeEmergency`/`close` de la fila de K7 |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | `RouteService` y `AppContext.routeService()` | `service`, `app` | **Programado y probado** (K6) con un grafo de prueba, sin Oracle. Guarda las rutas con `RouteDAO` (A6) |
 | Despacho: `DispatchService` (`candidates`, `preview`, `dispatch`, `advance`, `missionRoutes`, `suits`), `DispatchController`, `UnitCandidate`, `DispatchResult`, `AppContext.dispatchController()` | `service`, `controller`, `dto`, `app` | **Programado y probado** (K7) con DAO falsos y una red de prueba, sin Oracle. `startTransfer`, `rankHospitals` (K7b), `closeEmergency`/`close` (CU-12) y `dispatchOptimal` siguen diseñados |
+| Recálculo de rutas: `RoadConditionService` (`syncIncidents`, `applyTraffic`), `RouteMonitor` y `RouteService.remainingSeconds`/`destinationOf` | `service` | **Programado y probado** (K8) con DAO falsos y una red de prueba, sin Oracle. Se conecta en `AppContext` y lo llama el ciclo de la simulación en K9 |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
-| `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. Se conecta en `AppContext` y en `GET /api/tracking` en A12e; `SimulationEngine` lo llama en cada ciclo (K9) |
+| `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. `SimulationEngine` lo llama en cada ciclo (K9) |
+| `LiveMapService`, `TrackingController`, `TrackingSnapshot`, `TrackedUnit`, `TrackedMission`, `SimulationState` | `service`, `controller`, `dto` | **Programado y probado** (A12e) sin Oracle: `GET /api/tracking` lee lo que guardó `TrackingService`. `running` es falso hasta que K9 cambie `AppContext.isSimulationRunning()` |
 | Demás clases de simulación (`SimulationEngine`, escenarios) | `simulation` | Diseñado |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
 | `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos. `find` y el uso de `OperationResult.failure` se agregaron en A12b |
 | Demás controladores | `controller` | Diseñado |
 | `ApiServer`, `ApiStatus`, `ApiResponse`, `LoginRequest`, `JsonMapperFactory`, `WebServer`, `WebSessionController`, `CatalogController`, `CatalogService`, `LoginResponse`, `SessionUser`, `ErrorKind`, `SessionRequiredException` y los cambios de `SessionContext` y `OperationResult` | `api`, `app`, `controller`, `service`, `dto`, `exception` | **Programado y probado** (A12a): sesión con token, permisos por ruta, errores en JSON y `GET /api/emergency-types` |
 | Rutas de emergencias (`/api/emergencies`, `/{id}`, `/{id}/history`) y de recursos (`/api/vehicle-types`, `/api/units`, `/api/stations`, `/api/hospitals`); `ApiServer.pathId`; métodos nuevos de `CatalogService` y `CatalogController` | `api`, `controller`, `service`, `app` | **Programado y probado** (A12b) sin Oracle. Despacho, rutas, seguimiento y simulación llegan con K7 |
-| Vista web | `frontend/` | **Programada y probada (D5b y D5c)**. Inicio de sesión, registro de emergencias y panel principal conectados a la API REST. El panel consulta emergencias, unidades, hospitales y estaciones desde Oracle. Las unidades de demostración se identifican como `EJEMPLO`. Las rutas del mapa siguen siendo demostrativas (D4); el despacho real depende de K7. |
+| Vista web | `frontend/` | **Programada (D5b, D5c, D6 y D6b); pruebas de integración de D6 y D6b pendientes**. Inicio de sesión, registro de emergencias y panel principal conectados a la API REST. El panel consulta emergencias, unidades, hospitales y estaciones desde Oracle, muestra los indicadores de `GET /api/dashboard/summary` y dibuja los incidentes viales sobre su tramo, con validar, rechazar y cerrar (`incident-panel.js`). La página de despacho (`despacho.js` y `dispatch-routes.js`) ordena las unidades por su tiempo de llegada, dibuja las 3 rutas del motor con su explicación, despacha, cambia el estado de la misión y cierra la emergencia. Las unidades de demostración se identifican como `EJEMPLO`. Las rutas del panel principal siguen siendo demostrativas (D4). |
 | `IncidentService`, `IncidentRequest`, `IncidentController`, `RoadSegmentDAO.findById` | `service`, `dto`, `controller`, `dao` | **Programado y probado (S7)** con DAO falsos; `findById`, contra Oracle. Aplicar el incidente al grafo y recalcular rutas corresponde a K7 |
 | `Alert`, `AlertDAO`, `JdbcAlertDAO`, `AlertService`, `AlertController` | `model`, `dao`, `dao.jdbc`, `service`, `controller` | **Programado y probado** (S8): servicio y controlador con DAO falsos; `JdbcAlertDAO`, contra Oracle. Se conecta en `AppContext` y en `/api/alerts` en A12f; K7, K8 y K9 llaman al servicio. `Notification` y `NotificationDAO` siguen diseñados |
 | `UserService`, `UserController`, `UserRequest`, `UserView`, `HospitalService`, `HospitalController`, `HospitalRequest` | `service`, `controller`, `dto` | **Programado y probado** (S9) con DAO falsos: crear, listar, desactivar y activar usuarios, y cambiar la propia contraseña (CU-03); registrar, editar, activar y desactivar hospitales (CU-05). Falta conectarlos en `AppContext` y en la API (Andrés). `HospitalService.rankForTransfer` (K7b), `updateServiceAvailability` y `HospitalController.updateService` siguen diseñados |
+| `FleetService`, `FleetController`, `VehicleRequest`, `StationRequest` | `service`, `controller`, `dto` | **Programado y probado** (S10) con DAO falsos: registrar y editar unidades, cambiar su disponibilidad a mano (`OCUPADO` solo lo pone el despacho) con alerta a los coordinadores, y registrar, editar, activar y desactivar estaciones (CU-04). Falta conectarlos en `AppContext` y en la API (Andrés) |
+
 
 Estos son los contratos que el equipo debe respetar. Si alguien necesita cambiar una firma pública, lo acuerda con el equipo y actualiza este diagrama en el mismo Pull Request.
+## 10. Integración frontend D7
+
+Los módulos JavaScript del panel se relacionan con la API REST y los servicios del backend de la siguiente manera:
+
+```mermaid
+flowchart TD
+    DASH[dashboard.js] --> LIVE[live-map.js]
+    DASH --> BELL[alert-bell.js]
+    LIVE --> API[api-client.js]
+    BELL --> API
+    API --> TRACK[GET /api/tracking]
+    API --> ROUTES[GET /api/dispatches/id/routes]
+    API --> ALERTS[GET /api/alerts]
+    API --> READ[PATCH /api/alerts/id/read]
+    TRACK --> SNAP[TrackingSnapshot]
+    SNAP --> UNITS[TrackedUnit]
+    SNAP --> MISSIONS[TrackedMission]
+    ROUTES --> MROUTE[MissionRoute]
+    ALERTS --> ALERT[Alert]
+```
+
+`live-map.js` administra los marcadores y las rutas activas. `alert-bell.js` presenta las alertas del usuario. Los módulos del frontend no implementan reglas de negocio ni realizan cálculos de rutas.
+
+## 11. Integración frontend D9 - Botón de pánico
+
+Los diagramas anteriores ya incluyen `PanicReport`,
+`PanicReportStatus`, `PanicReportDAO`, `PanicService`,
+`PanicController` y los DTO del caso de uso.
+
+Esta sección documenta la integración de la vista web.
+
+```mermaid
+flowchart TD
+    PUBLIC[panico.html] --> PANIC[panico.js]
+    PANIC --> CLIENT[api-client.js]
+    DASH[dashboard.js] --> LAYER[panic-layer.js]
+    LAYER --> CLIENT
+    LAYER --> ICONS[map-icons.js]
+    CLIENT --> REST[API REST /api/panic]
+    REST --> CTRL[PanicController]
+    CTRL --> SERVICE[PanicService]
+    SERVICE --> DAO[PanicReportDAO]
+    DAO --> DB[(Oracle)]
+    SERVICE --> EMERGENCY[EmergencyService]
+    SERVICE --> DISPATCH[DispatchService]
+```
+
+`panico.js` captura los datos del reporte y solicita
+su registro. `panic-layer.js` presenta los reportes
+consultados en el dashboard.
+
+La validación, el cambio de estado, la creación de
+emergencias y el despacho pertenecen al backend.
+La vista no reproduce esas reglas de negocio.

@@ -73,7 +73,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 
    Si el servidor se reinicia, todos tienen que volver a iniciar sesión.
 4. Cada ruta exige el permiso de la columna **Permiso** (módulo y acción de la tabla `PERMISO`). El servidor lo revisa con `AuthService.requirePermission` antes de llamar al controlador. Que la web oculte un botón no reemplaza esta revisión.
-5. Las únicas rutas sin token son `POST /api/auth/login` y las páginas de `frontend/`.
+5. Las únicas rutas sin token son `POST /api/auth/login`, `POST /api/panic` y `GET /api/panic/emergency-types` (sección 16) y las páginas de `frontend/`.
 
 ## 3. Resumen de rutas
 
@@ -83,7 +83,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 2 | `POST` | `/api/auth/logout` | Sesión | CU-02 |
 | 3 | `GET` | `/api/auth/session` | Sesión | CU-01 |
 | 4 | `GET` | `/api/emergency-types` | `EMERGENCIAS/CONSULTAR` | CU-06 |
-| 5 | `GET` | `/api/emergencies` | `EMERGENCIAS/CONSULTAR` | CU-07 |
+| 5 | `GET` | `/api/emergencies` (con `?from=&to=`: las de un periodo) | `EMERGENCIAS/CONSULTAR` | CU-07, CU-15 |
 | 6 | `POST` | `/api/emergencies` | `EMERGENCIAS/GESTIONAR` | CU-06 |
 | 7 | `GET` | `/api/emergencies/{id}` | `EMERGENCIAS/CONSULTAR` | CU-07 |
 | 8 | `GET` | `/api/emergencies/{id}/history` | `EMERGENCIAS/CONSULTAR` | CU-15 |
@@ -110,6 +110,26 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 29 | `GET` | `/api/dashboard/summary` | `REPORTES/CONSULTAR` | CU-16 |
 | 30 | `GET` | `/api/alerts` | Sesión | RF de alertas |
 | 31 | `PATCH` | `/api/alerts/{id}/read` | Sesión | RF de alertas |
+| 32 | `GET` | `/api/users` | `USUARIOS/CONSULTAR` | CU-03 |
+| 33 | `POST` | `/api/users` | `USUARIOS/GESTIONAR` | CU-03 |
+| 34 | `PATCH` | `/api/users/{id}/status` | `USUARIOS/GESTIONAR` | CU-03 |
+| 35 | `GET` | `/api/roles` | `USUARIOS/CONSULTAR` | CU-03 |
+| 36 | `POST` | `/api/auth/password` | Sesión | CU-03 |
+| 37 | `POST` | `/api/units` | `UNIDADES/GESTIONAR` | CU-04 |
+| 38 | `PUT` | `/api/units/{id}` | `UNIDADES/GESTIONAR` | CU-04 |
+| 39 | `PATCH` | `/api/units/{id}/status` | `UNIDADES/GESTIONAR` | CU-04 |
+| 40 | `POST` | `/api/stations` | `UNIDADES/GESTIONAR` | CU-04 |
+| 41 | `PUT` | `/api/stations/{id}` | `UNIDADES/GESTIONAR` | CU-04 |
+| 42 | `PATCH` | `/api/stations/{id}/status` | `UNIDADES/GESTIONAR` | CU-04 |
+| 43 | `POST` | `/api/hospitals` | `HOSPITALES/GESTIONAR` | CU-05 |
+| 44 | `PUT` | `/api/hospitals/{id}` | `HOSPITALES/GESTIONAR` | CU-05 |
+| 45 | `PATCH` | `/api/hospitals/{id}/status` | `HOSPITALES/GESTIONAR` | CU-05 |
+| 46 | `POST` | `/api/panic` | Ninguno (sesión opcional, sección 16) | CU-22 |
+| 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` | CU-22 |
+| 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` | CU-22 |
+| 49 | `GET` | `/api/audit` | `AUDITORIA/CONSULTAR` | CU-21 |
+| 50 | `GET` | `/api/reports/operations` | `REPORTES/CONSULTAR` | RF-11 |
+| 51 | `GET` | `/api/panic/emergency-types` | Ninguno (pública, solo lectura) | CU-22 |
 
 "Sesión" significa que basta con un token válido, sin un permiso específico.
 
@@ -188,6 +208,8 @@ Las emergencias que no están `CERRADA`, la más reciente primero (`EmergencyDAO
 
 El nombre del tipo se toma del catálogo (5.1) con `emergencyTypeId`.
 
+**Con periodo (historial, CU-15 y D10):** `GET /api/emergencies?from=2026-11-08&to=2026-11-14` devuelve **todas** las emergencias reportadas entre esos dos días, también las `CERRADA`, la más reciente primero y con la misma forma. Los parámetros siguen las reglas de 11.4: `from` desde las 00:00, `to` hasta las 24:00; si falta `to` es hoy, si falta `from` son los 7 días que terminan en `to`; como máximo 366 días. Basta con enviar uno de los dos para pedir el periodo; sin ninguno, la ruta devuelve las abiertas, como siempre. Errores: `400` si una fecha no tiene la forma `2026-11-14`, si `from` es posterior a `to` o si el periodo pasa de 366 días.
+
 ### 5.3 `POST /api/emergencies`
 
 Registra una emergencia (CU-06). Entrada, igual al DTO `EmergencyRequest`:
@@ -243,7 +265,7 @@ Las rutas del historial no traen el trazado: el historial es para leer, no para 
 
 ## 6. Despacho y rutas
 
-Estado (A12d): 6.1, 6.2, 6.3, 6.4 y 6.6 están programadas. 6.5 y el paso a `TRASLADANDO` esperan el traslado al hospital (CU-11, K7b) y 6.7 espera el cierre (CU-12).
+Estado: 6.1, 6.2, 6.3, 6.4 y 6.6 (A12d) y 6.7 (A16) están programadas. 6.5 y el paso a `TRASLADANDO` esperan el traslado al hospital (CU-11, K7b).
 
 ### 6.1 `GET /api/emergencies/{id}/candidates`
 
@@ -379,16 +401,20 @@ La llegada al sitio (`EN_SITIO`) también la puede marcar el simulador por su cu
 
 ### 6.7 `POST /api/emergencies/{id}/close`
 
-Cierra la emergencia (CU-12) con `sp_cerrar_emergencia`: finaliza las asignaciones abiertas, libera las unidades (`DISPONIBLE`) y cierra las rutas. Sin cuerpo. Salida `200`: la emergencia con `status` = `CERRADA` y `closedAt`. `409` si ya estaba cerrada.
+Cierra la emergencia (CU-12) con `sp_cerrar_emergencia`: finaliza las asignaciones abiertas, libera las unidades (`DISPONIBLE`) y cierra las rutas. Permiso `DESPACHO / GESTIONAR`. Sin cuerpo. Salida `200`: la emergencia con `status` = `CERRADA` y `closedAt`.
+
+Solo se cierra una emergencia `REPORTADA` (falsa alarma), `EN_SITIO` o `TRASLADANDO`. Errores: `409` si ya estaba cerrada o si tiene una unidad en camino (`ASIGNADA` o `EN_RUTA`: primero llega o se cancela la misión); `404` si no existe. El cierre queda en el historial de la emergencia (5.5) como `CERRAR`.
 
 ## 7. Recursos: unidades, estaciones y hospitales
+
+Esta sección es para consultar. Crear, editar y activar o desactivar está en la sección 15 (administración, A17).
 
 ### 7.1 `GET /api/vehicle-types`
 
 ```json
 { "success": true, "message": null, "value": [
-  { "id": 1, "name": "AMBULANCIA", "priority": 8, "description": "Unidad de atencion medica y traslado" },
-  { "id": 2, "name": "BOMBERO", "priority": 8, "description": "Vehiculo del cuerpo de bomberos" }
+   { "id": 1, "name": "AMBULANCIA", "priority": 8, "description": "Unidad de atencion medica y traslado" },
+   { "id": 2, "name": "BOMBERO", "priority": 8, "description": "Vehiculo del cuerpo de bomberos" }
 ] }
 ```
 
@@ -398,10 +424,10 @@ Todas las unidades (`EmergencyVehicleDAO.findAll`), con la entidad `EmergencyVeh
 
 ```json
 { "success": true, "message": null, "value": [
-  { "id": 1, "vehicleTypeId": 1, "stationId": 2, "unitCode": "EJEMPLO-AMB-01", "plate": null,
-    "operationalStatus": "DISPONIBLE",
-    "lastLocation": { "latitude": 10.469330, "longitude": -73.254520 },
-    "lastLocationAt": "2026-11-04T08:00:00" }
+   { "id": 1, "vehicleTypeId": 1, "stationId": 2, "unitCode": "EJEMPLO-AMB-01", "plate": null,
+      "operationalStatus": "DISPONIBLE",
+      "lastLocation": { "latitude": 10.469330, "longitude": -73.254520 },
+      "lastLocationAt": "2026-11-04T08:00:00" }
 ] }
 ```
 
@@ -423,25 +449,27 @@ La web lo consulta **cada 5 segundos** (DT-07) mientras la página del mapa est�
 
 ```json
 { "success": true, "message": null, "value": {
-  "serverTime": "2026-11-04T09:35:02",
-  "simulation": { "running": true, "source": "SIMULACION" },
-  "units": [
-    { "vehicleId": 1, "unitCode": "EJEMPLO-AMB-01", "vehicleType": "AMBULANCIA",
-      "operationalStatus": "OCUPADO",
-      "location": { "latitude": 10.468901, "longitude": -73.258004 },
-      "updatedAt": "2026-11-04T09:35:01", "source": "SIMULACION" }
-  ],
-  "missions": [
-    { "assignmentId": 8, "emergencyId": 15, "vehicleId": 1, "status": "EN_RUTA",
-      "activeRouteId": 30, "routesVersion": 2 }
-  ],
-  "unreadAlerts": 1
+   "serverTime": "2026-11-04T09:35:02",
+   "simulation": { "running": true, "source": "SIMULACION" },
+   "units": [
+      { "vehicleId": 1, "unitCode": "EJEMPLO-AMB-01", "vehicleType": "AMBULANCIA",
+         "operationalStatus": "OCUPADO",
+         "location": { "latitude": 10.468901, "longitude": -73.258004 },
+         "updatedAt": "2026-11-04T09:35:01", "source": "SIMULACION" }
+   ],
+   "missions": [
+      { "assignmentId": 8, "emergencyId": 15, "vehicleId": 1, "status": "EN_RUTA",
+         "activeRouteId": 30, "routesVersion": 2 }
+   ],
+   "unreadAlerts": 1
 } }
 ```
 
 - `routesVersion` sube cada vez que el sistema recalcula las rutas de esa misión (CU-17). Si la web ve un número distinto al que tenía, pide `GET /api/dispatches/{id}/routes` y redibuja.
 - `unreadAlerts` permite mostrar el contador sin pedir la lista cada 5 segundos.
 - `source` es `"SIMULACION"` mientras no exista GPS real (`PositionSource`).
+- **Programado (A12e):** `LiveMapService` y `TrackingController`. `vehicleType` es el nombre del tipo (`AMBULANCIA`, `BOMBERO`, `POLICIA`), con el que la web elige el ícono. Una unidad sin posición trae `location`, `updatedAt` y `source` en `null`. `missions` trae solo las misiones abiertas de unidades `OCUPADO`; `activeRouteId` es `null` cuando la unidad ya llegó. `routesVersion` es cuántas rutas se han guardado para esa misión: crece cuando el sistema recalcula. `simulation.running` es `false` hasta que exista el motor de simulación (K9).
+- Las posiciones las escribe `TrackingService` cuando el motor de simulación (K9) mueve las unidades: sin K9, las unidades se quedan en su última posición.
 
 ### 8.2 `GET /api/traffic/segments`
 
@@ -449,10 +477,10 @@ Los tramos con tráfico `MODERADO` o `CONGESTIONADO` (la última medición de ca
 
 ```json
 { "success": true, "message": null, "value": [
-  { "segmentId": 413, "streetName": "Calle 16", "level": "CONGESTIONADO", "congestionFactor": 2.6,
-    "measuredAt": "2026-11-04T09:34:50", "source": "SIMULACION",
-    "from": { "latitude": 10.468901, "longitude": -73.258004 },
-    "to": { "latitude": 10.468377, "longitude": -73.260112 } }
+   { "segmentId": 413, "streetName": "Calle 16", "level": "CONGESTIONADO", "congestionFactor": 2.6,
+      "measuredAt": "2026-11-04T09:34:50", "source": "SIMULACION",
+      "from": { "latitude": 10.468901, "longitude": -73.258004 },
+      "to": { "latitude": 10.468377, "longitude": -73.260112 } }
 ] }
 ```
 
@@ -466,12 +494,12 @@ Los incidentes `PENDIENTE` y `ACTIVO`. Con `?status=ACTIVO` (o cualquier otro es
 
 ```json
 { "success": true, "message": null, "value": [
-  { "id": 4, "segmentId": 413, "type": "ACCIDENTE", "severity": "ALTA", "blocksSegment": false,
-    "description": "Choque en la Calle 16", "startedAt": "2026-11-04T09:34:00", "endedAt": null,
-    "status": "PENDIENTE", "origin": "OPERADOR",
-    "segment": { "streetName": "Calle 16",
-      "from": { "latitude": 10.468901, "longitude": -73.258004 },
-      "to": { "latitude": 10.468377, "longitude": -73.260112 } } }
+   { "id": 4, "segmentId": 413, "type": "ACCIDENTE", "severity": "ALTA", "blocksSegment": false,
+      "description": "Choque en la Calle 16", "startedAt": "2026-11-04T09:34:00", "endedAt": null,
+      "status": "PENDIENTE", "origin": "OPERADOR",
+      "segment": { "streetName": "Calle 16",
+         "from": { "latitude": 10.468901, "longitude": -73.258004 },
+         "to": { "latitude": 10.468377, "longitude": -73.260112 } } }
 ] }
 ```
 
@@ -481,7 +509,7 @@ Registra un incidente (CU-13). Entra `PENDIENTE` y **no afecta las rutas** hasta
 
 ```json
 { "segmentId": 413, "type": "ACCIDENTE", "severity": "ALTA", "blocksSegment": false,
-  "description": "Choque en la Calle 16" }
+   "description": "Choque en la Calle 16" }
 ```
 
 Salida `201`: el incidente (forma de 9.1). `400` si el tramo no existe o el tipo o la severidad no son válidos.
@@ -496,7 +524,7 @@ Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RE
 
 ```json
 { "success": true, "message": null, "value": {
-  "running": true, "startedAt": "2026-11-04T09:31:00", "tickSeconds": 1, "source": "SIMULACION" } }
+   "running": true, "startedAt": "2026-11-04T09:31:00", "tickSeconds": 1, "source": "SIMULACION" } }
 ```
 
 ### 10.2 `POST /api/simulation/start` y `POST /api/simulation/stop`
@@ -513,15 +541,15 @@ Fuerza el nivel de tráfico de un tramo, para mostrar el recálculo en la demost
 
 Salida `200`: el tramo con la forma de 8.2. `404` si el tramo no existe.
 
-## 11. Dashboard y alertas
+## 11. Dashboard, reportes y alertas
 
 ### 11.1 `GET /api/dashboard/summary`
 
 ```json
 { "success": true, "message": null, "value": {
-  "activeEmergencies": 3, "availableUnits": 3, "busyUnits": 1, "operationalHospitals": 2,
-  "activeIncidents": 1, "congestedSegments": 4, "closedToday": 2,
-  "averageResponseMinutes": 9.4
+   "activeEmergencies": 3, "availableUnits": 3, "busyUnits": 1, "operationalHospitals": 2,
+   "activeIncidents": 1, "congestedSegments": 4, "closedToday": 2,
+   "averageResponseMinutes": 9.4
 } }
 ```
 
@@ -548,13 +576,60 @@ Las alertas del usuario de la sesión, la más reciente primero: las últimas 50
 { "success": true, "message": null, "value": [
    { "id": 21, "emergencyId": 15, "userId": 3, "type": "RECALCULO_RUTA",
       "message": "Se recalculó la ruta de EJEMPLO-AMB-01 por congestión en la Calle 16.",
-    "createdAt": "2026-11-04T09:35:00", "read": false }
+      "createdAt": "2026-11-04T09:35:00", "read": false }
 ] }
 ```
 
 ### 11.3 `PATCH /api/alerts/{id}/read`
 
 Sin cuerpo. Marca la alerta como leída. Salida `200`: la alerta (forma de 11.2). `404` si no existe o es de otro usuario.
+
+### 11.4 `GET /api/reports/operations`
+
+El reporte de operación de un periodo (RF-11, A23). El panel (11.1) dice qué pasa **ahora**; el reporte resume lo que pasó **entre dos días**, para la pantalla de reportes y para la sustentación. Permiso `REPORTES/CONSULTAR`, el mismo del panel. Es una acción del usuario: mantiene viva la sesión.
+
+| Parámetro | Forma | Si falta |
+|---|---|---|
+| `from` | `2026-11-08` (primer día, desde las 00:00) | 6 días antes de `to` |
+| `to` | `2026-11-14` (último día, hasta las 24:00) | hoy |
+
+Sin parámetros son los **últimos 7 días**, hoy incluido. Los días son los del reloj del servidor (Colombia). Como máximo 366 días por consulta.
+
+Todo se cuenta sobre las emergencias **reportadas** en el periodo, con la misma regla del panel para el tiempo de respuesta: minutos desde el reporte hasta la llegada de la **primera** unidad (`fn_tiempo_respuesta`).
+
+```json
+{ "success": true, "message": null, "value": {
+  "from": "2026-11-08", "to": "2026-11-14",
+  "reportedEmergencies": 12, "closedEmergencies": 10, "attendedEmergencies": 11,
+  "averageResponseMinutes": 9.4, "fastestResponseMinutes": 5.1, "slowestResponseMinutes": 16.8,
+  "dispatches": 14, "routesGenerated": 42, "recalculations": 3, "roadIncidents": 4,
+  "panicReports": 6, "validatedPanicReports": 2,
+  "byEmergencyType": [ { "label": "EMERGENCIA_MEDICA", "count": 7, "averageResponseMinutes": 8.2 } ],
+  "bySeverity":      [ { "label": "CRITICA", "count": 2, "averageResponseMinutes": 7.0 } ],
+  "byVehicleType":   [ { "label": "AMBULANCIA", "count": 9, "averageResponseMinutes": 8.9 } ],
+  "byDay":           [ { "label": "2026-11-08", "count": 0, "averageResponseMinutes": null } ]
+} }
+```
+
+Los números del ejemplo son de EJEMPLO; los de la respuesta se cuentan en Oracle en el momento de la consulta.
+
+| Campo | Qué cuenta |
+|---|---|
+| `reportedEmergencies` | Emergencias reportadas en el periodo |
+| `closedEmergencies` | De ellas, las que hoy están `CERRADA` |
+| `attendedEmergencies` | De ellas, las que tienen al menos una llegada |
+| `averageResponseMinutes`, `fastestResponseMinutes`, `slowestResponseMinutes` | Promedio, la más rápida y la más lenta de las primeras llegadas. Un decimal |
+| `dispatches` | Unidades asignadas a esas emergencias, también las canceladas |
+| `routesGenerated` | Rutas guardadas en el periodo (recomendadas y alternativas) |
+| `recalculations` | Rutas recomendadas que reemplazaron a otra de la misma misión (CU-17): misma emergencia, unidad y hospital de destino |
+| `roadIncidents` | Incidentes viales reportados en el periodo, de cualquier estado |
+| `panicReports` / `validatedPanicReports` | Veces que se presionó el botón de pánico / las que se volvieron emergencia (CU-22) |
+| `byEmergencyType` | Emergencias por tipo, la más frecuente primero |
+| `bySeverity` | Emergencias por severidad, de `CRITICA` a `BAJA` |
+| `byVehicleType` | Despachos por tipo de vehículo, el más usado primero. Su promedio es el de todas las unidades de ese tipo que llegaron, no solo la primera |
+| `byDay` | Emergencias de cada día, en orden. **Trae todos los días del periodo**: los días sin emergencias vienen con `count` 0, para que la gráfica no salte días |
+
+Todo promedio es `null` cuando no hay llegadas, nunca 0: la web muestra "Sin datos". Errores: `400` si una fecha no tiene la forma `2026-11-14`, si `from` es posterior a `to` o si el periodo pasa de 366 días; `401` sin sesión; `403` sin el permiso.
 
 ## 12. Secuencia: registrar y despachar
 
@@ -601,9 +676,9 @@ sequenceDiagram
 
 ## 13. Fuera de este contrato
 
-- **Botón de pánico, rol Policía y patrullas de policía simuladas** (DT-10): tienen sus propias rutas, que se agregan a este documento en su tarea. La ruta del botón será la única sin sesión.
-- **Administración** (CU-03, CU-04, CU-05, CU-21): crear y editar usuarios, unidades, estaciones y hospitales, y consultar la auditoría. Los DAO ya tienen `insert` y `update`; las rutas se agregan cuando se programen esas pantallas.
-- **Reporte ciudadano por QR** (CU-22): fuera del alcance de la primera versión.
+- **Botón de pánico**: su contrato y sus rutas están en la sección 16 (DT-12). **Patrullas de policía simuladas** (DT-10): llegan por `/api/tracking` como cualquier unidad, con `vehicleType` = `"POLICIA"`.
+- **Servicios de cada hospital** (`SERVICIO_HOSPITAL`, CU-05): se agregan con el traslado al hospital (K7b), que los necesita para elegir el destino.
+- **Reporte ciudadano por QR**: reemplazado por el botón de pánico (DT-12).
 
 ## 14. Notas para quien implementa (A12)
 
@@ -611,3 +686,199 @@ sequenceDiagram
 - `User` nunca se serializa directo: el login devuelve un DTO sin `passwordHash`.
 - Cada ruta llama a un controlador y convierte su `OperationResult` en la respuesta. El código HTTP sale del tipo de error (sección 1.2), así que el controlador necesita entregar también el tipo, no solo el mensaje.
 - DTO nuevos que nombra este contrato: `LoginResponse`, `UnitCandidate`, `MissionRoute`, `HospitalOption`, `TrackingSnapshot`, `DashboardSummary`. Se agregan al diagrama de clases cuando se programen.
+
+## 15. Administración (A17)
+
+Rutas de las pantallas de administración: usuarios (CU-03), unidades y estaciones (CU-04), hospitales (CU-05) y la consulta de la auditoría (CU-21, A18). Cada ruta revisa el permiso y el controlador lo vuelve a revisar. Toda operación que cambia datos queda en `AUDITORIA` con el usuario de la sesión. Las respuestas tienen la forma de la sección 1.1.
+
+### 15.1 `GET /api/users`
+
+Todos los usuarios, activos o no, ordenados por `username`. **Nunca** traen la contraseña ni su hash (DTO `UserView`):
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 3, "roleId": 2, "document": "PRUEBA0003", "firstNames": "Laura", "lastNames": "Prueba",
+    "email": "laura@ejemplo.com", "username": "laura.prueba", "status": "A",
+    "registeredAt": "2026-11-14T10:00:00" }
+] }
+```
+
+### 15.2 `POST /api/users`
+
+Crea un usuario. Entrada (DTO `UserRequest`):
+
+```json
+{ "roleId": 2, "document": "PRUEBA0003", "firstNames": "Laura", "lastNames": "Prueba",
+  "email": "laura@ejemplo.com", "username": "laura.prueba", "password": "Clave-Segura1" }
+```
+
+- La contraseña debe tener al menos 10 caracteres, con letras y números. Se guarda solo su hash PBKDF2 y el servidor borra el texto de la memoria.
+- El correo y el usuario se guardan en minúsculas.
+
+Salida `201`: el usuario creado (forma de 15.1). Errores: `400` si falta un dato o la contraseña no cumple las reglas; `404` si el rol no existe; `409` si el rol está inactivo o ya existe el documento, el correo o el usuario.
+
+### 15.3 `PATCH /api/users/{id}/status`
+
+`{ "status": "I" }` desactiva el usuario (ya no puede iniciar sesión) y `{ "status": "A" }` lo vuelve a activar. Salida `200`: el usuario. Errores: `400` si el estado no es `A` o `I`; `404` si no existe; `409` si un usuario intenta desactivarse a sí mismo, si se dejaría el sistema sin administradores activos o si ya tenía ese estado.
+
+### 15.4 `GET /api/roles`
+
+Los roles **activos**, por nombre, para el formulario de 15.2. Cada uno trae `id`, `name`, `description`, `status` y sus `permissions` (`module`, `action`).
+
+### 15.5 `POST /api/auth/password`
+
+El usuario de la sesión cambia **su propia** contraseña. Basta con la sesión: no pide un permiso.
+
+```json
+{ "currentPassword": "Clave-Segura1", "newPassword": "Clave-Nueva22" }
+```
+
+Salida `200` con `value` = `null`. Errores: `400` si la actual no es correcta, si la nueva no cumple las reglas de 15.2 o si es igual a la actual.
+
+### 15.6 `POST /api/units`
+
+Registra una unidad (DTO `VehicleRequest`). Queda `DISPONIBLE` en su estación:
+
+```json
+{ "vehicleTypeId": 1, "stationId": 2, "unitCode": "EJEMPLO-AMB-09", "plate": "EJM109" }
+```
+
+- El código se guarda en mayúsculas y no puede tener espacios. La placa es opcional.
+- Salida `201`: la unidad (forma de 7.2). Errores: `400` si un dato no es válido; `404` si el tipo o la estación no existen; `409` si la estación está inactiva o el código o la placa ya existen.
+
+### 15.7 `PUT /api/units/{id}`
+
+Edita el tipo, la estación, el código y la placa, con la misma entrada de 15.6. No cambia el estado ni la posición. Una unidad `OCUPADO` (en misión) no se edita hasta que termine (`409`). Salida `200`: la unidad.
+
+### 15.8 `PATCH /api/units/{id}/status`
+
+`{ "status": "MANTENIMIENTO" }`. Se puede poner `DISPONIBLE`, `MANTENIMIENTO` o `FUERA_SERVICIO`. **`OCUPADO` nunca se pone a mano**: lo pone el despacho y lo quita el cierre. Una unidad `OCUPADO` no se cambia aquí, y `DISPONIBLE` exige que su estación esté activa. Cada cambio de disponibilidad genera una alerta para los coordinadores. Salida `200`: la unidad. Errores: `400` si el estado no es válido; `409` si la regla no lo permite.
+
+### 15.9 `POST /api/stations` y `PUT /api/stations/{id}`
+
+Crea o edita una estación o base (DTO `StationRequest`):
+
+```json
+{ "name": "EJEMPLO - Base norte", "address": "Calle de EJEMPLO 2", "neighborhood": null, "phone": null,
+  "location": { "latitude": 10.4700, "longitude": -73.2500 } }
+```
+
+Salida `201` (crear) o `200` (editar): la estación (forma de 7.3). `409` si ya existe una estación con ese nombre.
+
+### 15.10 `PATCH /api/stations/{id}/status`
+
+`{ "status": "I" }` o `{ "status": "A" }`. Una estación con unidades `DISPONIBLE` u `OCUPADO` no se puede desactivar (`409`).
+
+### 15.11 `POST /api/hospitals` y `PUT /api/hospitals/{id}`
+
+Crea o edita un hospital (DTO `HospitalRequest`):
+
+```json
+{ "name": "Hospital de EJEMPLO", "level": "II", "address": "Calle de EJEMPLO 3", "phone": null,
+  "location": { "latitude": 10.4690, "longitude": -73.2540 }, "emergencyCapacity": 12 }
+```
+
+`level` es `"I"` a `"IV"`; `emergencyCapacity` puede ser `null` (dato no verificado). Salida `201` (crear) o `200` (editar): el hospital (forma de 7.4). Errores: `400` si un dato no es válido; `409` si ya existe un hospital con ese nombre.
+
+### 15.12 `PATCH /api/hospitals/{id}/status`
+
+`{ "status": "I" }` o `{ "status": "A" }`. Un hospital inactivo deja de aparecer como destino de traslado. Salida `200`: el hospital.
+
+### 15.13 `GET /api/audit`
+
+Consulta la tabla `AUDITORIA` (CU-21): quién hizo qué y cuándo. Solo lee; las entradas las escriben `AuditService` y los disparadores de `04_plsql.sql`. Permiso `AUDITORIA/CONSULTAR`, que tienen el Administrador y el Coordinador (`02_datos_iniciales.sql`). Es una acción del usuario: mantiene viva la sesión.
+
+Filtros (todos opcionales, en la URL):
+
+| Parámetro | Forma | Si falta |
+|---|---|---|
+| `from` | `2026-11-14` (desde las 00:00) o `2026-11-14T08:30` | 24 horas antes de `to` |
+| `to` | `2026-11-14` (hasta el final del día) o `2026-11-14T18:00` | ahora |
+| `module` | `SEGURIDAD`, `EMERGENCIAS`, `DESPACHO`, `USUARIOS`, `UNIDADES`, `PANICO`, ... (se pasa a mayúsculas) | todos |
+| `userId` | id del usuario | todos |
+| `result` | `EXITO` o `FALLO` (sin importar mayúsculas) | todos |
+| `limit` | 1 a 500 | 200 |
+
+Límites: el periodo es como máximo de **31 días** y la respuesta trae como máximo 500 entradas, para que una consulta nunca lea la tabla entera. Las entradas salen de la más reciente a la más antigua.
+
+Salida `200` (DTO `AuditEntry`; `username` es `null` cuando no había sesión, por ejemplo un login fallido de un usuario que no existe):
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 812, "occurredAt": "2026-11-14T09:12:40", "userId": 1, "username": "admin.ejemplo",
+    "module": "SEGURIDAD", "operation": "LOGIN", "recordId": null, "result": "EXITO",
+    "detail": "EJEMPLO: inicio de sesión" }
+] }
+```
+
+Errores: `400` si una fecha no tiene la forma indicada, si `from` es posterior a `to`, si el periodo pasa de 31 días, si `module` tiene algo distinto de letras y guiones bajos, o si `result` o `limit` no son válidos; `401` sin sesión; `403` sin el permiso.
+
+## 16. Botón de pánico (CU-22, DT-12)
+
+**Estado:** programado (A20 la tabla y el DAO, S11 el servicio, A20b las rutas, A20c los tipos públicos). Reglas: `docs/analysis.md`, CU-22 y RN-13 a RN-15.
+
+- **Sesión opcional en 16.1:** con un token válido se usa ese usuario; sin token, o con uno vencido, el reporte entra como de un ciudadano anónimo. En una emergencia el botón nunca responde "inicie sesión".
+- **Límite por dirección de red:** además del límite de 3 reportes por dispositivo (RN-13), `POST /api/panic` acepta como máximo 20 reportes por dirección de red cada 10 minutos, porque el identificador del dispositivo lo genera el navegador y se puede cambiar. Al pasarlo responde `409` con "Se enviaron demasiadas alertas desde esta conexión. Si la emergencia sigue, llame al 123.". El conteo vive en memoria: se reinicia con el servidor.
+- `GET /api/panic/reports` es una consulta automática del mapa: no mantiene viva la sesión (DT-08).
+
+| # | Método | URL | Permiso |
+|---|---|---|---|
+| 46 | `POST` | `/api/panic` | **Ninguno** (la única ruta pública además del login). Con sesión, se usa el usuario |
+| 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` |
+| 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` |
+| 51 | `GET` | `/api/panic/emergency-types` | **Ninguno**: los tipos para que el ciudadano elija (16.4) |
+
+### 16.1 `POST /api/panic`
+
+La página del botón (D9) la llama al presionarlo. Sin token funciona como ciudadano anónimo; con el token de un usuario con `PANICO/VALIDAR` (Policía), su reporte valida la alerta solo.
+
+```json
+{ "deviceId": "8f1c2b0e-5d7a-4c61-9a0e-3f0b2f7c9d11",
+  "location": { "latitude": 10.467172, "longitude": -73.265099 },
+  "emergencyTypeId": 1, "description": "Hay una persona herida" }
+```
+
+- `deviceId`: un UUID que la página genera la primera vez y guarda en el navegador. El servidor guarda solo su hash SHA-256 (RN-13).
+- `emergencyTypeId` y `description` (máximo 200 caracteres) son opcionales.
+
+Salida `201`:
+
+```json
+{ "success": true, "message": "Su alerta fue validada: la ayuda va en camino.", "value": {
+  "reportId": 41, "status": "VALIDADO", "emergencyId": 77, "dispatchedUnit": "EJEMPLO-AMB-01",
+  "reportsNearby": 3, "reportsNeeded": 3 } }
+```
+
+Si todavía no se valida: `"status": "PENDIENTE"`, `"emergencyId": null`, `"dispatchedUnit": null` y el mensaje "Su reporte quedó registrado. Esperamos la confirmación de otras personas cercanas.".
+
+Si se valida pero no hay unidad disponible: `"dispatchedUnit": null` y el mensaje "Su alerta fue validada. Un coordinador enviará una unidad.". Si ya hay una alerta validada y abierta a menos de 300 m (10 minutos), el reporte se une a ella: `"status": "VALIDADO"`, su `emergencyId` y `"dispatchedUnit": null` (no se manda otra unidad).
+
+Errores: `400` si falta la ubicación o el `deviceId`, o la ubicación está fuera de la zona de la red vial; `409` si el dispositivo ya envió 3 reportes en 10 minutos ("Ya envió varios reportes. Si la emergencia sigue, llame al 123.").
+
+### 16.2 `GET /api/panic/reports`
+
+Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del panel. Con `?status=PENDIENTE` solo los de ese estado (un estado que no existe da `400`). **Nunca** devuelve el hash del dispositivo:
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 41, "location": { "latitude": 10.467172, "longitude": -73.265099 },
+    "reportedAt": "2026-11-20T09:31:10", "byPolice": false, "emergencyTypeId": 1,
+    "description": "Hay una persona herida", "status": "VALIDADO", "emergencyId": 77 }
+] }
+```
+
+### 16.3 `PATCH /api/panic/reports/{id}/status`
+
+`{ "status": "DESCARTADO" }` (cualquier otro estado da `400`): un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).
+
+### 16.4 `GET /api/panic/emergency-types`
+
+Los tipos de emergencia para la página del botón (D9), **sin sesión**: un ciudadano sin cuenta tiene que poder decir que es un incendio para que la alerta despache bomberos. Es la misma lista de 5.1 (`GET /api/emergency-types`, que sigue pidiendo `EMERGENCIAS/CONSULTAR`); solo lee un catálogo y no tiene datos personales.
+
+```json
+{ "success": true, "message": null, "value": [
+  { "id": 1, "name": "EMERGENCIA_MEDICA", "priority": 9, "description": "Urgencia medica sin accidente de transito" }
+] }
+```
+
+Si la persona no elige tipo, la alerta validada usa el que eligieron la mayoría de los reportes cercanos, y si nadie eligió, `EMERGENCIA_MEDICA` (`PanicService`).

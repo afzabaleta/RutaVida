@@ -1,6 +1,7 @@
 package co.edu.unicesar.rutavida.dao;
 
 import co.edu.unicesar.rutavida.model.AuditLog;
+import co.edu.unicesar.rutavida.model.enums.AuditResult;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,4 +21,13 @@ public interface AuditDAO {
 
     /** Entries between {@code from} and {@code to}, both included, oldest first. */
     List<AuditLog> findByPeriod(LocalDateTime from, LocalDateTime to);
+
+    /**
+     * Entries between {@code from} and {@code to}, both included, newest first, at most
+     * {@code limit}. Each other filter is skipped when it is null (CU-21).
+     *
+     * @param module in upper case, for example EMERGENCIAS
+     */
+    List<AuditLog> search(LocalDateTime from, LocalDateTime to, String module, Long userId,
+                          AuditResult result, int limit);
 }

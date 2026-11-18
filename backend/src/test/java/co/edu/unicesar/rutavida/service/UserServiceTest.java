@@ -5,6 +5,7 @@ import co.edu.unicesar.rutavida.dto.UserRequest;
 import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.exception.ValidationException;
+import co.edu.unicesar.rutavida.model.Role;
 import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 import org.junit.jupiter.api.Test;
@@ -291,5 +292,12 @@ class UserServiceTest {
                 List.of("admin.prueba", "laura.prueba", "operador.prueba"),
                 names
         );
+    }
+
+    @Test
+    void onlyTheActiveRolesAreOfferedForANewUser() {
+        List<String> names = service.listActiveRoles().stream().map(Role::getName).toList();
+
+        assertEquals(List.of("ADMINISTRADOR", "OPERADOR_CENTRAL"), names, "by name, without ROL_RETIRADO");
     }
 }

@@ -18,7 +18,10 @@ import co.edu.unicesar.rutavida.model.enums.EmergencyStatus;
 import co.edu.unicesar.rutavida.util.ValidationUtil;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +29,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Emergencies: registering one (CU-06), the active ones (CU-07), the history (CU-15) and
- * the rules of the emergency.
+ * Emergencies: registering one (CU-06), the active ones (CU-07), the ones of a period and the
+ * history (CU-15), and the rules of the emergency.
  * Permissions are checked by the controller before calling this service.
  */
 public class EmergencyService {
@@ -41,6 +44,10 @@ public class EmergencyService {
             EmergencyStatus.CLOSED, EnumSet.noneOf(EmergencyStatus.class));
 
     static final String AUDIT_MODULE = "EMERGENCIAS";
+
+    /** The period of the history list: the same rules as the operations report (docs/api.md 11.4). */
+    static final int DEFAULT_DAYS = 7;
+    static final int MAX_DAYS = 366;
 
     private final EmergencyDAO emergencyDao;    private final EmergencyTypeDAO emergencyTypeDao;
     private final EmergencyAssignmentDAO assignmentDao;
@@ -103,6 +110,25 @@ public class EmergencyService {
     /** Emergencies that are not closed, newest first (CU-07). */
     public List<Emergency> listActive() {
         return emergencyDao.findActive();
+    }
+
+    /**
+     * Every emergency reported between two days, closed ones too, newest first (CU-15, D10).
+     * Without {@code to} it is today; without {@code from}, the 7 days that end on {@code to}.
+     */
+    public List<Emergency> listByPeriod(LocalDate from, LocalDate to) {
+        LocalDate last = to != null ? to : LocalDate.now(clock);
+        LocalDate first = from != null ? from : last.minusDays(DEFAULT_DAYS - 1);
+        if (first.isAfter(last)) {
+            throw new ValidationException("La fecha inicial no puede ser posterior a la final.");
+        }
+        if (ChronoUnit.DAYS.between(first, last) + 1 > MAX_DAYS) {
+            throw new ValidationException("Consulte como máximo " + MAX_DAYS + " días a la vez.");
+        }
+        return emergencyDao.findByPeriod(first.atStartOfDay(), last.plusDays(1).atStartOfDay().minusNanos(1000))
+                .stream()
+                .sorted(Comparator.comparing(Emergency::getReportedAt).reversed())
+                .toList();
     }
 
     /** Finds an emergency by ID. */

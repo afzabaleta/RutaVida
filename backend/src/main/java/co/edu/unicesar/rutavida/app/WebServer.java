@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.app;
 
+import co.edu.unicesar.rutavida.api.AdminControllers;
 import co.edu.unicesar.rutavida.api.ApiServer;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 
@@ -39,8 +40,12 @@ public final class WebServer {
             return;
         }
         ApiServer server = new ApiServer(context.webSessionController(), context.catalogController(),
-                context.emergencyController(), context.dashboardController(), context.incidentController(),
-                context.roadMapController(), context.alertController(), dispatch, frontend);
+                context.emergencyController(), context.dashboardController(), context.reportController(),
+                context.incidentController(),
+                context.roadMapController(), context.alertController(), dispatch,
+                new AdminControllers(context.userController(), context.fleetController(), context.hospitalController(),
+                        context.auditController()),
+                context.trackingController(), context.panicController(), frontend);
         try {
             server.start(port);
         } catch (RuntimeException e) {

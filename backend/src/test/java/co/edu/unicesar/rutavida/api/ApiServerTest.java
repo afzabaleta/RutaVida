@@ -1,26 +1,37 @@
 package co.edu.unicesar.rutavida.api;
 
+import co.edu.unicesar.rutavida.controller.AuditController;
+import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.CatalogController;
 import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.CatalogTestSupport;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
+import co.edu.unicesar.rutavida.controller.FleetController;
+import co.edu.unicesar.rutavida.controller.HospitalController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
+import co.edu.unicesar.rutavida.controller.UserController;
 import co.edu.unicesar.rutavida.controller.WebTestSupport;
 import co.edu.unicesar.rutavida.controller.DashboardController;
+import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.dto.SegmentView;
 import co.edu.unicesar.rutavida.graph.Edge;
 import co.edu.unicesar.rutavida.graph.Node;
 import co.edu.unicesar.rutavida.model.Alert;
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.enums.AlertType;
+import co.edu.unicesar.rutavida.service.AuditQueryService;
+import co.edu.unicesar.rutavida.service.PanicTestSupport;
+import co.edu.unicesar.rutavida.service.LiveMapService;
+import co.edu.unicesar.rutavida.service.AdministrationTestSupport;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.service.AuditService;
 import co.edu.unicesar.rutavida.service.DispatchTestSupport;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
+import co.edu.unicesar.rutavida.service.FleetTestSupport;
 import co.edu.unicesar.rutavida.service.InMemoryAlertDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyTypeDAO;
@@ -29,9 +40,12 @@ import co.edu.unicesar.rutavida.service.InMemoryUserDAO;
 import co.edu.unicesar.rutavida.service.IncidentTestSupport;
 import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.service.DashboardService;
+import co.edu.unicesar.rutavida.service.ReportService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import co.edu.unicesar.rutavida.dto.DashboardSummary;
+import co.edu.unicesar.rutavida.dto.OperationsReport;
+import co.edu.unicesar.rutavida.dto.ReportCount;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -113,6 +127,13 @@ class ApiServerTest {
         DashboardController dashboard = new DashboardController(new DashboardService(
                 (since, start, end) -> new DashboardSummary(3, 3, 1, 2, 1, 4, 0, null), support.clock));
 
+        // EXAMPLE operations report (A23): 2 emergencies on the first day of the period, none later.
+        ReportController reports = new ReportController(new ReportService((first, last) -> new OperationsReport(
+                first, last, 2, 1, 1, 8.25, 8.25, 8.25, 2, 6, 1, 1, 3, 1,
+                List.of(new ReportCount("EMERGENCIA_MEDICA", 2, 8.25)), List.of(new ReportCount("ALTA", 2, 8.25)),
+                List.of(new ReportCount("AMBULANCIA", 2, 8.25)), List.of(new ReportCount(first.toString(), 2, 8.25))),
+                support.clock));
+
         // Dispatch on the small city of DispatchTestSupport (K7): 3 x 3 test streets, EXAMPLE units.
         city = new DispatchTestSupport();
         DispatchController dispatch = new DispatchController(city.service(), support.authService,
@@ -136,8 +157,23 @@ class ApiServerTest {
                 new InMemoryRoleDAO(), new EmergencyTestSupport.CountingTransactions(), support.clock),
                 support.sessionContext);
 
+        // Administration (A17) has its own test, AdminApiTest; here it only has to exist.
+        AdministrationTestSupport administration = new AdministrationTestSupport();
+        AdminControllers admin = new AdminControllers(
+                new UserController(administration.userService(), support.authService, support.sessionContext),
+                new FleetController(new FleetTestSupport().fleetService(), support.authService, support.sessionContext),
+                new HospitalController(administration.hospitalService(), support.authService, support.sessionContext),
+                new AuditController(new AuditQueryService(support.auditDao, new InMemoryUserDAO(), support.clock),
+                        support.authService, support.sessionContext));
+
+        // Live map (A12e) on the same small city and the same alerts.
+        TrackingController tracking = new TrackingController(new LiveMapService(city.vehicles,
+                () -> DispatchTestSupport.VEHICLE_TYPES, city.assignments, city.routes, alertDao, () -> false,
+                support.clock), support.authService, support.sessionContext);
+
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
-                dashboard, incidents, roadMap, alerts, dispatch, frontend);
+                dashboard, reports, incidents, roadMap, alerts, dispatch, admin, tracking,
+                new PanicTestSupport().controller(support.authService, support.sessionContext), frontend);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -309,6 +345,14 @@ class ApiServerTest {
         assertEquals(200, active.statusCode());
         assertEquals(id, value(active).get(0).get("id").asLong());
 
+        HttpResponse<String> period = send("GET", "/api/emergencies?from=2026-11-05&to=2026-11-05", token, null);
+        assertEquals(200, period.statusCode(), period.body());
+        assertEquals(id, value(period).get(0).get("id").asLong(), "the history list of D10");
+        HttpResponse<String> otherDay = send("GET", "/api/emergencies?from=2026-11-04&to=2026-11-04", token, null);
+        assertEquals(0, value(otherDay).size());
+        assertEquals(400, send("GET", "/api/emergencies?from=5-11-2026", token, null).statusCode());
+        assertEquals(400, send("GET", "/api/emergencies?from=2026-11-06&to=2026-11-05", token, null).statusCode());
+
         HttpResponse<String> one = send("GET", "/api/emergencies/" + id, token, null);
         assertEquals(200, one.statusCode());
         assertEquals("Frente al Parque La Popa", value(one).get("addressReference").asText());
@@ -391,6 +435,38 @@ class ApiServerTest {
         assertEquals(403, send("GET", "/api/dashboard/summary", login("luis.gomez"), null).statusCode(),
                 "a role without REPORTES / CONSULTAR");
         assertEquals(401, send("GET", "/api/dashboard/summary", null, null).statusCode());
+    }
+
+    // ------------------------------------------------------------ operations report (A23)
+
+    @Test
+    void theOperationsReportCoversWholeDaysAndRejectsBadDates() throws Exception {
+        String marta = login("marta.ruiz");
+        HttpResponse<String> response = send("GET", "/api/reports/operations?from=2026-11-01&to=2026-11-03",
+                marta, null);
+
+        assertEquals(200, response.statusCode(), response.body());
+        JsonNode report = value(response);
+        assertEquals("2026-11-01", report.get("from").asText());
+        assertEquals("2026-11-03", report.get("to").asText());
+        assertEquals(2, report.get("reportedEmergencies").asInt());
+        assertEquals(8.3, report.get("averageResponseMinutes").asDouble(), "one decimal");
+        assertEquals("EMERGENCIA_MEDICA", report.get("byEmergencyType").get(0).get("label").asText());
+        JsonNode days = report.get("byDay");
+        assertEquals(3, days.size(), "every day of the period, both ends included");
+        assertEquals(2, days.get(0).get("count").asInt());
+        assertEquals("2026-11-03", days.get(2).get("label").asText());
+        assertEquals(0, days.get(2).get("count").asInt());
+        assertTrue(days.get(2).get("averageResponseMinutes").isNull(), "null, never 0");
+
+        assertEquals(7, value(send("GET", "/api/reports/operations", marta, null)).get("byDay").size(),
+                "without dates, the last 7 days");
+        assertEquals(400, send("GET", "/api/reports/operations?from=01/11/2026", marta, null).statusCode());
+        assertEquals(400, send("GET", "/api/reports/operations?from=2026-11-05&to=2026-11-01", marta, null)
+                .statusCode(), "the first day after the last one");
+        assertEquals(403, send("GET", "/api/reports/operations", login("luis.gomez"), null).statusCode(),
+                "a role without REPORTES / CONSULTAR");
+        assertEquals(401, send("GET", "/api/reports/operations", null, null).statusCode());
     }
 
     // ------------------------------------------------------------ road incidents (A12c)
@@ -508,6 +584,36 @@ class ApiServerTest {
     }
 
     @Test
+    void theLiveMapShowsTheUnitsTheOpenMissionAndTheUnreadAlerts() throws Exception {
+        String token = login("marta.ruiz");
+        long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
+        HttpResponse<String> dispatched = send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                + ", \"vehicleId\": " + DispatchTestSupport.AMBULANCE + "}");
+        assertEquals(201, dispatched.statusCode(), dispatched.body());
+        long mission = value(dispatched).get("assignment").get("id").asLong();
+
+        HttpResponse<String> tracked = send("GET", "/api/tracking", token, null);
+        assertEquals(200, tracked.statusCode(), tracked.body());
+        JsonNode map = value(tracked);
+        assertFalse(map.get("simulation").get("running").asBoolean(), "no simulation engine yet (K9)");
+        assertEquals("SIMULACION", map.get("simulation").get("source").asText());
+        assertEquals(5, map.get("units").size());
+        JsonNode ambulance = map.get("units").get(0);
+        assertEquals("EJEMPLO-AMB-01", ambulance.get("unitCode").asText());
+        assertEquals("AMBULANCIA", ambulance.get("vehicleType").asText());
+        assertEquals("OCUPADO", ambulance.get("operationalStatus").asText());
+        assertTrue(ambulance.get("location").has("latitude"));
+        JsonNode open = map.get("missions").get(0);
+        assertEquals(mission, open.get("assignmentId").asLong());
+        assertEquals("ASIGNADA", open.get("status").asText());
+        assertTrue(open.get("routesVersion").asInt() >= 1);
+        assertEquals(2, map.get("unreadAlerts").asInt(), "the two EXAMPLE alerts of marta.ruiz");
+
+        assertEquals(401, send("GET", "/api/tracking", null, null).statusCode());
+        assertEquals(403, send("GET", "/api/tracking", login("luis.gomez"), null).statusCode());
+    }
+
+    @Test
     void wrongDispatchRequestsAre400403404And409() throws Exception {
         String token = login("marta.ruiz");
         long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
@@ -545,6 +651,32 @@ class ApiServerTest {
         assertEquals(403, send("GET", "/api/dispatches/" + mission + "/routes", ana, null).statusCode(),
                 "nor RUTAS");
         assertEquals(401, send("POST", "/api/dispatches", null, "{}").statusCode());
+    }
+
+    // ------------------------------------------------------------ close an emergency (A16)
+
+    @Test
+    void anEmergencyIsClosedOnlyWhenItsUnitArrived() throws Exception {
+        String token = login("marta.ruiz");
+        long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
+        String close = "/api/emergencies/" + emergency + "/close";
+        HttpResponse<String> dispatched = send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                + ", \"vehicleId\": " + DispatchTestSupport.AMBULANCE + "}");
+        String status = "/api/dispatches/" + value(dispatched).get("assignment").get("id").asLong() + "/status";
+
+        assertEquals(409, send("POST", close, token, null).statusCode(), "the unit is still on its way");
+        send("PATCH", status, token, "{\"status\": \"EN_RUTA\"}");
+        send("PATCH", status, token, "{\"status\": \"EN_SITIO\"}");
+
+        HttpResponse<String> closed = send("POST", close, token, null);
+        assertEquals(200, closed.statusCode(), closed.body());
+        assertEquals("CERRADA", value(closed).get("status").asText());
+        assertFalse(value(closed).get("closedAt").isNull());
+        assertEquals(409, send("POST", close, token, null).statusCode(), "already closed");
+        assertEquals(404, send("POST", "/api/emergencies/999/close", token, null).statusCode());
+        assertEquals(403, send("POST", close, login("ana.perez"), null).statusCode(),
+                "the test operator has no DESPACHO permission");
+        assertEquals(401, send("POST", close, null, null).statusCode());
     }
 
     // ------------------------------------------------------------ alerts (A12f)

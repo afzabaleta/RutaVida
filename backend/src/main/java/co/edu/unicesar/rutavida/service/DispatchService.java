@@ -48,11 +48,19 @@ import java.util.Set;
  * <p>Auditing: the dispatch is audited here (DESPACHAR); every later change of status of
  * the assignment and of the emergency is audited by the triggers of 04_plsql.sql.
  *
- * <p>Not here yet: the hospital for a transfer (CU-11, K7b) and closing the emergency (CU-12).
+ * <p>Closing the emergency (CU-12) is done by Oracle with sp_cerrar_emergencia; here are its
+ * rules and its audit. Not here yet: the hospital for a transfer (CU-11, K7b).
  */
 public class DispatchService {
 
     static final String AUDIT_MODULE = "DESPACHO";
+
+    /** The closing is audited with the emergency, so its history (CU-07) shows who closed it. */
+    static final String EMERGENCY_AUDIT_MODULE = "EMERGENCIAS";
+
+    /** An emergency is closed as a false alarm (REPORTADA) or after a unit arrived. */
+    private static final Set<EmergencyStatus> CLOSABLE =
+            EnumSet.of(EmergencyStatus.REPORTED, EmergencyStatus.ON_SCENE, EmergencyStatus.TRANSPORTING);
 
     /**
      * Which vehicle types can attend each emergency type (types of 02_datos_iniciales.sql).
@@ -248,6 +256,33 @@ public class DispatchService {
                 .filter(route -> route.getStatus() == RouteStatus.ACTIVE
                         || route.getStatus() == RouteStatus.PROPOSED)
                 .toList();
+    }
+
+    // ------------------------------------------------------------------ CU-12: close
+
+    /**
+     * Closes the emergency: as a false alarm (REPORTADA) or when the attention ended (EN_SITIO
+     * or TRASLADANDO). Oracle ends the open missions, frees their units and closes their
+     * routes in the same call (sp_cerrar_emergencia). An emergency with a unit still on its
+     * way (ASIGNADA or EN_RUTA) is not closed: first the mission is cancelled or arrives.
+     */
+    public Emergency closeEmergency(long emergencyId, UserSession session) {
+        ValidationUtil.requireNonNull(session, "sesión");
+        return transactions.callInTransaction(() -> {
+            Emergency emergency = findEmergency(emergencyId);
+            EmergencyStatus before = emergency.getStatus();
+            if (before == EmergencyStatus.CLOSED) {
+                throw new BusinessRuleException("La emergencia " + emergencyId + " ya está cerrada.");
+            }
+            if (!CLOSABLE.contains(before)) {
+                throw new BusinessRuleException("No se puede cerrar una emergencia " + before.code()
+                        + ": primero la unidad debe llegar (EN_SITIO) o la misión cancelarse.");
+            }
+            emergencyDao.close(emergencyId, LocalDateTime.now(clock));
+            auditService.record(session.user().getId(), EMERGENCY_AUDIT_MODULE, "CERRAR", emergencyId,
+                    AuditResult.SUCCESS, "Desde " + before.code());
+            return findEmergency(emergencyId);
+        });
     }
 
     // ------------------------------------------------------------------ rules

@@ -33,6 +33,7 @@ RutaVida/
 | Componente | Estado |
 |---|---|
 | Esquema de base de datos (23 tablas, 21 secuencias, 24 índices, restricciones) | Ejecutado y verificado en Oracle XE 18c con `98_verificar.sql` (14/10/2026) |
+| Botón de pánico en la base de datos (`07_boton_panico.sql`: tabla 24 `REPORTE_PANICO`, rol y tipo de vehículo `POLICIA`, permisos `PANICO`, usuario del sistema) y su DAO (A20) | Programado; prueba con Oracle pendiente |
 | Datos maestros (roles, permisos, tipos de vehículo y de emergencia) | Cargados y verificados |
 | Conexión JDBC (`DatabaseConnection`) y verificación (`DatabaseCheck`) | Funciona: "23 de 23" con el driver ojdbc11 21.9 |
 | Arquitectura: paquetes, reglas de dependencia, enums, transacciones, `AppContext` | Programado y probado ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)). Desde el 30/10/2026 el modelo solo guarda datos y las reglas están en `service` |
@@ -69,6 +70,7 @@ SPOOL instalacion.log
 @04_plsql.sql
 @05_red_vial_valledupar.sql
 @06_unidades_ejemplo.sql
+@07_boton_panico.sql
 @98_verificar.sql
 SPOOL OFF
 exit
@@ -76,11 +78,30 @@ exit
 
 - `00_crear_usuario.sql` pide la contraseña del nuevo usuario `RUTAVIDA` (solo se ejecuta una vez).
 - `06_unidades_ejemplo.sql` crea 5 unidades de **EJEMPLO** (códigos `EJEMPLO-…`, sin placa) y una base de ambulancias de ejemplo para la simulación. No son unidades reales.
+- `07_boton_panico.sql` crea la tabla `REPORTE_PANICO`, el rol y el tipo de vehículo `POLICIA`, los permisos del módulo `PANICO` y el usuario `sistema.rutavida` (inactivo: nadie inicia sesión con él). Al final muestra 7 líneas que deben decir `SI`.
 - En `98_verificar.sql` todas las columnas `OK` deben decir `SI`, y cada línea de la prueba 8 (PL/SQL) debe terminar en `SI`. Las dos pruebas marcadas "DEBE FALLAR" deben mostrar `ORA-02290`: eso es correcto.
 - También sirve SQL Developer (host `localhost`, puerto `1521`, servicio `XEPDB1`, ejecutar cada archivo con F5).
 - En los scripts, un comentario nunca va después del `;` en la misma línea: SQL*Plus lo envía como parte de la sentencia. `SqlScriptStyleTest` lo verifica.
 
 `database/99_eliminar_esquema.sql` borra todas las tablas. **Solo se ejecuta con autorización explícita del líder**; después hay que repetir desde `01`.
+
+#### Base de datos en Oracle Cloud (DT-09)
+
+La base compartida del equipo y de la sustentación es una **Autonomous Database Always Free** (Oracle 19c, región Colombia Central - Bogotá). Se conecta con el *wallet* de la base (mTLS). El código no cambia: solo `backend/db.properties`.
+
+1. Pedirle al líder, **por privado**, el archivo `Wallet_rutavida.zip` y la contraseña de `RUTAVIDA`. Nunca se suben a GitHub ni se mandan al grupo.
+2. Guardar el zip **fuera del repositorio**, por ejemplo en `C:\oracle\wallet\`, y descomprimirlo ahí mismo: queda la carpeta `C:\oracle\wallet\Wallet_rutavida\`.
+3. **SQL Developer:** conexión nueva con usuario `RUTAVIDA`, tipo de conexión *Cartera de Cloud*, el archivo `.zip` y el servicio `rutavida_low`.
+4. **Backend:** en `db.properties` activar la línea de la nube de `db.properties.example`, con la ruta de la carpeta descomprimida y barras `/`:
+   ```
+   db.url=jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=C:/oracle/wallet/Wallet_rutavida
+   ```
+   y ejecutar `DatabaseCheck`: debe decir "24 de 24" y "Oracle Database 19c".
+   Si dice "Database password not configured", la configuración de ejecución de IntelliJ (*Run → Edit Configurations → Working directory*) debe terminar en `\backend`, donde está `db.properties`.
+
+Solo el líder instala o reinstala el esquema en la nube: conectado como `ADMIN`, `00_crear_usuario_nube.sql`; luego, como `RUTAVIDA`, los scripts `01` a `07` y `98`. El `05` se ejecuta desde una hoja de trabajo con `SET FEEDBACK OFF` antes de `@05_red_vial_valledupar.sql`, porque son casi 17 000 inserciones por internet.
+
+Límites del plan gratuito: 30 sesiones simultáneas, **se detiene sola después de 7 días sin uso** (se vuelve a iniciar desde la consola, *Start*) y puede borrarse si queda detenida 90 días. Las pruebas se corren contra la base **local**; la nube es para la demostración.
 
 ### 2. Backend
 
@@ -89,7 +110,7 @@ exit
 3. Ejecutar la clase `co.edu.unicesar.rutavida.DatabaseCheck`. Resultado esperado:
    ```
    [OK] Conexión establecida: ...
-   Tablas de RutaVida encontradas: 23 de 23
+   Tablas de RutaVida encontradas: 24 de 24
    [OK] El esquema está completo.
    ```
 4. Ejecutar las pruebas: clic derecho sobre `src/test/java` → *Run 'All Tests'* (o `mvn test`).

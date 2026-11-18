@@ -1,11 +1,17 @@
-﻿
+
 import {
+  getDashboardSummary,
+  hasPermission,
   listEmergencies,
   listHospitals,
   listStations,
   listUnits,
   typeLabel,
 } from "./api-client.js";
+
+import { startIncidents } from "./incident-panel.js";
+import { startPanicLayer } from "./panic-layer.js";
+import { paintLegend, placeIcon, UNIT_Z, unitIcon, unitSlots } from "./map-icons.js";
 
 import {
   STATIONS as D2_STATIONS,
@@ -14,17 +20,11 @@ import {
   SOURCES_CHECKED_ON,
 } from "./valledupar-data.js";
 
-import { showRoutes } from "./route-layer.js";
+import { startLiveMap } from "./live-map.js";
+import { startAlertBell } from "./alert-bell.js";
 import { startPage } from "./page-session.js";
 
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-const COLORS = {
-  station: "#4bd6a0",
-  hospital: "#79adff",
-  emergency: "#ff6674",
-  unit: "#f6b94b",
-};
 
 const byId = (id) => document.getElementById(id);
 
@@ -101,7 +101,7 @@ function makePopup(title, description, label, source = null) {
   return wrapper;
 }
 
-function addMarker(map, item, color, popup) {
+function addMarker(map, item, icon, popup, zIndexOffset = 0) {
   if (!map || !Array.isArray(item.location)) {
     return null;
   }
@@ -112,13 +112,7 @@ function addMarker(map, item, color, popup) {
     return null;
   }
 
-  const marker = L.circleMarker([lat, lng], {
-    radius: 8,
-    color,
-    fillColor: color,
-    fillOpacity: 0.85,
-    weight: 2,
-  }).addTo(map);
+  const marker = L.marker([lat, lng], { icon, keyboard: false, zIndexOffset }).addTo(map);
 
   marker.bindPopup(popup);
 
@@ -244,7 +238,7 @@ function renderPlaces(map, stations, hospitals) {
     const marker = addMarker(
       map,
       item,
-      COLORS.station,
+      placeIcon("station"),
       makePopup(
         station.name,
         station.address || "Dirección no disponible",
@@ -290,7 +284,7 @@ function renderPlaces(map, stations, hospitals) {
     const marker = addMarker(
       map,
       item,
-      COLORS.hospital,
+      placeIcon("hospital"),
       makePopup(
         hospital.name,
         description,
@@ -324,9 +318,11 @@ function renderEmergencies(map, emergencies) {
   const list = byId("emergency-list");
   list.replaceChildren();
 
-  byId("emergency-count").textContent = String(emergencies.length);
-  byId("emergency-pill").textContent = String(emergencies.length);
 
+ byId("emergency-pill").textContent = String(emergencies.length);
+if (!usesSummary) {
+  byId("emergency-count").textContent = String(emergencies.length);
+}
   for (const emergency of emergencies) {
     const title =
       emergency.code ||
@@ -340,7 +336,7 @@ function renderEmergencies(map, emergencies) {
     const marker = addMarker(
       map,
       emergency,
-      COLORS.emergency,
+      placeIcon("emergency"),
       makePopup(
         title,
         description,
@@ -369,13 +365,19 @@ function renderEmergencies(map, emergencies) {
   );
 }
 
-function renderUnits(map, units) {
+function renderUnits(map, units, live) {
   const list = byId("unit-list");
   list.replaceChildren();
 
-  const available = units.filter((unit) => unit.status === "DISPONIBLE");
-  byId("unit-count").textContent = String(available.length);
+  const available = units.filter(
+    (unit) => unit.status === "DISPONIBLE"
+  );
+
   byId("unit-pill").textContent = String(units.length);
+
+  if (!usesSummary) {
+    byId("unit-count").textContent = String(available.length);
+  }
 
   for (const unit of units) {
     const title =
@@ -388,54 +390,166 @@ function renderUnits(map, units) {
       unit.example === true ||
       String(unit.code || "").startsWith("EJEMPLO-");
 
-    const label = isExample
-      ? "EJEMPLO"
-      : "ORACLE";
+    const label = isExample ? "EJEMPLO" : "ORACLE";
 
     const description =
       `${unit.type || "Unidad"} · ` +
       `${unit.status || "Sin estado"}`;
 
-    const marker = addMarker(
-      map,
-      unit,
-      COLORS.unit,
-      makePopup(
-        title,
-        description,
-        label,
-      ),
-    );
+    // The marker is drawn by the live map (D7); clicking the card centers the map on it.
+    const canFocus = Boolean(live && unit.location);
 
     list.appendChild(
       makeDataCard({
         title,
         label,
         description,
-        status: marker
-          ? ""
+        status: canFocus
+          ? "Clic para verla en el mapa en vivo"
           : "Sin posición conocida",
-        action: marker
-          ? () => focusMarker(map, marker)
+        action: canFocus
+          ? () => live.focus(unit.id)
           : null,
-      }),
+      })
     );
   }
 
-  showEmpty(
-    list,
-    "No hay unidades disponibles.",
-  );
+  showEmpty(list, "No hay unidades disponibles.");
 }
 
+let usesSummary = false;
+
+async function refreshDashboardSummary() {
+  try {
+    const summary = await getDashboardSummary();
+
+    byId("emergency-count").textContent =
+      String(summary.activeEmergencies ?? "—");
+
+    byId("unit-count").textContent =
+      String(summary.availableUnits ?? "—");
+
+    byId("hospital-count").textContent =
+      String(summary.operationalHospitals ?? "—");
+
+  byId("response-time").textContent =
+    summary.averageResponseMinutes == null
+      ? "Sin datos"
+      : `${summary.averageResponseMinutes.toLocaleString("es-CO")} min`;
+  } catch (error) {
+    console.error("No fue posible actualizar los indicadores:", error);
+  }
+}
+
+
 async function initializeDashboard() {
+  paintLegend();
   const session = await startPage();
 
   if (!session) {
     return;
   }
 
+
+  // A police officer (PANICO:VALIDAR without dispatch) works from the panic button page (D9).
+  if (
+    hasPermission(session, "PANICO:VALIDAR") &&
+    !hasPermission(session, "DESPACHO:GESTIONAR")
+  ) {
+    window.location.replace("./panico.html");
+    return;
+  }
+
+  usesSummary = hasPermission(session, "REPORTES:CONSULTAR");
+
+  if (usesSummary) {
+    refreshDashboardSummary();
+    setInterval(refreshDashboardSummary, 30000);
+  }
+
+
   const map = createMap();
+
+  const bell = startAlertBell({
+    button: byId("alert-bell"),
+    count: byId("alert-count"),
+    panel: byId("alert-panel"),
+    list: byId("alert-list"),
+  });
+
+  const live = startLiveMap(map, session, {
+    onSnapshot(snapshot) {
+      const status = byId("live-status");
+      if (status) {
+        status.textContent = "Seguimiento activo · SIMULACIÓN";
+      }
+
+      bell.setCount(snapshot.unreadAlerts ?? 0);
+
+      const missionList = byId("mission-list");
+      if (missionList) {
+        missionList.replaceChildren();
+
+        // The mission only brings the vehicle id; its code comes in the units of the same snapshot.
+        const unitsById = new Map(
+          (snapshot.units ?? []).map((unit) => [unit.vehicleId, unit])
+        );
+
+        for (const mission of snapshot.missions ?? []) {
+          const unit = unitsById.get(mission.vehicleId);
+          const card = makeDataCard({
+            title: `Misión ${mission.assignmentId} · Emergencia #${mission.emergencyId}`,
+            label: unit?.example ? "EJEMPLO" : "ORACLE",
+            description: `Unidad ${unit?.unitCode ?? mission.vehicleId ?? "Sin datos"}`,
+            status: mission.status ?? "En seguimiento",
+            action: mission.activeRouteId != null
+              ? () => live.showRoute(mission.assignmentId)
+              : null,
+          });
+
+          missionList.appendChild(card);
+        }
+
+        showEmpty(missionList, "No hay misiones activas.");
+      }
+    },
+
+    onError(error) {
+      console.error("Error de seguimiento D7:", error);
+      const status = byId("live-status");
+      if (status) {
+        status.textContent = "Seguimiento no disponible";
+      }
+    },
+  });
+
+  if (!live) {
+    const status = byId("live-status");
+    if (status) {
+      status.textContent = "Seguimiento sin permiso o mapa no disponible";
+    }
+  }
+
+  startPanicLayer(map, session, {
+    list: byId("panic-list"),
+    pill: byId("panic-pill"),
+    message: byId("panic-message"),
+  });
+startIncidents(
+  map,
+  session,
+  {
+    list: byId("incident-list"),
+    pill: byId("incident-pill"),
+    message: byId("incident-message"),
+  },
+   () => {
+     if (usesSummary) {
+       refreshDashboardSummary();
+     }
+   }
+);
+
 
   byId("response-time").textContent = "Sin datos";
   byId("hospital-count").textContent = "—";
@@ -478,6 +592,7 @@ async function initializeDashboard() {
     renderUnits(
       map,
       units.value,
+      live,
     );
   } else {
     showFailure(
@@ -495,10 +610,9 @@ async function initializeDashboard() {
       stations.value,
       hospitals.value,
     );
-
-    byId("hospital-count").textContent =
-      String(hospitals.value.length);
-
+if (!usesSummary) {
+  byId("hospital-count").textContent = String(hospitals.value.length);
+}
     byId("hospital-pill").textContent =
       String(hospitals.value.length);
   } else {
@@ -510,21 +624,9 @@ async function initializeDashboard() {
     );
   }
 
-  // Rutas D4: demostración hasta integrar K7.
+  // D7: el mapa en vivo ya se inicializo.
   if (map) {
-    requestAnimationFrame(() => {
-      map.invalidateSize();
-
-      showRoutes(
-        map,
-        window.RUTAVIDA_RUTAS_DEMO,
-        {
-          tabs: byId("route-tabs"),
-          list: byId("route-list"),
-          note: byId("route-note"),
-        },
-      );
-    });
+    requestAnimationFrame(() => map.invalidateSize());
   }
 }
 

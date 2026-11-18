@@ -5,6 +5,7 @@ import co.edu.unicesar.rutavida.model.AuditLog;
 import co.edu.unicesar.rutavida.model.enums.AuditResult;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -63,5 +64,36 @@ public class JdbcAuditDAO extends AbstractJdbcDAO implements AuditDAO {
             throw new IllegalArgumentException("from must not be after to");
         }
         return queryList(SELECT + " WHERE fecha_hora BETWEEN ? AND ?" + ORDER, MAPPER, from, to);
+    }
+
+    @Override
+    public List<AuditLog> search(LocalDateTime from, LocalDateTime to, String module, Long userId,
+                                 AuditResult result, int limit) {
+        Objects.requireNonNull(from, "from");
+        Objects.requireNonNull(to, "to");
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("from must not be after to");
+        }
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
+        // Only the filters that were given; every value goes as a parameter, never in the text.
+        StringBuilder sql = new StringBuilder(SELECT).append(" WHERE fecha_hora BETWEEN ? AND ?");
+        List<Object> params = new ArrayList<>(List.of(from, to));
+        if (module != null) {
+            sql.append(" AND modulo = ?");
+            params.add(module.trim().toUpperCase(Locale.ROOT));
+        }
+        if (userId != null) {
+            sql.append(" AND id_usuario = ?");
+            params.add(userId);
+        }
+        if (result != null) {
+            sql.append(" AND resultado = ?");
+            params.add(result);
+        }
+        sql.append(" ORDER BY fecha_hora DESC, id_auditoria DESC FETCH FIRST ? ROWS ONLY");
+        params.add(limit);
+        return queryList(sql.toString(), MAPPER, params.toArray());
     }
 }

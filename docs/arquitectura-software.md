@@ -209,7 +209,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Componente | Estado |
 |---|---|
 | 15 paquetes con `package-info.java` | Programado |
-| 19 enums de estados y catálogos alineados con los CHECK de Oracle | Programado y probado (`EnumSqlContractTest`) |
+| 20 enums de estados y catálogos alineados con los CHECK de Oracle | Programado y probado (`EnumSqlContractTest`) |
 | Excepciones (`RutaVidaException` y 5 subclases) | Programado |
 | `TransactionManager`, `JdbcTransactionManager`, `ConnectionFactory` | Programado y probado |
 | `AppContext` (composition root) | Programado; se completa a medida que aparecen DAOs y servicios |
@@ -222,19 +222,28 @@ Ejemplo: *consultar los hospitales operativos*.
 | Motor de rutas (`graph`) y tráfico simulado (`traffic`) | Programado y probado |
 | `LoginController`, `SessionContext` | Programado y probado |
 | Casos de uso con DAO de emergencias (`register`, S6) y de despacho (`candidates`, `preview`, `dispatch`, `advance`, K7), y `RouteService` (K6) | Programado y probado (sin Oracle) |
-| Traslado al hospital (K7b), cierre de la emergencia (CU-12), `RouteMonitor` y recálculo de rutas (K8) | **Pendiente** |
-| DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones | **Pendiente** (Sprint 3) |
+| Recálculo de rutas con tráfico e incidentes (`RoadConditionService`, `RouteMonitor`, K8) | Programado y probado (sin Oracle) |
+| Traslado al hospital (K7b) y servicios de cada hospital (`SERVICIO_HOSPITAL`) | **Pendiente** |
+| DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones (A7c, S9, S10) | Programado y probado |
 | Movimiento simulado de las unidades y seguimiento (`VehicleMovementSimulator`, `TrackingService`, A13) | Programado y probado |
 | Motor de la simulación y escenarios (`SimulationEngine`, K9) | **Pendiente** |
 | Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
 | API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |
 | API de alertas: las del usuario de la sesión y marcarlas como leídas (`/api/alerts`, A12f) | Programado y probado |
+| Botón de pánico (CU-22): recepción de alertas, validación por dispositivos o policía, creación de emergencia y despacho automático de unidad (`PanicService`, `PanicController`, S11) | Programado y probado sin Oracle (S11); rutas de la API `/api/panic` programadas y probadas sin Oracle (A20b) |
 | Rutas de emergencias y catálogos de la API (A12b) y conexión de la página web (D5b) | **Programado y probado** |
 | Panel principal con datos de Oracle (D5c): emergencias, unidades, hospitales y estaciones mediante la API REST | **Programado y probado** |
+| Indicadores del panel desde Oracle e incidentes viales en el mapa: validar, rechazar y cerrar (D6) | Programado; pruebas de integración pendientes |
+| Página de despacho conectada a la API (D6b): unidades por tiempo de llegada, 3 rutas con su explicación, despacho, estado de la misión y cierre de la emergencia | Programado; pruebas de integración pendientes |
 | API de despacho: unidades candidatas, vista previa, despachar, rutas de la misión y avance (`/api/dispatches`, A12d) | Programado y probado |
-| Seguimiento en la API (`/api/tracking`, A12e) | **Pendiente** |
-| Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado; falta la API |
+| Seguimiento en la API (`GET /api/tracking`, A12e): unidades con su tipo, estado y posición, misiones abiertas con su ruta activa y alertas sin leer (`LiveMapService`, `TrackingController`) | Programado y probado (sin Oracle). Las unidades se mueven cuando el motor de simulación (K9) llame a `TrackingService` |
+| Cerrar la emergencia (CU-12) con `sp_cerrar_emergencia` y `POST /api/emergencies/{id}/close` (A16) | Programado y probado |
+| Administración: usuarios (CU-03) y hospitales (CU-05) en servicios y controladores (S9) | Programado y probado |
+| Unidades y estaciones (CU-04) en servicio y controlador, con alerta al cambiar la disponibilidad (S10) | Programado y probado |
+| API de administración: usuarios y roles, cambio de la propia contraseña, unidades, estaciones y hospitales (`docs/api.md` 15, A17) | Programado y probado (sin Oracle); prueba con Oracle pendiente |
+| Consulta de la auditoría (CU-21): quién hizo qué y cuándo, con filtros por fechas, módulo, usuario y resultado (`AuditQueryService`, `AuditController`, `GET /api/audit`, A18) | Programado y probado (sin Oracle); prueba de `JdbcAuditDAO.search` con Oracle pendiente |
+| Reporte de operación por periodo (RF-11): emergencias, tiempos de respuesta, despachos, rutas y recálculos, incidentes y botón de pánico, por tipo, severidad, tipo de vehículo y día (`ReportService`, `ReportController`, `GET /api/reports/operations`, A23) | Programado y probado (sin Oracle); prueba de `JdbcReportDAO` con Oracle pendiente |
 
 
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
@@ -244,3 +253,61 @@ El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
 - **Sin framework de inyección (sin Spring) por ahora.** `AppContext` cumple esa función en pocas líneas y es fácil de explicar en la sustentación.
 - **Vista web (DT-01, 15/10/2026).** Se agregará un paquete `api` con adaptadores REST que llamen a los mismos controladores, sin tocar `service` ni `dao`. El paquete `view` del backend se reemplazará por `api` cuando se programe, ajustando `ArchitectureTest` y el diagrama de clases en el mismo PR. El servidor HTTP, la librería JSON y el mecanismo de tiempo real están pendientes (ver `docs/decisiones-tecnicas.md`).
 - **Contratos de `RouteService` (K6) y `DispatchService` (K7):** programados. Sus métodos están en `docs/class-diagram.md` (sección 5) y su uso desde la web, en `docs/api.md` (sección 6).
+## 12. Integración web del seguimiento en vivo (D7)
+
+El frontend consulta `GET /api/tracking` cada 5 segundos mientras la pestaña permanece visible. La respuesta `TrackingSnapshot` contiene `serverTime`, `simulation`, `units`, `missions` y `unreadAlerts`.
+
+El módulo `live-map.js` representa las posiciones entregadas por el servidor y anima los marcadores durante 1,2 segundos. No calcula desplazamientos ni modifica la simulación.
+
+Cada `TrackedMission` identifica una asignación, emergencia, vehículo, estado, ruta activa y versión de rutas. Cuando cambia `routesVersion`, el frontend vuelve a consultar las rutas guardadas mediante `GET /api/dispatches/{id}/routes`.
+
+El módulo `alert-bell.js` utiliza el contador `unreadAlerts` y consulta `GET /api/alerts` al abrir la campana. La lectura de alertas se registra mediante `PATCH /api/alerts/{id}/read`.
+
+El acceso al seguimiento depende de `EMERGENCIAS:CONSULTAR`; la consulta de rutas depende de `RUTAS:CONSULTAR`.
+
+El backend conserva la responsabilidad sobre los datos operativos, el cálculo de rutas, la simulación y las reglas de negocio. El frontend únicamente consulta y presenta la información.
+
+## 9. Integración web del botón de pánico (D9)
+
+La funcionalidad D9 mantiene la separación por capas
+de RutaVida.
+
+**Presentación:** `panico.html` y `panico.js` permiten
+enviar reportes SOS desde la web adaptable a celulares.
+
+**Comunicación:** `api-client.js` centraliza las
+solicitudes HTTP al conjunto de rutas `/api/panic`.
+
+**Seguimiento:** `panic-layer.js` consulta los reportes
+y representa su estado sobre el mapa del dashboard.
+La actualización periódica es independiente de la
+capa D7 de unidades y misiones.
+
+**Negocio:** `PanicController` delega en `PanicService`
+las reglas de validación y descarte. El frontend no
+valida reportes por proximidad ni decide despachos.
+
+**Persistencia:** `PanicReportDAO` y su implementación
+JDBC gestionan los reportes en Oracle.
+
+### Consideraciones de seguridad
+
+- El identificador local del dispositivo no equivale
+  a una identidad autenticada.
+- El servidor debe controlar los permisos para
+  consultar y descartar reportes.
+- La geolocalización del navegador requiere un
+  contexto seguro, como HTTPS o localhost.
+- Los reportes SOS no sustituyen la llamada al 123.
+- La validación de alertas debe mantenerse en el
+  backend, incluso si el navegador es modificado.
+
+### Estado de integración
+
+La interfaz pública y el panel SOS se implementaron
+en la rama `feature/panic-button-web`.
+
+La visualización del dashboard fue comprobada.
+La integración funcional completa con los estados,
+permisos y respuestas reales de la API requiere
+verificación antes de declarar terminado el caso de uso.

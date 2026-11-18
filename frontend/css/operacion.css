@@ -280,3 +280,93 @@
   opacity: .45;
   cursor: not-allowed;
 }
+
+/* Dispatch and mission (D6b) */
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mission-actions button {
+  flex: 1 1 140px;
+  min-height: 44px;
+}
+
+.close-area {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
+
+.close-area > .secondary-button {
+  width: 100%;
+  min-height: 44px;
+}
+
+#refresh-button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+}
+
+.route-difference {
+  margin: 0;
+  font-size: .8rem;
+  color: #f6b94b;
+}
+
+.secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dispatch-button[hidden] {
+  display: none;
+}
+
+/* Dispatch page on narrow screens (D8, Diego): long texts wrap inside the cards and the
+   buttons take the whole width, so nothing overflows on a phone. */
+.route-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-card-top {
+  flex-wrap: wrap;
+}
+
+.route-card-top h3 {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.unit-choice input {
+  flex-shrink: 0;
+}
+
+.unit-choice > div {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .mission-actions {
+    flex-direction: column;
+  }
+
+  .mission-actions button,
+  #refresh-button,
+  #dispatch-button,
+  .close-area button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  #emergency-select {
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+  }
+}
