@@ -7,10 +7,14 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
     <meta name="theme-color" content="#101923">
     <title>RutaVida | Registrar emergencia</title>
+    <!-- Sets data-theme before paint (no flash). -->
+    <script src="./js/theme-boot.js"></script>
     <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./css/rutavida.css">
     <link rel="stylesheet" href="./css/dashboard.css">
+    <link rel="stylesheet" href="./css/app-shell.css">
     <link rel="stylesheet" href="./css/operacion.css">
+    <link rel="stylesheet" href="./css/theme.css">
 
     <link rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -26,30 +30,30 @@
 </head>
 
 <body class="dashboard-body">
-<header class="dashboard-header">
-    <a class="dashboard-brand" href="./dashboard.html"
-       aria-label="RutaVida, volver al panel">
-        <img src="./img/logo.svg" alt="" width="42" height="42">
-        <span>
-            <strong>RutaVida</strong>
-            <small>Centro de operaciones</small>
-        </span>
-    </a>
+<!-- Moved into the page header by app-shell.js -->
+<div class="bell-container" data-shell-slot="header-actions">
+    <button
+            id="alert-bell"
+            class="bell-button"
+            type="button"
+            aria-label="Alertas"
+            aria-expanded="false"
+            aria-controls="alert-panel">
+        <span class="shell-icon shell-icon-bell" aria-hidden="true"></span>
+        <span id="alert-count" class="bell-count" hidden>0</span>
+    </button>
 
-    <div class="header-user">
-        <div>
-            <strong id="user-name">Cargando…</strong>
-            <small id="user-role">Cargando…</small>
-        </div>
-        <a class="logout-link" href="./index.html">Salir</a>
-    </div>
-</header>
+    <section id="alert-panel" class="bell-panel" hidden>
+        <h2>Alertas</h2>
+        <div id="alert-list" class="bell-list"></div>
+    </section>
+</div>
+
 
 <main class="dashboard-main operation-main">
     <section class="welcome-row">
         <div>
-            <p class="eyebrow">CU-06 · GESTIÓN DE EMERGENCIAS</p>
-            <h1>Registrar emergencia</h1>
+            <h1 class="page-title">Registrar <span>emergencia</span></h1>
             <p class="muted">
                 Marca el punto en el mapa y completa los datos. Después pasas al despacho.
             </p>
@@ -68,7 +72,6 @@
         <section class="side-panel form-panel">
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">DATOS</p>
                     <h2>Nueva emergencia</h2>
                 </div>
             </div>
@@ -136,7 +139,6 @@
         <section class="side-panel operation-map-panel">
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">UBICACIÓN</p>
                     <h2>Marca el punto de la emergencia</h2>
                 </div>
             </div>
@@ -159,7 +161,7 @@
     </section>
 
     <footer class="dashboard-footer">
-        <span>RutaVida · Registro de emergencias (D5b)</span>
+        <span>RutaVida · Registro de emergencias (CU-06, D5b)</span>
         <span>Datos guardados en Oracle</span>
     </footer>
 </main>

@@ -357,3 +357,17 @@ El profesor pidió que cada alerta tenga un responsable. Desde DT-13 el botón s
 5. Enviar una alerta con "Ubicación de prueba"; desde el panel, como coordinador, descartarla. Repetir: a la segunda, la cuenta queda bloqueada y el panel muestra la alerta del bloqueo.
 
 Probado con un servidor falso de la API en Chromium (registro, sesión persistente, envío, cierre de sesión, login del ciudadano). Falta la prueba con el servidor real y Oracle.
+
+## 13. Rediseño visual con menú lateral
+
+Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
+
+- `js/app-shell.js` arma el menú lateral y el encabezado de todas las páginas internas. Lo llama `startPage()` (`page-session.js`) después de validar la sesión. Estilos en `css/app-shell.css`.
+- Cada opción del menú aparece solo si el rol tiene su permiso (`hasPermission`); un grupo sin opciones no se muestra. La opción activa lleva `aria-current="page"`.
+- «Historial y reportes» está en la lista con `available: false` hasta que se fusione `reportes.html` (D10). «Administración» se ve gris y no es un enlace hasta D11.
+- En pantallas de menos de 900 px el menú es un cajón que se abre con ☰ y se cierra con el fondo, con Escape o al elegir una opción.
+- La campana de alertas (`alert-bell.js`, sin cambios en su lógica) está en el encabezado del panel, de `emergencia.html` y de `despacho.html`. Fuera del panel, el contador se actualiza al abrir la campana.
+- El mapa oscuro es un filtro CSS sobre `.leaflet-tile-pane`: solo cambian las teselas de OpenStreetMap; los íconos, las rutas y la atribución conservan sus colores.
+- Los íconos son SVG propios en `img/icons/`. No se agregaron librerías, fuentes ni CDN.
+- **Modo claro y oscuro:** el botón ☀/☾ del encabezado cambia el tema. La primera vez se usa el tema del sistema; la elección se guarda en `localStorage` (`rutavida.theme`), y si el navegador lo bloquea, el botón igual funciona. `js/theme-boot.js` pone el tema en el `<head>` antes de pintar, para que no parpadee, y `css/theme.css` redefine las variables de color del modo claro. En modo claro el mapa va sin filtro. Solo aplica a las páginas internas; el login, el botón de pánico y el registro del ciudadano (`registro.html`, que usa `css/panico.css`) conservan su diseño.
+- Ningún texto funcional mide menos de 12 px, para que el panel se lea proyectado.
