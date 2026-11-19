@@ -2,6 +2,7 @@ package co.edu.unicesar.rutavida.controller;
 
 import co.edu.unicesar.rutavida.dto.DispatchResult;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
+import co.edu.unicesar.rutavida.dto.HospitalOption;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.dto.RouteOption;
 import co.edu.unicesar.rutavida.dto.UnitCandidate;
@@ -63,6 +64,16 @@ public class DispatchController {
     /** CU-10: the mission advances. Needs DESPACHO / GESTIONAR. */
     public OperationResult<EmergencyAssignment> advance(long assignmentId, AssignmentStatus next) {
         return run(DISPATCH, MANAGE, user -> dispatchService.advance(assignmentId, next));
+    }
+
+    /** CU-11: hospitals for the patient of a mission EN_SITIO, best first. Needs DESPACHO / GESTIONAR. */
+    public OperationResult<List<HospitalOption>> hospitalsFor(long assignmentId) {
+        return run(DISPATCH, MANAGE, user -> dispatchService.hospitalsFor(assignmentId));
+    }
+
+    /** CU-10 + CU-11: TRASLADANDO to the chosen hospital, with its routes. Needs DESPACHO / GESTIONAR. */
+    public OperationResult<DispatchResult> startTransfer(long assignmentId, long hospitalId) {
+        return run(DISPATCH, MANAGE, user -> dispatchService.startTransfer(assignmentId, hospitalId, user));
     }
 
     /** CU-12: closes the emergency and frees its units. Needs DESPACHO / GESTIONAR. */
