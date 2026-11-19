@@ -25,6 +25,7 @@ Este documento define cada ruta de la API del núcleo de RutaVida: método, URL,
 | Números | Distancias en km (`distanceKm`), tiempos en minutos (`estimatedMinutes`, `etaMinutes`), con decimales |
 | Datos simulados | Todo lo que viene del simulador lleva `"source": "SIMULACION"`, y la web lo rotula así. Nunca se muestra como GPS ni como tráfico real |
 | Contraseñas | Ninguna respuesta incluye `passwordHash` ni la contraseña |
+| Caché | Toda respuesta de la API lleva `Cache-Control: no-store` y `X-Content-Type-Options: nosniff`: trae tokens y datos personales, así que el navegador no la guarda |
 
 ### 1.1 Forma de todas las respuestas
 
@@ -164,6 +165,8 @@ Salida `200`:
 ```
 
 Errores (mensajes de `AuthService`): `400` con `"Escriba el usuario y la contraseña."`; `401` con `"Usuario o contraseña incorrectos"`, el mismo para un usuario que no existe y para una contraseña errada, para no revelar cuál falló; `401` con `"El usuario está inactivo"`. En esta ruta, los errores de credenciales son `401` aunque `AuthService` los lance como `BusinessRuleException`.
+
+**Contra adivinar contraseñas:** después de **5 intentos fallidos** del mismo usuario desde la misma dirección de red en **10 minutos** (o 30 fallidos de cualquier usuario desde una dirección), la ruta responde `409` con `"Demasiados intentos fallidos de inicio de sesión. Espere 10 minutos antes de intentarlo de nuevo."` sin revisar la contraseña. Solo cuentan los `401`: quien escribe bien la contraseña nunca se bloquea, y un inicio de sesión correcto borra los fallos de su cuenta. Los contadores viven en memoria y se reinician con el servidor. Cada intento fallido queda además en `AUDITORIA`.
 
 `expiresAt` es el límite de 8 horas; `idleTimeoutMinutes` es el límite por inactividad. La web usa `permissions` solo para mostrar u ocultar botones.
 
