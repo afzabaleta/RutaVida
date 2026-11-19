@@ -30,12 +30,15 @@ WHERE NOT EXISTS (
 -- 2. UNIDADES DE EJEMPLO
 -- Tres ambulancias en la base de ejemplo (una en mantenimiento) y dos
 -- maquinas de bomberos en la Estacion de Bomberos de 03_datos_valledupar.sql.
+-- La hora va en hora de Colombia, como la escribe el servidor Java: en Oracle Cloud
+-- SYSTIMESTAMP sale en UTC (5 horas adelante) y la simulacion descartaria las
+-- posiciones nuevas por ser "anteriores" a la guardada.
 INSERT INTO vehiculo_emergencia (
     id_tipo_vehiculo, id_estacion, codigo_unidad, placa,
     estado_operativo, latitud, longitud, fecha_actualizacion
 )
 SELECT t.id_tipo_vehiculo, e.id_estacion, u.codigo, NULL,
-       u.estado, e.latitud, e.longitud, SYSTIMESTAMP
+       u.estado, e.latitud, e.longitud, CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP)
 FROM (
          SELECT 'EJEMPLO-AMB-01' AS codigo, 'AMBULANCIA' AS tipo, 'EJEMPLO - Base de ambulancias' AS estacion, 'DISPONIBLE' AS estado FROM dual
          UNION ALL SELECT 'EJEMPLO-AMB-02', 'AMBULANCIA', 'EJEMPLO - Base de ambulancias', 'DISPONIBLE' FROM dual
