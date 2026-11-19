@@ -44,6 +44,8 @@ frontend/
 │   ├── route-layer.js
 │   ├── valledupar-data.js
 │   └── Otros módulos JavaScript
+├── vendor/
+│   └── leaflet-1.9.4/   Copia local de Leaflet (ver sección 3)
 ├── index.html
 ├── dashboard.html
 ├── emergencia.html
@@ -65,6 +67,14 @@ Antes de ejecutar la aplicación se necesita:
 - IntelliJ IDEA o un entorno compatible para ejecutar el servidor Java.
 
 La configuración de conexión a Oracle debe mantenerse en el backend. No se deben publicar credenciales ni contraseñas.
+
+### Leaflet sin depender de un CDN
+
+Leaflet 1.9.4 va dentro del proyecto, en `vendor/leaflet-1.9.4/` (`leaflet.js`, `leaflet.css`, `images/` y su licencia BSD-2-Clause). Las páginas ya no lo descargan de `unpkg.com`, así que la Política de Seguridad de Contenido solo permite scripts y estilos del propio servidor (`'self'`).
+
+- Los archivos salen del paquete oficial `leaflet@1.9.4` de npm, sin cambios: su SHA-256 es el mismo `integrity` que tenían las etiquetas del CDN (`leaflet.css`: `sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=`, `leaflet.js`: `sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=`).
+- Para comprobarlo en Windows: `certutil -hashfile frontend\vendor\leaflet-1.9.4\leaflet.js SHA256` da el mismo valor en hexadecimal.
+- **El mapa base sigue necesitando internet:** las teselas vienen de `tile.openstreetmap.org`. Sin conexión, la aplicación funciona y dibuja unidades, rutas e incidentes, pero sin el fondo de calles. Para la demostración conviene tener un plan B de conexión (por ejemplo, datos del celular).
 
 ## 4. Ejecución de la aplicación
 
