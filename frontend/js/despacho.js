@@ -34,6 +34,7 @@ import {
 import { iconMarker, placeIcon, UNIT_Z, unitIcon, unitSlots } from "./map-icons.js";
 
 import { drawRoutes } from "./dispatch-routes.js";
+import { startDispatchLive } from "./dispatch-live.js";
 
 const MINUTES = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 const KM = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
@@ -72,6 +73,8 @@ let confirmingClose = false;
 const unitCodes = new Map();
 const unitTypes = new Map();
 let hospitalLayer = null;
+/** Follow-up of the open mission every 5 s (dispatch-live.js); null without permission. */
+let live = null;
 /** The hospitals offered for the transfer of the mission on screen (6.5); null = not asked yet. */
 let transferOptions = null;
 
@@ -559,6 +562,7 @@ async function close() {
   try {
     current = await closeEmergency(current.id);
     mission = null;
+    live?.follow(null);
     candidates = [];
     selected = null;
     showMessage(`Emergencia ${current.code} cerrada.`);
@@ -572,6 +576,20 @@ async function close() {
     busy = false;
     confirmingClose = false;
     renderPanel();
+  }
+}
+
+/** The simulation changed the open mission: read it again and say what happened. */
+async function missionChanged(kind, tracked) {
+  const id = mission?.id;
+  const text = kind === "status"
+    ? `Misión ${id}: la unidad pasó a ${tracked.status} (simulación).`
+    : kind === "route"
+      ? `Misión ${id}: el sistema recalculó la ruta por el tráfico o un cierre (SIMULACION).`
+      : `Misión ${id} terminada.`;
+  await loadEmergency(current.id, false);
+  if (kind !== "ended" || !mission) {
+    showMessage(text);
   }
 }
 
@@ -642,6 +660,8 @@ async function loadEmergency(id, resetMessage = true) {
   renderCandidates();
   renderPanel();
 
+  live?.follow(mission);
+
   if (mission) {
     await showMissionRoutes();
   } else if (candidates.length > 0 && canPreview()) {
@@ -670,6 +690,12 @@ async function initialize() {
     routeLayer = L.layerGroup().addTo(map);
     hospitalLayer = L.layerGroup().addTo(map);
   }
+
+  live = startDispatchLive(map, session, {
+    status: byId("map-live"),
+    isBusy: () => busy,
+    onChange: missionChanged,
+  });
 
   byId("dispatch-button").addEventListener("click", dispatch);
   byId("refresh-button").addEventListener("click", () => {
