@@ -1,6 +1,7 @@
 package co.edu.unicesar.rutavida.api;
 
 import co.edu.unicesar.rutavida.controller.CatalogController;
+import co.edu.unicesar.rutavida.controller.CitizenController;
 import co.edu.unicesar.rutavida.controller.AlertController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
@@ -12,6 +13,7 @@ import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.AuditQuery;
+import co.edu.unicesar.rutavida.dto.CitizenRequest;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.HospitalRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
@@ -64,7 +66,8 @@ import java.util.logging.Logger;
  * <p>Routes: session (A12a), emergencies and catalogs (A12b), dashboard (A14), road incidents
  * (A12c), alerts (A12f), dispatch and routes (A12d), closing an emergency (A16),
  * administration of users, units, stations and hospitals (A17), audit (A18), tracking
- * (A12e), panic button (A20b) and the operations report (A23). The simulation is added when
+ * (A12e), panic button (A20b, with accounts since DT-13), citizen registration and the operations
+ * report (A23). The simulation is added when
  * its controller exists (K9).
  */
 public final class ApiServer {
@@ -91,9 +94,16 @@ public final class ApiServer {
     private static final String TOO_MANY_PANIC =
             "Se enviaron demasiadas alertas desde esta conexión. Si la emergencia sigue, llame al 123.";
 
-    /** Panic button: reports per network address in 10 minutes (RN-13 limits each device to 3). */
+    private static final String TOO_MANY_REGISTRATIONS =
+            "Se crearon demasiadas cuentas desde esta conexión. Intente más tarde.";
+
+    /** Panic button: reports per network address in 10 minutes (RN-13 limits each person to 3). */
     static final int PANIC_PER_ADDRESS = 20;
     static final Duration PANIC_WINDOW = Duration.ofMinutes(10);
+
+    /** Citizen accounts per network address in an hour (CU-23): stops scripts that create accounts. */
+    static final int REGISTRATIONS_PER_ADDRESS = 10;
+    static final Duration REGISTRATION_WINDOW = Duration.ofHours(1);
 
     /**
      * Second argument of {@link #secured}: a request made by the user counts as use of the
@@ -115,7 +125,9 @@ public final class ApiServer {
     private final AdminControllers admin;
     private final TrackingController tracking;
     private final PanicController panic;
+    private final CitizenController citizens;
     private final RequestRateLimiter panicLimiter;
+    private final RequestRateLimiter registrationLimiter;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private Javalin app;
@@ -127,7 +139,7 @@ public final class ApiServer {
                      EmergencyController emergencies, DashboardController dashboard, ReportController reports,
                      IncidentController incidents, RoadMapController roadMap, AlertController alerts,
                      DispatchController dispatch, AdminControllers admin, TrackingController tracking,
-                     PanicController panic, Path frontendDirectory) {
+                     PanicController panic, CitizenController citizens, Path frontendDirectory) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
         this.emergencies = Objects.requireNonNull(emergencies, "emergencies");
@@ -140,7 +152,10 @@ public final class ApiServer {
         this.admin = Objects.requireNonNull(admin, "admin");
         this.tracking = Objects.requireNonNull(tracking, "tracking");
         this.panic = Objects.requireNonNull(panic, "panic");
+        this.citizens = Objects.requireNonNull(citizens, "citizens");
         this.panicLimiter = new RequestRateLimiter(PANIC_PER_ADDRESS, PANIC_WINDOW, Clock.systemUTC());
+        this.registrationLimiter = new RequestRateLimiter(
+                REGISTRATIONS_PER_ADDRESS, REGISTRATION_WINDOW, Clock.systemUTC());
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -294,9 +309,12 @@ public final class ApiServer {
 
         // 16. Panic button (CU-22, A20b). Reporting is public: anyone presses it without an account,
         // and a police officer with a session validates the alert alone (docs/api.md 16).
-        config.routes.post("/api/panic", optionalSession(this::reportPanic));
-        // The types for the button page (A20c): public like POST /api/panic, so a citizen without an
-        // account can say it is a fire and the alert sends firefighters. Read only, no personal data.
+        // DT-13: only a registered person presses the button (citizen, police or administrator).
+        config.routes.post("/api/panic", secured("PANICO", "REPORTAR", USER_ACTION, this::reportPanic));
+        // CU-23: a person creates the citizen account of the button; public, limited per address.
+        config.routes.post("/api/citizens", this::registerCitizen);
+        // The types for the button page (A20c): public, so the page fills its form while it checks
+        // the account and a citizen can say it is a fire. Read only, no personal data.
         config.routes.get("/api/panic/emergency-types", ctx -> send(ctx, catalogs.emergencyTypes(), ApiStatus.OK));
         // The panel map refreshes the reports by itself, so reading them does not keep the session alive.
         config.routes.get("/api/panic/reports", secured("PANICO", "CONSULTAR", AUTOMATIC,
@@ -337,27 +355,13 @@ public final class ApiServer {
         };
     }
 
-    /**
-     * Like {@link #secured}, for the routes that only need a valid session ("Sesión" in
-     * docs/api.md 3): 401 without a valid token, otherwise the handler runs with that session.
-     */
-    /**
-     * Wraps a public handler: with a valid token it runs with that session (a police officer);
-     * without a token, or with one that expired, it runs without session. In an emergency the
-     * button must never answer "log in first".
-     */
-    Handler optionalSession(Handler handler) {
-        return ctx -> {
-            String header = ctx.header(AUTHORIZATION);
-            if (header != null && !header.isBlank()) {
-                OperationResult<UserSession> session = sessions.authenticate(header, USER_ACTION);
-                if (session.success()) {
-                    sessions.runAs(session.value(), () -> handler.handle(ctx));
-                    return;
-                }
-            }
-            handler.handle(ctx);
-        };
+    /** POST /api/citizens: limited per network address, then the controller (docs/api.md 16.5). */
+    private void registerCitizen(Context ctx) {
+        if (!registrationLimiter.tryAcquire(ctx.ip())) {
+            send(ctx, OperationResult.error(ErrorKind.BUSINESS_RULE, TOO_MANY_REGISTRATIONS), ApiStatus.OK);
+            return;
+        }
+        send(ctx, citizens.register(readBody(ctx, CitizenRequest.class)), ApiStatus.CREATED);
     }
 
     /** POST /api/panic: limited per network address, then the controller (docs/api.md 16.1). */
@@ -466,6 +470,10 @@ public final class ApiServer {
         }
     }
 
+    /**
+     * Like {@link #secured}, for the routes that only need a valid session ("Sesión" in
+     * docs/api.md 3): 401 without a valid token, otherwise the handler runs with that session.
+     */
     Handler authenticated(boolean countsAsUse, Handler handler) {
         return ctx -> {
             OperationResult<UserSession> session = sessions.authenticate(ctx.header(AUTHORIZATION), countsAsUse);

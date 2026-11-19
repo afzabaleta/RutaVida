@@ -173,7 +173,8 @@ class ApiServerTest {
 
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
                 dashboard, reports, incidents, roadMap, alerts, dispatch, admin, tracking,
-                new PanicTestSupport().controller(support.authService, support.sessionContext), frontend);
+                new PanicTestSupport().controller(support.authService, support.sessionContext),
+                new PanicTestSupport().citizenController(), frontend);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;

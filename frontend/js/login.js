@@ -1,4 +1,4 @@
-﻿import { currentSession, login } from "./api-client.js";
+﻿import { currentSession, homeOf, login } from "./api-client.js";
 
 const form = document.getElementById("login-form");
 const username = document.getElementById("username");
@@ -57,10 +57,10 @@ form.addEventListener("submit", async (event) => {
   showMessage("Verificando…", "info");
 
   try {
-    await login(username.value.trim(), password.value);
+    const session = await login(username.value.trim(), password.value);
 
     password.value = "";
-    window.location.replace("./dashboard.html");
+    window.location.replace(homeOf(session));
   } catch (error) {
     password.value = "";
     hidePassword();
@@ -88,8 +88,9 @@ async function initialize() {
   }
 
   try {
-    if (await currentSession()) {
-      window.location.replace("./dashboard.html");
+    const session = await currentSession();
+    if (session) {
+      window.location.replace(homeOf(session));
     }
   } catch {
     // The user sees the error when trying to log in.

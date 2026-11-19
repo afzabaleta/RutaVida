@@ -14,8 +14,8 @@ import java.util.Optional;
 
 /**
  * PanicReportDAO on Oracle (table REPORTE_PANICO of 07_boton_panico.sql).
- * The indexes ix_reporte_panico_estado_fecha and ix_reporte_panico_dispositivo serve the
- * queries of the last minutes.
+ * The indexes ix_reporte_panico_estado_fecha, ix_reporte_panico_dispositivo and
+ * ix_reporte_panico_usuario (08_ciudadanos.sql) serve the queries of the last minutes.
  */
 public class JdbcPanicReportDAO extends AbstractJdbcDAO implements PanicReportDAO {
 
@@ -78,6 +78,20 @@ public class JdbcPanicReportDAO extends AbstractJdbcDAO implements PanicReportDA
     public int countByDeviceSince(String deviceId, LocalDateTime since) {
         return queryOne("SELECT COUNT(*) AS cantidad FROM reporte_panico WHERE id_dispositivo = ? AND fecha_hora >= ?",
                 row -> row.getInt("cantidad"), Objects.requireNonNull(deviceId, "deviceId"),
+                Objects.requireNonNull(since, "since")).orElse(0);
+    }
+
+    @Override
+    public int countByUserSince(long userId, LocalDateTime since) {
+        return queryOne("SELECT COUNT(*) AS cantidad FROM reporte_panico WHERE id_usuario = ? AND fecha_hora >= ?",
+                row -> row.getInt("cantidad"), userId, Objects.requireNonNull(since, "since")).orElse(0);
+    }
+
+    @Override
+    public int countByUserAndStatusSince(long userId, PanicReportStatus status, LocalDateTime since) {
+        return queryOne("SELECT COUNT(*) AS cantidad FROM reporte_panico"
+                        + " WHERE id_usuario = ? AND estado = ? AND fecha_hora >= ?",
+                row -> row.getInt("cantidad"), userId, Objects.requireNonNull(status, "status"),
                 Objects.requireNonNull(since, "since")).orElse(0);
     }
 

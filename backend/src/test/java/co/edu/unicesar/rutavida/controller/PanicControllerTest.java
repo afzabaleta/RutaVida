@@ -53,7 +53,11 @@ class PanicControllerTest {
     }
 
     @Test
-    void aCitizenReportsWithoutSessionAndIsToldToWait() {
+    void aCitizenReportsWithItsAccountAndIsToldToWait() {
+        assertEquals(ErrorKind.AUTHENTICATION, controller.report(press("celular-1", 0)).error(),
+                "DT-13: without an account the button does not report");
+
+        session.start(support.citizen(1));
         OperationResult<PanicResult> result =
                 controller.report(press("celular-1", 0));
 
@@ -89,9 +93,11 @@ class PanicControllerTest {
     @Test
     void listingAndDiscardingNeedSessionAndPermission() {
 
+        session.start(support.citizen(1));
         long id = controller.report(
                 press("celular-1", 0)
         ).value().reportId();
+        session.end();
 
         assertEquals(
                 ErrorKind.AUTHENTICATION,

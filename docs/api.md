@@ -60,7 +60,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 ## 2. Seguridad (DT-08)
 
 1. La web inicia sesión con `POST /api/auth/login` y recibe un `token`.
-2. La web guarda el token en `sessionStorage` (se borra al cerrar la pestaña) y lo envía en **todas** las demás peticiones:
+2. La web guarda el token en `sessionStorage` (se borra al cerrar la pestaña) y lo envía en **todas** las demás peticiones. El token de un **ciudadano** (rol `CIUDADANO`, DT-13) va en `localStorage`, para que el celular siga conectado al cerrar el navegador:
 
    ```
    Authorization: Bearer 3f9c2a…
@@ -72,8 +72,10 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
    - `POST /api/auth/logout`.
 
    Si el servidor se reinicia, todos tienen que volver a iniciar sesión.
+
+   **Excepción, el ciudadano (DT-13):** su sesión dura **30 días** y no vence por inactividad. El servidor no la guarda en memoria sino en la tabla `SESION_CIUDADANO` (`database/08_ciudadanos.sql`), y solo el hash SHA-256 del token: sobrevive a un reinicio del servidor. Deja de servir a los 30 días, con `POST /api/auth/logout` o cuando la cuenta se bloquea (RN-16), que cierra todas sus sesiones.
 4. Cada ruta exige el permiso de la columna **Permiso** (módulo y acción de la tabla `PERMISO`). El servidor lo revisa con `AuthService.requirePermission` antes de llamar al controlador. Que la web oculte un botón no reemplaza esta revisión.
-5. Las únicas rutas sin token son `POST /api/auth/login`, `POST /api/panic` y `GET /api/panic/emergency-types` (sección 16) y las páginas de `frontend/`.
+5. Las únicas rutas sin token son `POST /api/auth/login`, `POST /api/citizens` (crear la cuenta de ciudadano, 16.5), `GET /api/panic/emergency-types` (16.4) y las páginas de `frontend/`. Desde DT-13, `POST /api/panic` **sí pide token**.
 
 ## 3. Resumen de rutas
 
@@ -124,12 +126,13 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 43 | `POST` | `/api/hospitals` | `HOSPITALES/GESTIONAR` | CU-05 |
 | 44 | `PUT` | `/api/hospitals/{id}` | `HOSPITALES/GESTIONAR` | CU-05 |
 | 45 | `PATCH` | `/api/hospitals/{id}/status` | `HOSPITALES/GESTIONAR` | CU-05 |
-| 46 | `POST` | `/api/panic` | Ninguno (sesión opcional, sección 16) | CU-22 |
+| 46 | `POST` | `/api/panic` | `PANICO/REPORTAR` (ciudadano con cuenta, policía o administrador; DT-13) | CU-22 |
 | 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` | CU-22 |
 | 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` | CU-22 |
 | 49 | `GET` | `/api/audit` | `AUDITORIA/CONSULTAR` | CU-21 |
 | 50 | `GET` | `/api/reports/operations` | `REPORTES/CONSULTAR` | RF-11 |
 | 51 | `GET` | `/api/panic/emergency-types` | Ninguno (pública, solo lectura) | CU-22 |
+| 52 | `POST` | `/api/citizens` | Ninguno (pública, máximo 10 cuentas por hora por dirección de red) | CU-23 |
 
 "Sesión" significa que basta con un token válido, sin un permiso específico.
 
@@ -163,6 +166,8 @@ Salida `200`:
 Errores (mensajes de `AuthService`): `400` con `"Escriba el usuario y la contraseña."`; `401` con `"Usuario o contraseña incorrectos"`, el mismo para un usuario que no existe y para una contraseña errada, para no revelar cuál falló; `401` con `"El usuario está inactivo"`. En esta ruta, los errores de credenciales son `401` aunque `AuthService` los lance como `BusinessRuleException`.
 
 `expiresAt` es el límite de 8 horas; `idleTimeoutMinutes` es el límite por inactividad. La web usa `permissions` solo para mostrar u ocultar botones.
+
+Para un usuario con rol `CIUDADANO` (DT-13) la respuesta tiene la misma forma, con `expiresAt` **30 días** después del inicio de sesión e `"idleTimeoutMinutes": 0` (no vence por inactividad). La web lo manda a `panico.html` en lugar del panel. Un ciudadano bloqueado por alertas falsas (RN-16) recibe el mismo `401` de usuario inactivo.
 
 ### 4.2 `POST /api/auth/logout`
 
@@ -815,22 +820,23 @@ Errores: `400` si una fecha no tiene la forma indicada, si `from` es posterior a
 
 ## 16. Botón de pánico (CU-22, DT-12)
 
-**Estado:** programado (A20 la tabla y el DAO, S11 el servicio, A20b las rutas, A20c los tipos públicos). Reglas: `docs/analysis.md`, CU-22 y RN-13 a RN-15.
+**Estado:** programado (A20 la tabla y el DAO, S11 el servicio, A20b las rutas, A20c los tipos públicos, DT-13 las cuentas de ciudadano). Reglas: `docs/analysis.md`, CU-22, CU-23 y RN-13 a RN-16.
 
-- **Sesión opcional en 16.1:** con un token válido se usa ese usuario; sin token, o con uno vencido, el reporte entra como de un ciudadano anónimo. En una emergencia el botón nunca responde "inicie sesión".
-- **Límite por dirección de red:** además del límite de 3 reportes por dispositivo (RN-13), `POST /api/panic` acepta como máximo 20 reportes por dirección de red cada 10 minutos, porque el identificador del dispositivo lo genera el navegador y se puede cambiar. Al pasarlo responde `409` con "Se enviaron demasiadas alertas desde esta conexión. Si la emergencia sigue, llame al 123.". El conteo vive en memoria: se reinicia con el servidor.
+- **Cuenta obligatoria en 16.1 (DT-13, pedido del profesor):** el botón solo funciona con una sesión que tenga `PANICO/REPORTAR`. Así cada alerta tiene un responsable y quien envía alertas falsas se bloquea (RN-16). La persona crea su cuenta una vez (16.5) e inicia sesión una vez: el celular queda conectado 30 días (sección 2). Esto reemplaza la "sesión opcional" de DT-12.
+- **Límite por dirección de red:** además del límite de 3 reportes por persona (RN-13), `POST /api/panic` acepta como máximo 20 reportes por dirección de red cada 10 minutos, porque el identificador del dispositivo lo genera el navegador y se puede cambiar. Al pasarlo responde `409` con "Se enviaron demasiadas alertas desde esta conexión. Si la emergencia sigue, llame al 123.". El conteo vive en memoria: se reinicia con el servidor.
 - `GET /api/panic/reports` es una consulta automática del mapa: no mantiene viva la sesión (DT-08).
 
 | # | Método | URL | Permiso |
 |---|---|---|---|
-| 46 | `POST` | `/api/panic` | **Ninguno** (la única ruta pública además del login). Con sesión, se usa el usuario |
+| 46 | `POST` | `/api/panic` | `PANICO/REPORTAR`: ciudadano, policía o administrador (DT-13) |
 | 47 | `GET` | `/api/panic/reports` | `PANICO/CONSULTAR` |
 | 48 | `PATCH` | `/api/panic/reports/{id}/status` | `PANICO/GESTIONAR` |
 | 51 | `GET` | `/api/panic/emergency-types` | **Ninguno**: los tipos para que el ciudadano elija (16.4) |
+| 52 | `POST` | `/api/citizens` | **Ninguno**: crear la cuenta de ciudadano (16.5) |
 
 ### 16.1 `POST /api/panic`
 
-La página del botón (D9) la llama al presionarlo. Sin token funciona como ciudadano anónimo; con el token de un usuario con `PANICO/VALIDAR` (Policía), su reporte valida la alerta solo.
+La página del botón (D9) la llama al presionarlo, con el token de la persona. El reporte queda a nombre de ese usuario (`REPORTE_PANICO.id_usuario`); con el token de un usuario con `PANICO/VALIDAR` (Policía), su reporte valida la alerta solo.
 
 ```json
 { "deviceId": "8f1c2b0e-5d7a-4c61-9a0e-3f0b2f7c9d11",
@@ -838,7 +844,7 @@ La página del botón (D9) la llama al presionarlo. Sin token funciona como ciud
   "emergencyTypeId": 1, "description": "Hay una persona herida" }
 ```
 
-- `deviceId`: un UUID que la página genera la primera vez y guarda en el navegador. El servidor guarda solo su hash SHA-256 (RN-13).
+- `deviceId`: un UUID que la página genera la primera vez y guarda en el navegador. El servidor guarda solo su hash SHA-256. Desde DT-13 ya no sirve para limitar ni para contar personas (eso se hace con la cuenta), pero se conserva para los reportes anteriores y para la auditoría.
 - `emergencyTypeId` y `description` (máximo 200 caracteres) son opcionales.
 
 Salida `201`:
@@ -853,7 +859,7 @@ Si todavía no se valida: `"status": "PENDIENTE"`, `"emergencyId": null`, `"disp
 
 Si se valida pero no hay unidad disponible: `"dispatchedUnit": null` y el mensaje "Su alerta fue validada. Un coordinador enviará una unidad.". Si ya hay una alerta validada y abierta a menos de 300 m (10 minutos), el reporte se une a ella: `"status": "VALIDADO"`, su `emergencyId` y `"dispatchedUnit": null` (no se manda otra unidad).
 
-Errores: `400` si falta la ubicación o el `deviceId`, o la ubicación está fuera de la zona de la red vial; `409` si el dispositivo ya envió 3 reportes en 10 minutos ("Ya envió varios reportes. Si la emergencia sigue, llame al 123.").
+Errores: `400` si falta la ubicación o el `deviceId`, o la ubicación está fuera de la zona de la red vial; `401` sin sesión o con la sesión vencida (la página muestra "Necesitas una cuenta"); `403` si el rol no tiene `PANICO/REPORTAR` (un operador, por ejemplo); `409` si la persona ya envió 3 reportes en 10 minutos ("Ya envió varios reportes. Si la emergencia sigue, llame al 123.").
 
 ### 16.2 `GET /api/panic/reports`
 
@@ -869,11 +875,11 @@ Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del
 
 ### 16.3 `PATCH /api/panic/reports/{id}/status`
 
-`{ "status": "DESCARTADO" }` (cualquier otro estado da `400`): un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).
+`{ "status": "DESCARTADO" }` (cualquier otro estado da `400`): un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). Después, cada **ciudadano** de esos reportes que ya sume **2 alertas descartadas en 30 días** queda bloqueado (RN-16): su usuario pasa a inactivo, se cierran sus sesiones del celular, se audita `BLOQUEAR` y los coordinadores reciben una alerta. Un policía o un administrador nunca se bloquea así. `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).
 
 ### 16.4 `GET /api/panic/emergency-types`
 
-Los tipos de emergencia para la página del botón (D9), **sin sesión**: un ciudadano sin cuenta tiene que poder decir que es un incendio para que la alerta despache bomberos. Es la misma lista de 5.1 (`GET /api/emergency-types`, que sigue pidiendo `EMERGENCIAS/CONSULTAR`); solo lee un catálogo y no tiene datos personales.
+Los tipos de emergencia para la página del botón (D9), **sin sesión**: la página llena el formulario mientras comprueba la cuenta, y así el ciudadano puede decir que es un incendio para que la alerta despache bomberos. Es la misma lista de 5.1 (`GET /api/emergency-types`, que sigue pidiendo `EMERGENCIAS/CONSULTAR`); solo lee un catálogo y no tiene datos personales.
 
 ```json
 { "success": true, "message": null, "value": [
@@ -882,3 +888,20 @@ Los tipos de emergencia para la página del botón (D9), **sin sesión**: un ciu
 ```
 
 Si la persona no elige tipo, la alerta validada usa el que eligieron la mayoría de los reportes cercanos, y si nadie eligió, `EMERGENCIA_MEDICA` (`PanicService`).
+
+### 16.5 `POST /api/citizens`
+
+Crea la cuenta de **ciudadano** del botón de pánico (CU-23, DT-13), **sin sesión**. La llama `registro.html`, que después inicia sesión con los mismos datos y lleva a la persona al botón.
+
+```json
+{ "firstNames": "María", "lastNames": "Gómez", "document": "1065000000",
+  "email": "maria@example.com", "username": "maria.gomez",
+  "password": "texto-que-escribe-la-persona", "dataConsent": true }
+```
+
+- Se piden solo los datos necesarios para responder por una alerta. `dataConsent` debe ser `true`: es la autorización del tratamiento de datos personales (Ley 1581 de 2012), y queda en la auditoría (`REGISTRAR_CIUDADANO`).
+- La contraseña y los formatos (documento, correo, usuario) se validan con las mismas reglas que la creación de usuarios de 15.2. El rol es siempre `CIUDADANO`: el cuerpo no lo elige.
+
+Salida `201`: el usuario creado (`UserView`, la forma de 15.1, sin contraseña) y el mensaje "Su cuenta quedó creada. Inicie sesión una vez y su celular quedará conectado 30 días.".
+
+Errores: `400` si falta un dato, si un formato no es válido, si la contraseña es débil o si `dataConsent` no es `true` ("Para registrarse debe autorizar el tratamiento de sus datos personales."); `409` si ya existe el usuario, el documento o el correo, si el rol `CIUDADANO` está inactivo ("El registro de ciudadanos está desactivado.") o si se crearon más de **10 cuentas en una hora** desde la misma dirección de red ("Se crearon demasiadas cuentas desde esta conexión. Intente más tarde."). Ese conteo vive en memoria y se reinicia con el servidor.

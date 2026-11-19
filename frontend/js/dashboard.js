@@ -2,6 +2,7 @@
 import {
   getDashboardSummary,
   hasPermission,
+  homeOf,
   listEmergencies,
   listHospitals,
   listStations,
@@ -451,12 +452,10 @@ async function initializeDashboard() {
   }
 
 
-  // A police officer (PANICO:VALIDAR without dispatch) works from the panic button page (D9).
-  if (
-    hasPermission(session, "PANICO:VALIDAR") &&
-    !hasPermission(session, "DESPACHO:GESTIONAR")
-  ) {
-    window.location.replace("./panico.html");
+  // Police officers and citizens (PANICO:REPORTAR without dispatch) work from the panic
+  // button page (D9, DT-13).
+  if (homeOf(session) !== "./dashboard.html") {
+    window.location.replace(homeOf(session));
     return;
   }
 
