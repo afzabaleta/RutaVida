@@ -127,13 +127,23 @@ Límites del plan gratuito: 30 sesiones simultáneas, **se detiene sola después
 
 ### 3. Red vial (OpenStreetMap)
 
-`database/05_red_vial_valledupar.sql` carga `NODO_VIAL` y `TRAMO_VIAL` con las calles de la zona de la demostración. Lo genera la herramienta `co.edu.unicesar.rutavida.app.OsmImporter` y no se edita a mano. Para volver a generarlo:
+`database/05_red_vial_valledupar.sql` carga `NODO_VIAL` y `TRAMO_VIAL` con las calles del **área urbana de Valledupar** (DT-14): sur 10.405, oeste -73.305, norte 10.510, este -73.215. Lo genera la herramienta `co.edu.unicesar.rutavida.app.OsmImporter` y no se edita a mano. Las filas van en bloques PL/SQL de 200, para que cargue rápido también en Oracle Cloud.
+
+**Para volver a generarlo:**
 
 1. Descargar los datos con la consulta guardada (desde la carpeta `RutaVida`, en PowerShell):
    ```
-   curl.exe -o database\osm\valledupar_demo.osm --data-urlencode "data@database\osm\valledupar_demo.overpassql" https://overpass-api.de/api/interpreter
+   curl.exe -o database\osm\valledupar_ciudad.osm --data-urlencode "data@database\osm\valledupar_ciudad.overpassql" https://overpass-api.de/api/interpreter
    ```
-2. Ejecutar `OsmImporter` con los argumentos `../database/osm/valledupar_demo.osm ../database/05_red_vial_valledupar.sql AAAA-MM-DD` (fecha de la descarga).
+2. Ejecutar `OsmImporter` (carpeta de trabajo `backend/`) con los argumentos `../database/osm/valledupar_ciudad.osm ../database/05_red_vial_valledupar.sql AAAA-MM-DD` (fecha de la descarga).
+
+**Para cambiar la red de una base que ya tiene una cargada**, en este orden:
+1. Detener `WebServer`.
+2. Ejecutar `09_reiniciar_demo.sql`.
+3. Ejecutar `database/osm/borrar_red_vial.sql`, que pide escribir `BORRAR RED`.
+4. Ejecutar `05_red_vial_valledupar.sql`.
+5. Ejecutar `98_verificar.sql`.
+6. Iniciar `WebServer`.
 
 El archivo `.osm` no se sube al repositorio (`.gitignore`). Datos de la red vial: © OpenStreetMap contributors, licencia [ODbL](https://www.openstreetmap.org/copyright).
 

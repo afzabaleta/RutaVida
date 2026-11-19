@@ -31,10 +31,10 @@ export const HOSPITALS = [
   },
 ];
 
-// Zone of the road network loaded from OpenStreetMap (K4).
+// Zone of the road network loaded from OpenStreetMap: the urban area (DT-14).
 export const ROAD_NETWORK_ZONE = {
-  south: 10.435,
-  west: -73.280,
-  north: 10.480,
-  east: -73.235,
+  south: 10.405,
+  west: -73.305,
+  north: 10.510,
+  east: -73.215,
 };

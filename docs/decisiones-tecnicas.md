@@ -17,6 +17,7 @@ Registro de las decisiones que afectan a todo el proyecto. Cada decisión dice q
 | DT-11 | Umbrales y parámetros en un archivo `rutavida.properties` | 05/11/2026 | **Propuesta**; falta la opinión de Kendrick |
 | DT-12 | El **botón de pánico reemplaza el reporte ciudadano por QR** (CU-22). Cualquiera lo presiona sin cuenta; 3 reportes a 300 m en 10 minutos (o 1 de un Policía) validan la alerta, que crea la emergencia y despacha sola la unidad más rápida | 14/11/2026 | Decidida por el líder |
 | DT-13 | El **botón de pánico exige una cuenta de ciudadano** (CU-23). La sesión del celular dura **30 días** sin vencer por inactividad; **2 alertas descartadas en 30 días** bloquean la cuenta (RN-16). Cambia "sin cuenta" de DT-12 | 15/11/2026 | Decidida por el líder, a pedido del profesor |
+| DT-14 | La red vial cubre **toda el área urbana de Valledupar** (sur 10.405, oeste -73.305, norte 10.510, este -73.215), no solo el centro. Reemplaza la zona de la demostración del 21/10/2026 | 19/11/2026 | Decidida por el líder |
 
 ---
 
@@ -156,3 +157,16 @@ Nada de esto está programado todavía: el estado actual es **diseñado**.
 **Qué cambia:** `database/08_ciudadanos.sql` agrega el permiso `PANICO/REPORTAR` (para `CIUDADANO`, `POLICIA` y `ADMINISTRADOR`), el rol `CIUDADANO`, la tabla `SESION_CIUDADANO` (tabla 25) con su secuencia, y los índices `ix_sesion_ciudadano_usuario` e `ix_reporte_panico_usuario`. En Java: `CitizenSession`, `CitizenSessionDAO`, `JdbcCitizenSessionDAO`, `CitizenService`, `CitizenController`, `CitizenRequest` y `CitizenLogin`; `PanicService` exige la sesión, limita y cuenta por persona y bloquea (RN-16); `WebSessionController` entrega y reconoce las sesiones de 30 días. En la web: `registro.html`, la cuenta en `panico.html` y el token del ciudadano en `localStorage`. `POST /api/panic` ya no es pública y aparece `POST /api/citizens`.
 
 **Pendiente:** confirmar que `08_ciudadanos.sql` está ejecutado en la base local y en la nube, y correr `98_verificar.sql` en cada una. `SESION_CIUDADANO` y `SEQ_SESION_CIUDADANO` ya están en `99_eliminar_esquema.sql`, con autorización del líder del 19/11/2026.
+
+## DT-14 · Red vial de toda el área urbana
+
+**Decisión (19/11/2026, el líder):** las ambulancias y los hospitales deben estar repartidos por toda la ciudad, no solo en el centro. Como una unidad o un hospital fuera de la red vial no puede recibir rutas, la red vial pasa de la zona de la demostración (unos 5 × 4,9 km) al área urbana completa (unos 9,8 × 11,6 km).
+
+| Tema | Opciones evaluadas | Qué se decidió y por qué |
+|---|---|---|
+| Zona | Mantener el centro y repartir todo ahí, o ampliar | **Ampliar**: así el mapa de la sustentación es la ciudad real, y una emergencia en un barrio del norte o del sur también recibe ruta. El costo es volver a cargar la red en las dos bases |
+| Rectángulo | Límite oficial del municipio, o un rectángulo del área urbana | **Rectángulo** del Anillo Vial de Occidente al río Guatapurí y del sur del aeropuerto al norte de la Avenida Sierra Nevada, con margen. El límite del municipio incluye zona rural sin calles útiles para el despacho |
+| Carga en Oracle Cloud | Una sentencia por fila, o bloques PL/SQL | **Bloques de 200 filas**: el script tiene decenas de miles de filas y, por la latencia de la nube, una sentencia por fila tardaría demasiado |
+| Cambiar la red de una base existente | Borrar todo el esquema (99), o solo la red | **Solo la red**, con `database/osm/borrar_red_vial.sql`. Se ejecuta después de `09_reiniciar_demo.sql` y pide escribir `BORRAR RED`; si quedan misiones abiertas, no borra nada |
+
+**Riesgos:** el script de la red crece unas tres veces y la primera carga en la nube puede tardar varios minutos. El grafo en memoria y A* soportan ese tamaño sin cambios.

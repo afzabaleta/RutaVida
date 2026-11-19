@@ -3,6 +3,8 @@ package co.edu.unicesar.rutavida.osm;
 import java.io.IOException;
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -17,25 +19,32 @@ import java.util.Locale;
  *   <li>Texts lose their accents (like 03_datos_valledupar.sql) so SQL*Plus on Windows
  *       does not damage them, and single quotes are doubled.</li>
  *   <li>A comment never goes after the ';' of a statement (SqlScriptStyleTest).</li>
+ *   <li>The INSERTs go in PL/SQL blocks of {@link #BLOCK_SIZE}: each block is one round trip
+ *       to Oracle instead of one per row, which matters on Oracle Cloud (tens of thousands
+ *       of rows for the whole city).</li>
  * </ul>
  */
 public final class RoadNetworkSqlWriter {
 
     public static final String FILE_NAME = "05_red_vial_valledupar.sql";
+    public static final String QUERY_FILE = "database/osm/valledupar_ciudad.overpassql";
+
+    /** INSERTs per PL/SQL block: few round trips, and a block small enough for Oracle to compile. */
+    static final int BLOCK_SIZE = 200;
 
     public void write(RoadNetwork network, BoundingBox area, LocalDate downloadedOn,
                       Appendable out) throws IOException {
         RoadNetwork.Summary summary = network.summary();
 
         line(out, "-- ============================================================");
-        line(out, "-- RutaVida - Red vial de Valledupar (zona de la demostracion)");
+        line(out, "-- RutaVida - Red vial de Valledupar (area urbana)");
         line(out, "-- Archivo: " + FILE_NAME);
         line(out, "-- GENERADO por OsmImporter. No se edita a mano: se vuelve a generar.");
         line(out, "--");
         line(out, "-- Datos: (c) OpenStreetMap contributors, licencia ODbL");
         line(out, "--        https://www.openstreetmap.org/copyright");
         line(out, "-- Descarga: Overpass API, " + downloadedOn);
-        line(out, "-- Consulta: database/osm/valledupar_demo.overpassql");
+        line(out, "-- Consulta: " + QUERY_FILE);
         line(out, "-- Zona: sur " + number(area.south(), 6) + ", oeste " + number(area.west(), 6)
                 + ", norte " + number(area.north(), 6) + ", este " + number(area.east(), 6));
         line(out, "--");
@@ -56,25 +65,29 @@ public final class RoadNetworkSqlWriter {
                 + ". Vias con velocidad supuesta: " + summary.waysWithDefaultSpeed()
                 + ". Pedazos descartados: " + summary.skippedPieces() + ".");
         line(out, "-- WHERE NOT EXISTS evita duplicados si el script se ejecuta dos veces.");
+        line(out, "-- Las filas van en bloques PL/SQL de " + BLOCK_SIZE + ": un viaje a Oracle por bloque.");
         line(out, "-- ============================================================");
         line(out, "");
         line(out, "SET DEFINE OFF");
         line(out, "SET FEEDBACK OFF");
         line(out, "");
         line(out, "-- 1. NODOS (" + network.junctions().size() + ")");
+        List<String> nodes = new ArrayList<>();
         for (RoadNetwork.Junction junction : network.junctions()) {
-            line(out, "INSERT INTO nodo_vial (osm_id, referencia, latitud, longitud, tipo_nodo, estado) "
+            nodes.add("INSERT INTO nodo_vial (osm_id, referencia, latitud, longitud, tipo_nodo, estado) "
                     + "SELECT " + junction.osmId() + ", " + text(junction.reference()) + ", "
                     + number(junction.latitude(), 6) + ", " + number(junction.longitude(), 6) + ", '"
                     + junction.type().code() + "', 'A' FROM dual "
                     + "WHERE NOT EXISTS (SELECT 1 FROM nodo_vial WHERE osm_id = " + junction.osmId() + ");");
         }
+        blocks(out, nodes);
         line(out, "");
         line(out, "COMMIT;");
         line(out, "");
         line(out, "-- 2. TRAMOS (" + network.links().size() + ")");
+        List<String> segments = new ArrayList<>();
         for (RoadNetwork.Link link : network.links()) {
-            line(out, "INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, "
+            segments.add("INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, "
                     + "distancia_m, velocidad_max_kmh) "
                     + "SELECT o.id_nodo, d.id_nodo, " + link.osmWayId() + ", " + text(link.roadName()) + ", "
                     + number(link.lengthMeters(), 2) + ", " + number(link.maxSpeedKmh(), 2) + " "
@@ -83,6 +96,7 @@ public final class RoadNetworkSqlWriter {
                     + "AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo "
                     + "AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = " + link.osmWayId() + ");");
         }
+        blocks(out, segments);
         line(out, "");
         line(out, "COMMIT;");
         line(out, "");
@@ -91,6 +105,18 @@ public final class RoadNetworkSqlWriter {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** The statements in BEGIN ... END; blocks of BLOCK_SIZE, each closed with "/" for SQL*Plus. */
+    private static void blocks(Appendable out, List<String> statements) throws IOException {
+        for (int start = 0; start < statements.size(); start += BLOCK_SIZE) {
+            line(out, "BEGIN");
+            for (String statement : statements.subList(start, Math.min(start + BLOCK_SIZE, statements.size()))) {
+                line(out, statement);
+            }
+            line(out, "END;");
+            line(out, "/");
+        }
+    }
 
     private static void line(Appendable out, String text) throws IOException {
         out.append(text).append('\n');

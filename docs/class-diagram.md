@@ -2122,7 +2122,7 @@ classDiagram
         +west : double
         +north : double
         +east : double
-        +VALLEDUPAR_DEMO : BoundingBox$
+        +VALLEDUPAR : BoundingBox$
         +contains(latitude: double, longitude: double) boolean
     }
 
