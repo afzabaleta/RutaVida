@@ -25,6 +25,7 @@ Este documento define cada ruta de la API del núcleo de RutaVida: método, URL,
 | Números | Distancias en km (`distanceKm`), tiempos en minutos (`estimatedMinutes`, `etaMinutes`), con decimales |
 | Datos simulados | Todo lo que viene del simulador lleva `"source": "SIMULACION"`, y la web lo rotula así. Nunca se muestra como GPS ni como tráfico real |
 | Contraseñas | Ninguna respuesta incluye `passwordHash` ni la contraseña |
+| Caché | Toda respuesta de la API lleva `Cache-Control: no-store` y `X-Content-Type-Options: nosniff`: trae tokens y datos personales, así que el navegador no la guarda |
 
 ### 1.1 Forma de todas las respuestas
 
@@ -67,7 +68,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
    ```
 
 3. El token es un valor aleatorio de 32 bytes (`SecureRandom`) que el servidor guarda en memoria junto con la sesión (`UserSession`). Deja de servir en el primero de estos casos:
-   - **30 minutos sin uso.** Cada petición del usuario reinicia el contador, **excepto** las consultas automáticas del mapa (`GET /api/tracking`, `GET /api/traffic/segments` y `GET /api/alerts`): si las contara, una pestaña abierta nunca vencería.
+   - **30 minutos sin uso.** Cada petición del usuario reinicia el contador, **excepto** las consultas automáticas del mapa y del panel de simulación (`GET /api/tracking`, `GET /api/traffic/segments`, `GET /api/simulation` y `GET /api/alerts`): si las contara, una pestaña abierta nunca vencería.
    - **8 horas** desde el inicio de sesión (un turno), aunque el usuario siga activo.
    - `POST /api/auth/logout`.
 
@@ -164,6 +165,8 @@ Salida `200`:
 ```
 
 Errores (mensajes de `AuthService`): `400` con `"Escriba el usuario y la contraseña."`; `401` con `"Usuario o contraseña incorrectos"`, el mismo para un usuario que no existe y para una contraseña errada, para no revelar cuál falló; `401` con `"El usuario está inactivo"`. En esta ruta, los errores de credenciales son `401` aunque `AuthService` los lance como `BusinessRuleException`.
+
+**Contra adivinar contraseñas:** después de **5 intentos fallidos** del mismo usuario desde la misma dirección de red en **10 minutos** (o 30 fallidos de cualquier usuario desde una dirección), la ruta responde `409` con `"Demasiados intentos fallidos de inicio de sesión. Espere 10 minutos antes de intentarlo de nuevo."` sin revisar la contraseña. Solo cuentan los `401`: quien escribe bien la contraseña nunca se bloquea, y un inicio de sesión correcto borra los fallos de su cuenta. Los contadores viven en memoria y se reinician con el servidor. Cada intento fallido queda además en `AUDITORIA`.
 
 `expiresAt` es el límite de 8 horas; `idleTimeoutMinutes` es el límite por inactividad. La web usa `permissions` solo para mostrar u ocultar botones.
 
@@ -473,7 +476,7 @@ La web lo consulta **cada 5 segundos** (DT-07) mientras la página del mapa est�
 - `routesVersion` sube cada vez que el sistema recalcula las rutas de esa misión (CU-17). Si la web ve un número distinto al que tenía, pide `GET /api/dispatches/{id}/routes` y redibuja.
 - `unreadAlerts` permite mostrar el contador sin pedir la lista cada 5 segundos.
 - `source` es `"SIMULACION"` mientras no exista GPS real (`PositionSource`).
-- **Programado (A12e):** `LiveMapService` y `TrackingController`. `vehicleType` es el nombre del tipo (`AMBULANCIA`, `BOMBERO`, `POLICIA`), con el que la web elige el ícono. Una unidad sin posición trae `location`, `updatedAt` y `source` en `null`. `missions` trae solo las misiones abiertas de unidades `OCUPADO`; `activeRouteId` es `null` cuando la unidad ya llegó. `routesVersion` es cuántas rutas se han guardado para esa misión: crece cuando el sistema recalcula. `simulation.running` es `false` hasta que exista el motor de simulación (K9).
+- **Programado (A12e):** `LiveMapService` y `TrackingController`. `vehicleType` es el nombre del tipo (`AMBULANCIA`, `BOMBERO`, `POLICIA`), con el que la web elige el ícono. Una unidad sin posición trae `location`, `updatedAt` y `source` en `null`. `missions` trae solo las misiones abiertas de unidades `OCUPADO`; `activeRouteId` es `null` cuando la unidad ya llegó. `routesVersion` es cuántas rutas se han guardado para esa misión: crece cuando el sistema recalcula. `simulation.running` es `true` mientras corre la simulación (10.2); antes del primer inicio es `false`.
 - Las posiciones las escribe `TrackingService` cuando el motor de simulación (K9) mueve las unidades: sin K9, las unidades se quedan en su última posición.
 
 ### 8.2 `GET /api/traffic/segments`
@@ -490,6 +493,10 @@ Los tramos con tráfico `MODERADO` o `CONGESTIONADO` (la última medición de ca
 ```
 
 La web los consulta **cada 15 segundos** (DT-07): cambian menos que las posiciones.
+
+- **Cuáles salen:** la última lectura de `TRAFICO` de cada tramo en los **últimos 15 minutos** (la misma ventana del dashboard), solo si es `MODERADO` o `CONGESTIONADO`, del más congestionado al menos. Mientras dura un nivel, la simulación lo vuelve a guardar cada 10 minutos; al detenerla, la capa se vacía sola en 15 minutos.
+- **Errores:** `400` con `"El nivel debe ser MODERADO o CONGESTIONADO."` si `level` es `FLUIDO` u otro valor; `503` si el servidor corre sin simulación.
+- **Programado (A12e):** `TrafficMapService`, `TrafficMapDAO` y `JdbcTrafficMapDAO`. Todo el tráfico es `SIMULACION`: no hay fuente real de tráfico.
 
 ## 9. Incidentes viales
 
@@ -536,6 +543,8 @@ Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RE
 
 Sin cuerpo. Inician o detienen el simulador. Salida `200`: el estado de 10.1. Iniciar uno que ya corre (o detener uno detenido) no es error: responde el estado actual.
 
+El servidor arranca con la simulación **detenida**. Al iniciarla, cada `tickSeconds` (2 s) mueve las unidades con misión, cambia el tráfico cada 15 s, aplica los incidentes `ACTIVO`, recalcula las rutas afectadas y guarda posiciones y tráfico con fuente `SIMULACION` (K9). Las rutas del despacho y la simulación usan el mismo grafo: el tráfico simulado cambia los tiempos de las rutas nuevas. Al detener el servidor, la simulación se detiene.
+
 ### 10.3 `POST /api/simulation/traffic`
 
 Fuerza el nivel de tráfico de un tramo, para mostrar el recálculo en la demostración. Se guarda en `TRAFICO` con fuente `SIMULACION`.
@@ -544,7 +553,11 @@ Fuerza el nivel de tráfico de un tramo, para mostrar el recálculo en la demost
 { "segmentId": 413, "level": "CONGESTIONADO" }
 ```
 
-Salida `200`: el tramo con la forma de 8.2. `404` si el tramo no existe.
+Salida `200`: el tramo con la forma de 8.2, como lo pintará el mapa (`congestionFactor` 1.0, 1.3 o 2.5 según el nivel). `404` si el tramo no existe; `400` si falta `segmentId` o `level`, o si `level` no es `FLUIDO`, `MODERADO` ni `CONGESTIONADO`.
+
+El nivel se aplica, se guarda en `TRAFICO` y se compara con las rutas activas en el **siguiente ciclo** (2 s). Si la simulación está detenida, espera a que se inicie. `FLUIDO` sirve para quitar la congestión de la demostración.
+
+Sin simulación en el servidor, las rutas de esta sección y la de 8.2 responden `503` con `"La simulación no está disponible en este servidor."`. **Programado (A12e):** `SimulationController`, conectado en `AppContext.simulationController()` y `WebServer`.
 
 ## 11. Dashboard, reportes y alertas
 

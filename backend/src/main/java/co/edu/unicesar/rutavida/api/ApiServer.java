@@ -9,6 +9,7 @@ import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
 import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.ReportController;
+import co.edu.unicesar.rutavida.controller.SimulationController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
@@ -31,6 +32,7 @@ import co.edu.unicesar.rutavida.model.enums.AuditResult;
 import co.edu.unicesar.rutavida.model.enums.IncidentStatus;
 import co.edu.unicesar.rutavida.model.enums.PanicReportStatus;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.model.enums.TrafficLevel;
 import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -51,6 +53,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -67,8 +70,8 @@ import java.util.logging.Logger;
  * (A12c), alerts (A12f), dispatch and routes (A12d), closing an emergency (A16),
  * administration of users, units, stations and hospitals (A17), audit (A18), tracking
  * (A12e), panic button (A20b, with accounts since DT-13), citizen registration and the operations
- * report (A23). The simulation is added when
- * its controller exists (K9).
+ * report (A23), and the simulation with its traffic layer (K9, A12e), added through
+ * {@link #withSimulation}.
  */
 public final class ApiServer {
 
@@ -91,15 +94,31 @@ public final class ApiServer {
     private static final String BAD_RESULT = "El resultado debe ser EXITO o FALLO.";
     private static final String BAD_PANIC_STATUS = "Una alerta de pánico solo se puede marcar DESCARTADO.";
     private static final String BAD_PANIC_FILTER = "El estado del reporte de pánico no es válido.";
+    private static final String BAD_TRAFFIC =
+            "Indique el tramo y el nivel de tráfico (segmentId y level: FLUIDO, MODERADO o CONGESTIONADO).";
+    private static final String BAD_LEVEL = "El nivel debe ser MODERADO o CONGESTIONADO.";
+    static final String NO_SIMULATION = "La simulación no está disponible en este servidor.";
     private static final String TOO_MANY_PANIC =
             "Se enviaron demasiadas alertas desde esta conexión. Si la emergencia sigue, llame al 123.";
 
     private static final String TOO_MANY_REGISTRATIONS =
             "Se crearon demasiadas cuentas desde esta conexión. Intente más tarde.";
 
+    static final String TOO_MANY_LOGINS =
+            "Demasiados intentos fallidos de inicio de sesión. Espere 10 minutos antes de intentarlo de nuevo.";
+
     /** Panic button: reports per network address in 10 minutes (RN-13 limits each person to 3). */
     static final int PANIC_PER_ADDRESS = 20;
     static final Duration PANIC_WINDOW = Duration.ofMinutes(10);
+
+    /**
+     * Failed logins (wrong user or password) allowed in {@link #LOGIN_WINDOW}: per account and
+     * network address, and per network address for any account. Only failures count, so a person
+     * who types the password well is never stopped; a successful login clears its account.
+     */
+    static final int LOGIN_FAILURES_PER_ACCOUNT = 5;
+    static final int LOGIN_FAILURES_PER_ADDRESS = 30;
+    static final Duration LOGIN_WINDOW = Duration.ofMinutes(10);
 
     /** Citizen accounts per network address in an hour (CU-23): stops scripts that create accounts. */
     static final int REGISTRATIONS_PER_ADDRESS = 10;
@@ -128,8 +147,11 @@ public final class ApiServer {
     private final CitizenController citizens;
     private final RequestRateLimiter panicLimiter;
     private final RequestRateLimiter registrationLimiter;
+    private final RequestRateLimiter accountLoginFailures;
+    private final RequestRateLimiter addressLoginFailures;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
+    private SimulationController simulation;
     private Javalin app;
 
     /**
@@ -156,7 +178,23 @@ public final class ApiServer {
         this.panicLimiter = new RequestRateLimiter(PANIC_PER_ADDRESS, PANIC_WINDOW, Clock.systemUTC());
         this.registrationLimiter = new RequestRateLimiter(
                 REGISTRATIONS_PER_ADDRESS, REGISTRATION_WINDOW, Clock.systemUTC());
+        this.accountLoginFailures = new RequestRateLimiter(
+                LOGIN_FAILURES_PER_ACCOUNT, LOGIN_WINDOW, Clock.systemUTC());
+        this.addressLoginFailures = new RequestRateLimiter(
+                LOGIN_FAILURES_PER_ADDRESS, LOGIN_WINDOW, Clock.systemUTC());
         this.frontendDirectory = frontendDirectory;
+    }
+
+    /**
+     * Adds the simulation (CU-19, docs/api.md 8.2 and 10), before {@link #start}. Without it,
+     * those routes answer 503: the tests that do not need the simulation leave it out.
+     */
+    public synchronized ApiServer withSimulation(SimulationController simulation) {
+        if (app != null) {
+            throw new IllegalStateException("The server is already running");
+        }
+        this.simulation = Objects.requireNonNull(simulation, "simulation");
+        return this;
     }
 
     public synchronized ApiServer start(int port) {
@@ -240,6 +278,22 @@ public final class ApiServer {
         // the session alive (DT-08).
         config.routes.get("/api/tracking", secured("EMERGENCIAS", "CONSULTAR", AUTOMATIC,
                 ctx -> send(ctx, tracking.snapshot(), ApiStatus.OK)));
+        // The traffic layer (8.2): the map asks every 15 seconds by itself, like the tracking.
+        config.routes.get("/api/traffic/segments", secured("TRAFICO", "CONSULTAR", AUTOMATIC,
+                ctx -> sendSimulation(ctx, controller -> controller.trafficSegments(levelParam(ctx)))));
+
+        // 10. Simulation (CU-19, K9). The control panel refreshes the state by itself; starting,
+        // stopping and forcing the traffic are actions of the user.
+        config.routes.get("/api/simulation", secured("TRAFICO", "CONSULTAR", AUTOMATIC,
+                ctx -> sendSimulation(ctx, SimulationController::status)));
+        config.routes.post("/api/simulation/start", secured("TRAFICO", "GESTIONAR", USER_ACTION,
+                ctx -> sendSimulation(ctx, SimulationController::start)));
+        config.routes.post("/api/simulation/stop", secured("TRAFICO", "GESTIONAR", USER_ACTION,
+                ctx -> sendSimulation(ctx, SimulationController::stop)));
+        config.routes.post("/api/simulation/traffic", secured("TRAFICO", "GESTIONAR", USER_ACTION, ctx -> {
+            TrafficRequest request = readTraffic(ctx);
+            sendSimulation(ctx, controller -> controller.forceTraffic(request.segmentId(), request.level()));
+        }));
 
         // 11. Dashboard. The panel refreshes it by itself, so it does not keep the session alive.
         config.routes.get("/api/dashboard/summary", secured("REPORTES", "CONSULTAR", AUTOMATIC,
@@ -328,10 +382,29 @@ public final class ApiServer {
         config.routes.exception(Exception.class, this::onError);
     }
 
+    /**
+     * POST /api/auth/login, against password guessing: after {@link #LOGIN_FAILURES_PER_ACCOUNT}
+     * failures of one account from one address (or {@link #LOGIN_FAILURES_PER_ADDRESS} of any
+     * account) in {@link #LOGIN_WINDOW}, it answers 409 without checking the password.
+     */
     private void login(Context ctx) {
         LoginRequest request = readBody(ctx, LoginRequest.class);
+        String address = ctx.ip();
+        String account = address + "|" + (request.username() == null
+                ? "" : request.username().trim().toLowerCase(Locale.ROOT));
+        if (accountLoginFailures.isLimited(account) || addressLoginFailures.isLimited(address)) {
+            send(ctx, OperationResult.error(ErrorKind.BUSINESS_RULE, TOO_MANY_LOGINS), ApiStatus.OK);
+            return;
+        }
         char[] password = request.password() == null ? null : request.password().toCharArray();
-        send(ctx, sessions.login(request.username(), password), ApiStatus.OK);
+        OperationResult<?> result = sessions.login(request.username(), password);
+        if (result.success()) {
+            accountLoginFailures.reset(account);
+        } else if (result.error() == ErrorKind.AUTHENTICATION) {
+            accountLoginFailures.record(account);
+            addressLoginFailures.record(address);
+        }
+        send(ctx, result, ApiStatus.OK);
     }
 
     /**
@@ -507,6 +580,36 @@ public final class ApiServer {
         return status;
     }
 
+    /** Answers with the simulation, or 503 when this server runs without it. */
+    private void sendSimulation(Context ctx, Function<SimulationController, OperationResult<?>> work) {
+        SimulationController current;
+        synchronized (this) {
+            current = simulation;
+        }
+        send(ctx, current == null
+                ? OperationResult.error(ErrorKind.UNAVAILABLE, NO_SIMULATION)
+                : work.apply(current), ApiStatus.OK);
+    }
+
+    /** The body of 10.3; without the segment or the level, a 400. */
+    private TrafficRequest readTraffic(Context ctx) {
+        TrafficRequest request = readBody(ctx, TrafficRequest.class);
+        if (request.segmentId() == null || request.segmentId() <= 0 || request.level() == null) {
+            throw new ValidationException(BAD_TRAFFIC);
+        }
+        return request;
+    }
+
+    /** ?level=MODERADO or CONGESTIONADO of 8.2; without it, null (both levels). */
+    private static TrafficLevel levelParam(Context ctx) {
+        String value = blankToNull(ctx.queryParam("level"));
+        try {
+            return value == null ? null : TrafficLevel.fromCode(value.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(BAD_LEVEL);
+        }
+    }
+
     /** The body of 6.2 and 6.3; without one of the two ids, a 400. */
     private DispatchRequest readDispatch(Context ctx) {
         DispatchRequest request = readBody(ctx, DispatchRequest.class);
@@ -594,6 +697,9 @@ public final class ApiServer {
         }
         ctx.status(ApiStatus.of(result, successStatus));
         ctx.contentType(JSON);
+        // The answers carry tokens and personal data: never cached, never read as another type.
+        ctx.header("Cache-Control", "no-store");
+        ctx.header("X-Content-Type-Options", "nosniff");
         ctx.result(body);
     }
 

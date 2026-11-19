@@ -3,22 +3,26 @@ package co.edu.unicesar.rutavida.controller;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.dto.SimulationStatus;
+import co.edu.unicesar.rutavida.dto.TrafficSegmentView;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.enums.TrafficLevel;
 import co.edu.unicesar.rutavida.service.AuthService;
+import co.edu.unicesar.rutavida.service.TrafficMapService;
 import co.edu.unicesar.rutavida.simulation.SimulationEngine;
 import co.edu.unicesar.rutavida.util.Messages;
 import co.edu.unicesar.rutavida.util.ValidationUtil;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Control of the simulation for the view (CU-19, docs/api.md 10). Seeing its state needs
- * TRAFICO / CONSULTAR; starting, stopping it and forcing the traffic of a segment need
- * TRAFICO / GESTIONAR ("Registrar trafico y controlar el simulador").
+ * Control of the simulation for the view (CU-19, docs/api.md 10) and its traffic layer on the
+ * map (8.2). Seeing the state and the traffic needs TRAFICO / CONSULTAR; starting, stopping it
+ * and forcing the traffic of a segment need TRAFICO / GESTIONAR ("Registrar trafico y
+ * controlar el simulador").
  */
 public class SimulationController {
 
@@ -29,11 +33,14 @@ public class SimulationController {
     static final String VIEW = "CONSULTAR";
 
     private final SimulationEngine engine;
+    private final TrafficMapService trafficMap;
     private final AuthService authService;
     private final SessionContext session;
 
-    public SimulationController(SimulationEngine engine, AuthService authService, SessionContext session) {
+    public SimulationController(SimulationEngine engine, TrafficMapService trafficMap, AuthService authService,
+                                SessionContext session) {
         this.engine = Objects.requireNonNull(engine, "engine");
+        this.trafficMap = Objects.requireNonNull(trafficMap, "trafficMap");
         this.authService = Objects.requireNonNull(authService, "authService");
         this.session = Objects.requireNonNull(session, "session");
     }
@@ -59,13 +66,22 @@ public class SimulationController {
         });
     }
 
-    /** 10.3: the traffic level of a segment for the demo, applied in the next cycle. */
-    public OperationResult<Void> forceTraffic(long segmentId, TrafficLevel level) {
+    /**
+     * 10.3: the traffic level of a segment for the demo. It is applied, saved and checked
+     * against the active routes in the next cycle; while the simulation is stopped, it waits
+     * for the start. Answers the segment as the map will paint it.
+     */
+    public OperationResult<TrafficSegmentView> forceTraffic(long segmentId, TrafficLevel level) {
         return run(MANAGE, user -> {
             ValidationUtil.requireNonNull(level, "nivel de tráfico");
             engine.forceCongestion(segmentId, level);
-            return null;
+            return trafficMap.forced(segmentId, level, engine.source());
         });
+    }
+
+    /** 8.2: the congested segments now; {@code only} null for MODERADO and CONGESTIONADO. */
+    public OperationResult<List<TrafficSegmentView>> trafficSegments(TrafficLevel only) {
+        return run(VIEW, user -> trafficMap.current(only));
     }
 
     private SimulationStatus currentStatus() {
