@@ -25,6 +25,7 @@ CONNECT rutavida/LA_CONTRASEÑA_QUE_ELEGISTE@localhost:1521/XEPDB1
 @04_plsql.sql
 @07_boton_panico.sql
 @08_ciudadanos.sql
+@10_hospitales_y_unidades.sql
 @98_verificar.sql
 exit
 ```

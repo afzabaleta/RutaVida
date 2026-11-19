@@ -73,6 +73,7 @@ SPOOL instalacion.log
 @06_unidades_ejemplo.sql
 @07_boton_panico.sql
 @08_ciudadanos.sql
+@10_hospitales_y_unidades.sql
 @98_verificar.sql
 SPOOL OFF
 exit
@@ -82,6 +83,7 @@ exit
 - `06_unidades_ejemplo.sql` crea 5 unidades de **EJEMPLO** (códigos `EJEMPLO-…`, sin placa) y una base de ambulancias de ejemplo para la simulación. No son unidades reales.
 - `07_boton_panico.sql` crea la tabla `REPORTE_PANICO`, el rol y el tipo de vehículo `POLICIA`, los permisos del módulo `PANICO` y el usuario `sistema.rutavida` (inactivo: nadie inicia sesión con él). Al final muestra 7 líneas que deben decir `SI`.
 - `08_ciudadanos.sql` (DT-13) crea el rol `CIUDADANO`, el permiso `PANICO/REPORTAR` y la tabla `SESION_CIUDADANO` (tabla 25), donde viven las sesiones de 30 días del celular. Se puede ejecutar dos veces sin error. Al final muestra 6 líneas que deben decir `SI`.
+- `10_hospitales_y_unidades.sql` (DT-14) agrega 5 hospitales y clínicas **reales**, con su posición de OpenStreetMap y la fuente de cada dato. También crea 4 bases de **EJEMPLO** (norte, occidente, oriente y sur) con 10 unidades `EJEMPLO-…` más, para que el despacho se reparta por la ciudad. Necesita la red vial de toda el área urbana.
 - En `98_verificar.sql` todas las columnas `OK` deben decir `SI`, y cada línea de la prueba 8 (PL/SQL) debe terminar en `SI`. Las dos pruebas marcadas "DEBE FALLAR" deben mostrar `ORA-02290`: eso es correcto.
 - También sirve SQL Developer (host `localhost`, puerto `1521`, servicio `XEPDB1`, ejecutar cada archivo con F5).
 - En los scripts, un comentario nunca va después del `;` en la misma línea: SQL*Plus lo envía como parte de la sentencia. `SqlScriptStyleTest` lo verifica.
