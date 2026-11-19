@@ -199,7 +199,8 @@ public final class AppContext {
         IncidentService incidentService = new IncidentService(new JdbcRoadIncidentDAO(jdbc),
                 new JdbcRoadSegmentDAO(jdbc), auditService, jdbc, clock);
         this.incidentController = new IncidentController(incidentService, authService, session);
-        this.roadMapController = new RoadMapController(new RoadMapService(new JdbcRoadMapDAO(jdbc)));
+        // The graph is read on the first nearest-segment search (9.4); WebServer loads it at start.
+        this.roadMapController = new RoadMapController(new RoadMapService(new JdbcRoadMapDAO(jdbc), this::roadGraph));
 
         // Alerts of each user (S8, A12f). Dispatch, recalculation and simulation (K7, K8, K9)
         // create them through alertService(), so everyone shares this instance.

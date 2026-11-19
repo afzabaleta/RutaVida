@@ -894,6 +894,7 @@ classDiagram
     class DashboardSummary
     class OperationsReport
     class SegmentView
+    class NearbySegment
     class TrafficSegmentView
 
 
@@ -1225,6 +1226,8 @@ class HospitalService {
     }
     class RoadMapService {
         -mapDao : RoadMapDAO
+        -graph : Supplier~RoadGraph~
+        +nearestSegment(point: GeoPoint) NearbySegment
         +describe(incidents: List~RoadIncident~) List~IncidentView~
         +describe(incident: RoadIncident) IncidentView
         +describeRoutes(routes: List~Route~) List~MissionRoute~
@@ -1520,6 +1523,15 @@ classDiagram
         +from : GeoPoint
         +to : GeoPoint
     }
+    class NearbySegment {
+        <<record>>
+        +segmentId : long
+        +reverseSegmentId : Long
+        +streetName : String
+        +from : GeoPoint
+        +to : GeoPoint
+        +distanceMeters : double
+    }
     class TrafficSegmentView {
         <<record>>
         +segmentId : long
@@ -1765,6 +1777,9 @@ classDiagram
         +nodeIndexOf(dbId: long) int
         +edgeIndexOf(dbId: long) int
         +nearestNode(lat: double, lon: double) int
+        +nearestEdge(lat: double, lon: double) int
+        +distanceToEdgeMeters(edgeIndex: int, lat: double, lon: double) double
+        +reverseEdge(edgeIndex: int) int
         +version() long
     }
     class CostFunction {
@@ -2303,6 +2318,7 @@ class IncidentController {
         +incidentOnMap(incident: OperationResult~RoadIncident~) OperationResult~IncidentView~
         +routesOnMap(routes: OperationResult~List~Route~~) OperationResult~List~MissionRoute~~
         +dispatchOnMap(dispatch: OperationResult~DispatchResult~) OperationResult~DispatchedMission~
+        +nearestSegment(latitude: double, longitude: double) OperationResult~NearbySegment~
     }
     class AlertController {
         -alertService : AlertService
