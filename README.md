@@ -145,7 +145,7 @@ Límites del plan gratuito: 30 sesiones simultáneas, **se detiene sola después
 3. Ejecutar `database/osm/borrar_red_vial.sql`, que pide escribir `BORRAR RED`.
 4. Ejecutar `05_red_vial_valledupar.sql`.
 5. Ejecutar `98_verificar.sql`.
-6. Iniciar `WebServer`.
+6. Iniciar `WebServer`. **Siempre** hay que reiniciarlo después de cambiar la red: el servidor carga las calles una sola vez, al arrancar. Si sigue con la red vieja, una emergencia fuera de esa red queda sin unidades ("No hay unidades disponibles que lleguen por la red vial cargada").
 
 El archivo `.osm` no se sube al repositorio (`.gitignore`). Datos de la red vial: © OpenStreetMap contributors, licencia [ODbL](https://www.openstreetmap.org/copyright).
 
