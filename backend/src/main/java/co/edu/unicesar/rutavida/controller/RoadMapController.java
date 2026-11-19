@@ -4,7 +4,9 @@ import co.edu.unicesar.rutavida.dto.DispatchResult;
 import co.edu.unicesar.rutavida.dto.DispatchedMission;
 import co.edu.unicesar.rutavida.dto.IncidentView;
 import co.edu.unicesar.rutavida.dto.MissionRoute;
+import co.edu.unicesar.rutavida.dto.NearbySegment;
 import co.edu.unicesar.rutavida.dto.OperationResult;
+import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.service.RoadMapService;
@@ -46,6 +48,14 @@ public class RoadMapController {
             return OperationResult.error(incident.error(), incident.message());
         }
         return run(() -> mapService.describe(incident.value()));
+    }
+
+    /**
+     * The street segment closest to a point (GET /api/road/segments/nearest, 9.4). The API
+     * checks RED_VIAL/CONSULTAR before calling it; it only reads the graph in memory.
+     */
+    public OperationResult<NearbySegment> nearestSegment(double latitude, double longitude) {
+        return run(() -> mapService.nearestSegment(new GeoPoint(latitude, longitude)));
     }
 
     /** The routes of a mission with their lines (GET /api/dispatches/{id}/routes). */

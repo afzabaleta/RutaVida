@@ -115,6 +115,55 @@ public class RoadGraph {
         return best;
     }
 
+    /**
+     * Segment closest to a coordinate, measured to the line between its two ends (not to one
+     * of its nodes), or -1 if the graph has no segments. Linear search, like nearestNode.
+     */
+    public int nearestEdge(double lat, double lon) {
+        int best = -1;
+        double bestMeters = Double.POSITIVE_INFINITY;
+        for (Edge edge : edges) {
+            double meters = distanceToEdgeMeters(edge.index(), lat, lon);
+            if (meters < bestMeters) {
+                bestMeters = meters;
+                best = edge.index();
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Meters from a coordinate to the line of a segment. At city scale the earth is flat: the
+     * points are projected on a plane centered on the coordinate (equirectangular).
+     */
+    public double distanceToEdgeMeters(int edgeIndex, double lat, double lon) {
+        Edge edge = edges[edgeIndex];
+        Node a = nodes[edge.from()];
+        Node b = nodes[edge.to()];
+        double metersPerDegreeLat = 111_320;
+        double metersPerDegreeLon = 111_320 * Math.cos(Math.toRadians(lat));
+        double ax = (a.lon() - lon) * metersPerDegreeLon;
+        double ay = (a.lat() - lat) * metersPerDegreeLat;
+        double bx = (b.lon() - lon) * metersPerDegreeLon;
+        double by = (b.lat() - lat) * metersPerDegreeLat;
+        double dx = bx - ax;
+        double dy = by - ay;
+        double lengthSquared = dx * dx + dy * dy;
+        double t = lengthSquared == 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lengthSquared));
+        return Math.hypot(ax + t * dx, ay + t * dy);
+    }
+
+    /** The segment that joins the same two nodes in the other direction, or -1 on a one-way street. */
+    public int reverseEdge(int edgeIndex) {
+        Edge edge = edges[edgeIndex];
+        for (Edge back : outgoing[edge.to()]) {
+            if (back.to() == edge.from()) {
+                return back.index();
+            }
+        }
+        return -1;
+    }
+
     /** Increases on every update; lets a cached route know the graph changed. */
     public long version() {
         return version;

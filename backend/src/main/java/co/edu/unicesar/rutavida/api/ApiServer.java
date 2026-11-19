@@ -87,6 +87,7 @@ public final class ApiServer {
     private static final String BAD_STATUS = "El estado del incidente no es válido.";
     private static final String BAD_DISPATCH = "Indique la emergencia y la unidad (emergencyId y vehicleId).";
     private static final String BAD_MISSION_STATUS = "El estado de la misión no es válido.";
+    private static final String BAD_COORDINATE = "Indique el punto con lat y lon (grados decimales).";
     private static final String TRANSFER_WITHOUT_HOSPITAL =
             "Para el traslado elija el hospital de destino (hospitalId).";
     private static final String HOSPITAL_WITHOUT_TRANSFER =
@@ -315,6 +316,9 @@ public final class ApiServer {
         // keep the session alive; reporting and validating do.
         config.routes.get("/api/incidents", secured("INCIDENTES", "CONSULTAR", AUTOMATIC,
                 ctx -> send(ctx, roadMap.incidentsOnMap(listIncidents(ctx)), ApiStatus.OK)));
+        config.routes.get("/api/road/segments/nearest", secured("RED_VIAL", "CONSULTAR", USER_ACTION,
+                ctx -> send(ctx, roadMap.nearestSegment(coordinate(ctx, "lat", 90), coordinate(ctx, "lon", 180)),
+                        ApiStatus.OK)));
         config.routes.post("/api/incidents", secured("INCIDENTES", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, roadMap.incidentOnMap(incidents.report(readBody(ctx, IncidentRequest.class))),
                         ApiStatus.CREATED)));
@@ -627,6 +631,20 @@ public final class ApiServer {
             throw new ValidationException(BAD_DISPATCH);
         }
         return request;
+    }
+
+    /** A latitude or longitude of the query (9.4); missing, not a number or out of range: 400. */
+    private static double coordinate(Context ctx, String name, double limit) {
+        String text = ctx.queryParam(name);
+        try {
+            double value = Double.parseDouble(text == null ? "" : text.trim());
+            if (Double.isFinite(value) && Math.abs(value) <= limit) {
+                return value;
+            }
+        } catch (NumberFormatException ignored) {
+            // falls through to the 400 below
+        }
+        throw new ValidationException(BAD_COORDINATE);
     }
 
     /**

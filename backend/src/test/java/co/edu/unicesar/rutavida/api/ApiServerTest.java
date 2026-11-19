@@ -153,7 +153,7 @@ class ApiServerTest {
         // Incidents on in-memory DAOs (S7); the map knows CALLE_16 and the streets of the city.
         IncidentController incidents = new IncidentController(new IncidentTestSupport().service(),
                 support.authService, support.sessionContext);
-        RoadMapController roadMap = new RoadMapController(new RoadMapService(this::segmentViews));
+        RoadMapController roadMap = new RoadMapController(new RoadMapService(this::segmentViews, () -> city.graph));
 
         // EXAMPLE alerts: two for marta.ruiz (user 3) and one for ana.perez (user 1).
         InMemoryAlertDAO alertDao = new InMemoryAlertDAO();
@@ -692,6 +692,28 @@ class ApiServerTest {
         assertEquals(403, send("GET", "/api/dispatches/" + mission + "/hospitals", login("ana.perez"), null)
                 .statusCode(), "the test operator has no DESPACHO permission");
         assertEquals(404, send("GET", "/api/dispatches/999/hospitals", token, null).statusCode());
+    }
+
+    @Test
+    void aClickOnTheMapFindsTheNearestStreetToReportAnIncident() throws Exception {
+        String token = login("marta.ruiz");
+
+        HttpResponse<String> found = send("GET", "/api/road/segments/nearest?lat=10.46205&lon=-73.257", token, null);
+        assertEquals(200, found.statusCode(), found.body());
+        JsonNode nearest = value(found);
+        assertEquals("Calle de prueba", nearest.get("streetName").asText());
+        assertTrue(nearest.get("distanceMeters").asDouble() < 10);
+        assertTrue(nearest.get("reverseSegmentId").isNumber(), "the test streets are two-way");
+        assertEquals(10.462, nearest.get("from").get("latitude").asDouble(), 1e-9);
+
+        assertEquals(409, send("GET", "/api/road/segments/nearest?lat=10.50&lon=-73.20", token, null).statusCode(),
+                "no street within 150 m");
+        assertEquals(400, send("GET", "/api/road/segments/nearest?lat=abc&lon=-73.2", token, null).statusCode());
+        assertEquals(400, send("GET", "/api/road/segments/nearest?lat=10.46", token, null).statusCode());
+        assertEquals(400, send("GET", "/api/road/segments/nearest?lat=95&lon=-73.2", token, null).statusCode());
+        assertEquals(403, send("GET", "/api/road/segments/nearest?lat=10.46&lon=-73.26", login("ana.perez"), null)
+                .statusCode(), "the test operator has no RED_VIAL permission");
+        assertEquals(401, send("GET", "/api/road/segments/nearest?lat=10.46&lon=-73.26", null, null).statusCode());
     }
 
     @Test

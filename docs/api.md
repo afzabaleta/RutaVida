@@ -134,6 +134,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 50 | `GET` | `/api/reports/operations` | `REPORTES/CONSULTAR` | RF-11 |
 | 51 | `GET` | `/api/panic/emergency-types` | Ninguno (pública, solo lectura) | CU-22 |
 | 52 | `POST` | `/api/citizens` | Ninguno (pública, máximo 10 cuentas por hora por dirección de red) | CU-23 |
+| 53 | `GET` | `/api/road/segments/nearest?lat=&lon=` | `RED_VIAL/CONSULTAR` | CU-13 |
 
 "Sesión" significa que basta con un token válido, sin un permiso específico.
 
@@ -538,6 +539,22 @@ Salida `201`: el incidente (forma de 9.1). `400` si el tramo no existe o el tipo
 ### 9.3 `PATCH /api/incidents/{id}/status`
 
 Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RECHAZADO" }` o `{ "status": "CERRADO" }`. Al pasar a `ACTIVO` o `CERRADO`, el motor de rutas lo tiene en cuenta en el siguiente ciclo de la simulación (unos segundos) y se revisan las rutas activas (CU-17, K8 y K9). Salida `200`: el incidente (forma de 9.1). `400` si falta `status`; `404` si el incidente no existe. `409` si la transición no está permitida (`IncidentService`).
+
+### 9.4 `GET /api/road/segments/nearest?lat=10.4621&lon=-73.2570`
+
+El tramo de la red vial más cercano a un punto del mapa, para registrar un incidente con un clic sobre la calle (CU-13). Permiso `RED_VIAL/CONSULTAR` (operador, coordinador y administrador). Es una acción del usuario: mantiene viva la sesión.
+
+```json
+{ "success": true, "message": null, "value": {
+   "segmentId": 413, "reverseSegmentId": 414, "streetName": "Calle 16",
+   "from": { "latitude": 10.468901, "longitude": -73.258004 },
+   "to": { "latitude": 10.468377, "longitude": -73.260112 },
+   "distanceMeters": 6.4 } }
+```
+
+- La distancia se mide a la **línea** del tramo, no a sus esquinas, sobre la red que el servidor tiene en memoria (la que cargó al arrancar).
+- `reverseSegmentId` es la misma calle en el otro sentido; `null` si la calle es de un solo sentido. En la red, cada sentido es un tramo, así que un cierre de las dos calzadas son **dos** incidentes, uno por tramo.
+- Errores: `400` si falta `lat` o `lon`, no son números o están fuera de rango; `409` si no hay ninguna calle a menos de **150 m** («Haga clic sobre una calle») o si la red vial no está cargada.
 
 ## 10. Simulación (CU-19)
 
