@@ -497,9 +497,11 @@ async function initializeDashboard() {
       const unit = unitCodes.get(mission.vehicleId)
         ?? `la unidad ${mission.vehicleId}`;
 
+      const km = route.distanceKm.toLocaleString("es-CO", { maximumFractionDigits: 2 });
+      const minutes = route.estimatedMinutes.toLocaleString("es-CO", { maximumFractionDigits: 1 });
+
       simulation?.routeChanged(
-        `Ruta recalculada: ${unit} toma un camino nuevo (${route.distanceKm} km, `
-        + `${route.estimatedMinutes} min). Tráfico SIMULADO.`
+        `Ruta recalculada: ${unit} toma un camino nuevo (${km} km, ${minutes} min). Tráfico SIMULADO.`
       );
     },
 
