@@ -408,3 +408,56 @@ La pagina reportes.html permite consultar indicadores historicos desde Oracle.
 - Los indicadores proceden de Oracle; no se inventan resultados.
 
 Pendiente: verificar el funcionamiento real y la visualizacion movil.
+
+
+## D12. Panel de simulación
+
+El centro de operaciones permite controlar la simulación de unidades y visualizar el tráfico simulado sobre el mapa de Valledupar.
+
+### Funcionalidades
+
+- Consultar el estado de la simulación cada 5 segundos.
+- Iniciar y detener la simulación.
+- Congestionar el tercio central de una ruta activa.
+- Liberar los tramos congestionados desde el panel.
+- Actualizar la capa de tráfico cada 15 segundos.
+- Mostrar avisos de recálculo de rutas durante 10 segundos.
+- Adaptar los controles a computadores, tabletas y celulares.
+
+### Archivos
+
+| Archivo | Responsabilidad |
+|---|---|
+| `dashboard.html` | Estructura del panel y leyenda de tráfico. |
+| `js/simulation-panel.js` | Control de la simulación, tráfico, permisos y avisos. |
+| `js/dashboard.js` | Integración del panel con el centro de operaciones. |
+| `js/live-map.js` | Detección de cambios en las rutas activas. |
+| `js/api-client.js` | Comunicación con la API REST de simulación. |
+| `js/app-shell.js` | Indicador de estado en el menú lateral. |
+| `css/app-shell.css` | Estilos del indicador de simulación. |
+| `css/simulacion.css` | Estilos del panel y adaptación responsive. |
+
+### Endpoints
+
+| Método | Endpoint | Función |
+|---|---|---|
+| GET | `/api/simulation` | Consultar estado. |
+| POST | `/api/simulation/start` | Iniciar simulación. |
+| POST | `/api/simulation/stop` | Detener simulación. |
+| POST | `/api/simulation/traffic` | Modificar tráfico de un tramo. |
+| GET | `/api/traffic/segments` | Consultar tramos con tráfico. |
+
+### Permisos
+
+- `TRAFICO:CONSULTAR`: visualizar el estado y la capa de tráfico.
+- `TRAFICO:GESTIONAR`: iniciar y detener la simulación.
+- `TRAFICO:GESTIONAR` y `RUTAS:CONSULTAR`: congestionar rutas y liberar los tramos modificados.
+
+### Colores del tráfico
+
+- Naranja (`#f59e0b`): tráfico moderado.
+- Rojo (`#e11d48`): tráfico congestionado.
+
+Todos los movimientos y datos de tráfico son simulados. No corresponden a GPS ni a tráfico real.
+
+El cálculo y recálculo de rutas es responsabilidad del backend. El frontend consulta y representa los resultados.
