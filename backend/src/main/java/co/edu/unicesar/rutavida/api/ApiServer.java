@@ -15,6 +15,7 @@ import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.AuditQuery;
 import co.edu.unicesar.rutavida.dto.CitizenRequest;
+import co.edu.unicesar.rutavida.dto.DispatchResult;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.HospitalRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
@@ -27,6 +28,7 @@ import co.edu.unicesar.rutavida.dto.VehicleRequest;
 import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.UserSession;
+import co.edu.unicesar.rutavida.model.EmergencyAssignment;
 import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
 import co.edu.unicesar.rutavida.model.enums.AuditResult;
 import co.edu.unicesar.rutavida.model.enums.IncidentStatus;
@@ -85,6 +87,10 @@ public final class ApiServer {
     private static final String BAD_STATUS = "El estado del incidente no es válido.";
     private static final String BAD_DISPATCH = "Indique la emergencia y la unidad (emergencyId y vehicleId).";
     private static final String BAD_MISSION_STATUS = "El estado de la misión no es válido.";
+    private static final String TRANSFER_WITHOUT_HOSPITAL =
+            "Para el traslado elija el hospital de destino (hospitalId).";
+    private static final String HOSPITAL_WITHOUT_TRANSFER =
+            "El hospital (hospitalId) solo se envía con el estado TRASLADANDO.";
     private static final String BAD_RECORD_STATUS = "El estado debe ser A (activo) o I (inactivo).";
     private static final String BAD_UNIT_STATUS = "El estado de la unidad no es válido.";
     private static final String BAD_PASSWORD = "Escriba la contraseña actual y la nueva.";
@@ -259,8 +265,11 @@ public final class ApiServer {
         }));
         config.routes.get("/api/dispatches/{id}/routes", secured("RUTAS", "CONSULTAR", USER_ACTION,
                 ctx -> send(ctx, roadMap.routesOnMap(dispatch.missionRoutes(pathId(ctx))), ApiStatus.OK)));
+        config.routes.get("/api/dispatches/{id}/hospitals", secured("DESPACHO", "GESTIONAR", USER_ACTION,
+                ctx -> send(ctx, dispatch.hospitalsFor(pathId(ctx)), ApiStatus.OK)));
         config.routes.patch("/api/dispatches/{id}/status", secured("DESPACHO", "GESTIONAR", USER_ACTION,
-                ctx -> send(ctx, dispatch.advance(pathId(ctx), readMissionStatus(ctx)), ApiStatus.OK)));
+                ctx -> send(ctx, advanceMission(pathId(ctx), readBody(ctx, AssignmentStatusRequest.class)),
+                        ApiStatus.OK)));
         config.routes.post("/api/emergencies/{id}/close", secured("DESPACHO", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, dispatch.close(pathId(ctx)), ApiStatus.OK)));
 
@@ -620,13 +629,30 @@ public final class ApiServer {
         return request;
     }
 
-    /** The new status of PATCH /api/dispatches/{id}/status; without it, a 400. */
-    private AssignmentStatus readMissionStatus(Context ctx) {
-        AssignmentStatus status = readBody(ctx, AssignmentStatusRequest.class).status();
+    /**
+     * PATCH /api/dispatches/{id}/status (6.6). TRASLADANDO goes with the hospital and starts the
+     * transfer (CU-11): the routes to the hospital are saved and the web reads them with 6.4.
+     * Every other status goes without a hospital. The answer is always the assignment.
+     */
+    private OperationResult<EmergencyAssignment> advanceMission(long assignmentId, AssignmentStatusRequest request) {
+        AssignmentStatus status = request.status();
         if (status == null) {
             throw new ValidationException(BAD_MISSION_STATUS);
         }
-        return status;
+        Long hospitalId = request.hospitalId();
+        if (status != AssignmentStatus.TRANSPORTING) {
+            if (hospitalId != null) {
+                throw new ValidationException(HOSPITAL_WITHOUT_TRANSFER);
+            }
+            return dispatch.advance(assignmentId, status);
+        }
+        if (hospitalId == null || hospitalId <= 0) {
+            throw new ValidationException(TRANSFER_WITHOUT_HOSPITAL);
+        }
+        OperationResult<DispatchResult> transfer = dispatch.startTransfer(assignmentId, hospitalId);
+        return transfer.success()
+                ? OperationResult.ok(transfer.value().assignment())
+                : OperationResult.error(transfer.error(), transfer.message());
     }
 
     /** The new status of a user, station or hospital: A or I; without it, a 400. */
