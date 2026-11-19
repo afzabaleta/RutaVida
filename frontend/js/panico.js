@@ -1,5 +1,8 @@
 import {
+  currentSession,
+  hasPermission,
   listPanicEmergencyTypes,
+  logout,
   sendPanicAlert,
 } from "./api-client.js";
 import {
@@ -25,6 +28,8 @@ let selectedLocation = null;
 let marker = null;
 let sending = false;
 let memoryDeviceId = null;
+/** DT-13: only a person with an account (PANICO:REPORTAR) can send the alert. */
+let account = null;
 
 /**
  * Random UUID v4. crypto.randomUUID only exists on https or localhost, and phones open the
@@ -76,8 +81,10 @@ function setLocation(point, source) {
 
   locationStatus.textContent =
     `${source}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  sosButton.disabled = sending;
-  panicStatus.textContent = "Ubicación lista. Puedes enviar la alerta.";
+  sosButton.disabled = sending || !account;
+  panicStatus.textContent = account
+    ? "Ubicación lista. Puedes enviar la alerta."
+    : "Ubicación lista. Inicia sesión para enviar la alerta.";
 }
 
 demoButton.addEventListener("click", () => {
@@ -150,12 +157,96 @@ sosButton.addEventListener("click", async () => {
       result.message ||
       "Reporte recibido por el servidor. Su estado depende de la validación del sistema.";
   } catch (error) {
+    if (error.status === 401) {
+      showAccountRequired("Tu sesión terminó. Inicia sesión de nuevo para enviar la alerta.");
+    }
     panicStatus.textContent =
       error.message || "No fue posible enviar la alerta.";
   } finally {
     sending = false;
-    sosButton.disabled = !selectedLocation;
+    sosButton.disabled = !selectedLocation || !account;
   }
 });
 
+// ------------------------------------------------------------------ account (DT-13)
+
+function link(href, text, className) {
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.textContent = text;
+  anchor.className = className;
+  return anchor;
+}
+
+/** Without an account the page explains how to get one; the SOS button stays off. */
+function showAccountRequired(reason) {
+  account = null;
+  sosButton.disabled = true;
+
+  const box = byId("panic-account");
+  box.replaceChildren();
+
+  const title = document.createElement("h2");
+  title.textContent = "Necesitas una cuenta";
+  const text = document.createElement("p");
+  text.textContent = reason
+    || "Para evitar alertas falsas, el botón solo funciona con una cuenta. Inicia sesión una vez y tu "
+      + "celular quedará conectado 30 días.";
+  const actions = document.createElement("div");
+  actions.className = "panic-actions";
+  actions.append(
+    link("./index.html", "Iniciar sesión", "panic-secondary"),
+    link("./registro.html", "Crear cuenta", "panic-secondary"),
+  );
+  box.append(title, text, actions);
+}
+
+function showAccount(session) {
+  account = session;
+  sosButton.disabled = !selectedLocation || sending;
+
+  const box = byId("panic-account");
+  box.replaceChildren();
+
+  const text = document.createElement("p");
+  const name = `${session.user.firstNames ?? ""} ${session.user.lastNames ?? ""}`.trim()
+    || session.user.username;
+  text.textContent = `Conectado como ${name} (${session.role}).`;
+
+  const exit = document.createElement("button");
+  exit.type = "button";
+  exit.className = "panic-secondary";
+  exit.textContent = "Cerrar sesión";
+  exit.addEventListener("click", async () => {
+    await logout();
+    showAccountRequired("Cerraste sesión en este celular.");
+  });
+
+  const note = document.createElement("p");
+  note.className = "panic-hint";
+  note.textContent = hasPermission(session, "PANICO:VALIDAR")
+    ? "Como policía, tu reporte valida la alerta de inmediato."
+    : "Las alertas quedan a tu nombre. Dos alertas falsas bloquean la cuenta.";
+
+  box.append(text, note, exit);
+}
+
+async function loadAccount() {
+  let session = null;
+  try {
+    session = await currentSession();
+  } catch {
+    session = null;
+  }
+
+  if (session && hasPermission(session, "PANICO:REPORTAR")) {
+    showAccount(session);
+  } else {
+    showAccountRequired(session
+      ? "Tu rol no envía alertas desde el botón de pánico."
+      : null);
+  }
+}
+
+loadAccount();
 loadTypes();

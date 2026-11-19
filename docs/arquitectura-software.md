@@ -226,7 +226,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Traslado al hospital (K7b) y servicios de cada hospital (`SERVICIO_HOSPITAL`) | **Pendiente** |
 | DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones (A7c, S9, S10) | Programado y probado |
 | Movimiento simulado de las unidades y seguimiento (`VehicleMovementSimulator`, `TrackingService`, A13) | Programado y probado |
-| Motor de la simulación y escenarios (`SimulationEngine`, K9) | **Pendiente** |
+| Motor de la simulación (`SimulationEngine`, K9): tráfico, incidentes, recálculo, movimiento y llegada de las unidades | Programado y probado (sin Oracle); falta la API (A12e) |
 | Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
 | API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |
@@ -244,6 +244,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | API de administración: usuarios y roles, cambio de la propia contraseña, unidades, estaciones y hospitales (`docs/api.md` 15, A17) | Programado y probado (sin Oracle); prueba con Oracle pendiente |
 | Consulta de la auditoría (CU-21): quién hizo qué y cuándo, con filtros por fechas, módulo, usuario y resultado (`AuditQueryService`, `AuditController`, `GET /api/audit`, A18) | Programado y probado (sin Oracle); prueba de `JdbcAuditDAO.search` con Oracle pendiente |
 | Reporte de operación por periodo (RF-11): emergencias, tiempos de respuesta, despachos, rutas y recálculos, incidentes y botón de pánico, por tipo, severidad, tipo de vehículo y día (`ReportService`, `ReportController`, `GET /api/reports/operations`, A23) | Programado y probado (sin Oracle); prueba de `JdbcReportDAO` con Oracle pendiente |
+| Cuentas de ciudadano para el botón de pánico (DT-13, CU-23, RN-16): registro con autorización de datos, sesión de 30 días guardada en Oracle, reportes a nombre de la persona y bloqueo tras 2 alertas descartadas (`CitizenService`, `CitizenController`, `CitizenSessionDAO`, `08_ciudadanos.sql`, `registro.html`) | Programado y probado sin Oracle; `08_ciudadanos.sql` y `JdbcCitizenSessionDAO` sin probar en Oracle |
 
 
 El detalle clase por clase está en `docs/class-diagram.md`, sección 9.
@@ -267,7 +268,7 @@ El acceso al seguimiento depende de `EMERGENCIAS:CONSULTAR`; la consulta de ruta
 
 El backend conserva la responsabilidad sobre los datos operativos, el cálculo de rutas, la simulación y las reglas de negocio. El frontend únicamente consulta y presenta la información.
 
-## 9. Integración web del botón de pánico (D9)
+## 13. Integración web del botón de pánico (D9)
 
 La funcionalidad D9 mantiene la separación por capas
 de RutaVida.
@@ -293,7 +294,8 @@ JDBC gestionan los reportes en Oracle.
 ### Consideraciones de seguridad
 
 - El identificador local del dispositivo no equivale
-  a una identidad autenticada.
+  a una identidad autenticada. Por eso, desde DT-13,
+  el botón exige una cuenta (sección 14).
 - El servidor debe controlar los permisos para
   consultar y descartar reportes.
 - La geolocalización del navegador requiere un
@@ -311,3 +313,19 @@ La visualización del dashboard fue comprobada.
 La integración funcional completa con los estados,
 permisos y respuestas reales de la API requiere
 verificación antes de declarar terminado el caso de uso.
+
+## 14. Cuentas de ciudadano del botón de pánico (DT-13)
+
+El profesor pidió que cada alerta tenga un responsable. El cambio respeta las mismas capas:
+
+**Presentación:** `registro.html` y `registro.js` crean la cuenta e inician sesión. `panico.js` muestra quién está conectado y deja el botón apagado sin cuenta. `api-client.js` guarda el token del ciudadano en `localStorage` (el del personal sigue en `sessionStorage`) y `homeOf()` manda al ciudadano a `panico.html` y al personal al panel.
+
+**API:** `POST /api/citizens` es pública con un límite por dirección de red; `POST /api/panic` pasa a `secured("PANICO", "REPORTAR", ...)`, como cualquier otra ruta protegida.
+
+**Controlador:** `CitizenController` envuelve el registro en `OperationResult`. `WebSessionController` decide el tipo de sesión al iniciar: el personal sigue en memoria (30 minutos / 8 horas, DT-08); el ciudadano recibe una sesión de 30 días que `CitizenService` guarda en Oracle. Al autenticar, si el token no está en memoria, se busca en la base.
+
+**Negocio:** `CitizenService` registra, abre, busca y cierra las sesiones de 30 días, y bloquea (RN-16). `PanicService` exige la sesión, limita y cuenta personas por usuario, y después de descartar una alerta (fuera de la transacción del descarte) bloquea a quien ya suma 2 alertas descartadas en 30 días.
+
+**Persistencia:** `CitizenSessionDAO` / `JdbcCitizenSessionDAO` sobre la tabla `SESION_CIUDADANO`; `PanicReportDAO` agrega los conteos por usuario.
+
+**Seguridad:** la base guarda solo el hash SHA-256 del token; el bloqueo revoca todas las sesiones del ciudadano; el registro y el bloqueo quedan en la auditoría. El rol lo pone el servidor: nadie se registra como policía o administrador desde la página pública.

@@ -6,9 +6,13 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
   <meta name="theme-color" content="#101923">
   <title>RutaVida | Centro de operaciones</title>
+  <!-- Sets data-theme before paint (no flash). -->
+  <script src="./js/theme-boot.js"></script>
   <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./css/rutavida.css">
   <link rel="stylesheet" href="./css/dashboard.css">
+  <link rel="stylesheet" href="./css/app-shell.css">
+  <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -22,55 +26,42 @@
 </head>
 
 <body class="dashboard-body">
-  <header class="dashboard-header">
-    <a class="dashboard-brand" href="./dashboard.html" aria-label="RutaVida, panel principal">
-      <img src="./img/logo.svg" alt="" width="42" height="42">
-      <span>
-        <strong>RutaVida</strong>
-        <small>Centro de operaciones</small>
-      </span>
-    </a>
+  <!-- Moved into the page header by app-shell.js -->
+  <div class="bell-container" data-shell-slot="header-actions">
+    <button
+      id="alert-bell"
+      class="bell-button"
+      type="button"
+      aria-label="Alertas"
+      aria-expanded="false"
+      aria-controls="alert-panel">
+      <span class="shell-icon shell-icon-bell" aria-hidden="true"></span>
+      <span id="alert-count" class="bell-count" hidden>0</span>
+    </button>
 
-      <div class="bell-container">
-        <button
-          id="alert-bell"
-          class="bell-button"
-          type="button"
-          aria-label="Alertas"
-          aria-expanded="false"
-          aria-controls="alert-panel">
-          <span aria-hidden="true">🔔</span>
-          <span id="alert-count" class="bell-count" hidden>0</span>
-        </button>
-
-        <section id="alert-panel" class="bell-panel" hidden>
-          <h2>Alertas</h2>
-          <div id="alert-list" class="bell-list"></div>
-        </section>
-      </div>
-    <div class="header-user">
-      <div>
-        <strong id="user-name">Cargando…</strong>
-        <small id="user-role"></small>
-      </div>
-      <a class="logout-link" href="./index.html">Salir</a>
-    </div>
-  </header>
+    <section id="alert-panel" class="bell-panel" hidden>
+      <h2>Alertas</h2>
+      <div id="alert-list" class="bell-list"></div>
+    </section>
+  </div>
 
   <main class="dashboard-main">
     <section class="welcome-row">
       <div>
-        <p class="eyebrow">GESTIÓN DE EMERGENCIAS</p>
-        <h1>Panel de control</h1>
+        <h1 class="page-title">Panel de <span>Control</span></h1>
         <p class="muted">
           Emergencias activas y recursos de Valledupar, Cesar, con los datos de Oracle.
         </p>
       </div>
 
       <div class="welcome-actions">
-        <a class="button" href="./emergencia.html">Registrar emergencia</a>
-        <a class="button button-secondary" href="./despacho.html">Despachar unidad</a>
-        <a class="button button-secondary" href="./reportes.html">Historial y reportes</a>
+        <div class="welcome-buttons">
+          <a class="button button-emergency" href="./emergencia.html">
+            <span class="shell-icon shell-icon-plus" aria-hidden="true"></span>
+            Registrar emergencia
+          </a>
+          <a class="button button-outline" href="./despacho.html">Despachar unidad</a>
+        </div>
         <span class="demo-notice">
           Prototipo académico. Las unidades EJEMPLO-… están identificadas y su movimiento es SIMULACIÓN.
         </span>
@@ -78,8 +69,8 @@
     </section>
 
     <section class="kpi-grid" aria-label="Indicadores del sistema">
-      <article class="kpi-card">
-        <span class="kpi-icon red-icon" aria-hidden="true">!</span>
+      <article class="kpi-card kpi-red">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-alert"></span></span>
         <div>
           <p>Emergencias activas</p>
           <strong id="emergency-count">—</strong>
@@ -87,8 +78,8 @@
         </div>
       </article>
 
-      <article class="kpi-card">
-        <span class="kpi-icon green-icon" aria-hidden="true">✓</span>
+      <article class="kpi-card kpi-blue">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-check"></span></span>
         <div>
           <p>Unidades disponibles</p>
           <strong id="unit-count">—</strong>
@@ -96,8 +87,8 @@
         </div>
       </article>
 
-      <article class="kpi-card">
-        <span class="kpi-icon blue-icon" aria-hidden="true">+</span>
+      <article class="kpi-card kpi-green">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-hospital"></span></span>
         <div>
           <p>Hospitales activos</p>
           <strong id="hospital-count">—</strong>
@@ -105,8 +96,8 @@
         </div>
       </article>
 
-      <article class="kpi-card">
-        <span class="kpi-icon amber-icon" aria-hidden="true">◷</span>
+      <article class="kpi-card kpi-amber">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-clock"></span></span>
         <div>
           <p>Tiempo promedio de respuesta</p>
           <strong id="response-time">Sin datos</strong>
@@ -119,7 +110,6 @@
       <aside class="side-panel emergency-panel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">SEGUIMIENTO</p>
             <h2>Emergencias</h2>
           </div>
           <span class="count-pill" id="emergency-pill">0</span>
@@ -133,7 +123,6 @@
 
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">RECURSOS</p>
             <h2>Unidades</h2>
           </div>
           <span class="count-pill" id="unit-pill">0</span>
@@ -147,7 +136,6 @@
       <section class="map-panel">
         <div class="map-heading">
           <div>
-            <p class="eyebrow">UBICACIÓN GEOGRÁFICA</p>
             <h2>Mapa en vivo de Valledupar</h2>
           </div>
           <span class="map-status" id="live-status"><span></span> Conectando seguimiento…</span>
@@ -160,13 +148,13 @@
         </div>
 
         <section class="panic-dashboard-panel" aria-labelledby="panic-title">
-  <div class="panel-heading">
-    <h2 id="panic-title">Alertas SOS <span id="panic-pill">0</span></h2>
-    <a href="./panico.html">Abrir botón SOS</a>
-  </div>
-  <p id="panic-message" role="status">Cargando reportes SOS...</p>
-  <div id="panic-list" class="panic-dashboard-list"></div>
-</section>
+          <div class="panel-heading">
+            <h2 id="panic-title">Alertas SOS <span id="panic-pill" class="count-pill">0</span></h2>
+            <a class="panel-link" href="./panico.html">Abrir botón SOS</a>
+          </div>
+          <p id="panic-message" class="panic-message" role="status">Cargando reportes SOS...</p>
+          <div id="panic-list" class="panic-dashboard-list"></div>
+        </section>
         <div class="map-legend" aria-label="Leyenda del mapa">
           <span><i class="legend-icon" data-icon="station"></i> Estación</span>
           <span><i class="legend-icon" data-icon="hospital"></i> Hospital</span>
@@ -189,7 +177,6 @@
         <section class="route-panel" aria-labelledby="mission-title">
           <div class="map-heading">
             <div>
-              <p class="eyebrow">SEGUIMIENTO EN VIVO</p>
               <h2 id="mission-title">Misiones activas</h2>
             </div>
             <span class="data-tag real-tag">ORACLE</span>
@@ -209,7 +196,6 @@
       <aside class="side-panel hospital-panel">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">RED DE ATENCIÓN</p>
             <h2>Hospitales</h2>
           </div>
           <span class="count-pill" id="hospital-pill">0</span>
@@ -224,7 +210,6 @@
           <section class="incidents-panel" aria-labelledby="incidents-title">
               <div class="panel-heading">
                   <div>
-                      <p class="eyebrow">ESTADO DE LAS VÍAS</p>
                       <h2 id="incidents-title">Incidentes viales</h2>
                   </div>
                   <span class="count-pill" id="incident-pill">0</span>

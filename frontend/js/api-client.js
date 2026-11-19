@@ -28,17 +28,20 @@ export class ApiError extends Error {
   }
 }
 
+// The staff token lives in sessionStorage: closing the tab logs out. The citizen token of
+// the panic button (DT-13) lives in localStorage: the phone stays logged in for 30 days.
 function readToken() {
   try {
-    return sessionStorage.getItem(TOKEN_KEY);
+    return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
 }
 
-function saveToken(token) {
+function saveToken(token, keepOnThisDevice = false) {
   try {
-    sessionStorage.setItem(TOKEN_KEY, token);
+    clearToken();
+    (keepOnThisDevice ? localStorage : sessionStorage).setItem(TOKEN_KEY, token);
   } catch {
     // Session lasts only while this page is open.
   }
@@ -47,6 +50,7 @@ function saveToken(token) {
 function clearToken() {
   try {
     sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
   } catch {
     // Nothing to clear.
   }
@@ -111,7 +115,7 @@ export async function login(username, password) {
     password,
   });
 
-  saveToken(session.token);
+  saveToken(session.token, session.role === "CIUDADANO");
   return session;
 }
 
@@ -543,4 +547,28 @@ export function discardPanicReport(reportId) {
     `/api/panic/reports/${encodeURIComponent(reportId)}/status`,
     { status: "DESCARTADO" }
   );
+}
+
+/**
+ * A person creates the citizen account of the panic button (CU-23, docs/api.md 16.5).
+ * Public: it works without a session. Returns the new user and the message of the server.
+ */
+export async function registerCitizen(form) {
+  const answer = await call("POST", "/api/citizens", {
+    document: form.document,
+    firstNames: form.firstNames,
+    lastNames: form.lastNames,
+    email: form.email,
+    username: form.username,
+    password: form.password,
+    dataConsent: form.dataConsent === true,
+  });
+  return { user: answer.value, message: answer.message };
+}
+
+/** Where a session starts working: the button for citizens and police, the panel for the staff. */
+export function homeOf(session) {
+  return hasPermission(session, "PANICO:REPORTAR") && !hasPermission(session, "DESPACHO:GESTIONAR")
+    ? "./panico.html"
+    : "./dashboard.html";
 }

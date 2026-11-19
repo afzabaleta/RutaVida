@@ -16,6 +16,8 @@ import co.edu.unicesar.rutavida.controller.WebTestSupport;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.dto.SegmentView;
+import co.edu.unicesar.rutavida.controller.SimulationController;
+import co.edu.unicesar.rutavida.dto.TrafficSegmentView;
 import co.edu.unicesar.rutavida.graph.Edge;
 import co.edu.unicesar.rutavida.graph.Node;
 import co.edu.unicesar.rutavida.model.Alert;
@@ -41,6 +43,11 @@ import co.edu.unicesar.rutavida.service.IncidentTestSupport;
 import co.edu.unicesar.rutavida.service.RoadMapService;
 import co.edu.unicesar.rutavida.service.DashboardService;
 import co.edu.unicesar.rutavida.service.ReportService;
+import co.edu.unicesar.rutavida.model.enums.TrafficLevel;
+import co.edu.unicesar.rutavida.model.enums.TrafficSource;
+import co.edu.unicesar.rutavida.service.TrafficMapService;
+import co.edu.unicesar.rutavida.simulation.SimulationEngine;
+import co.edu.unicesar.rutavida.simulation.SimulationTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import co.edu.unicesar.rutavida.dto.DashboardSummary;
@@ -74,8 +81,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The real HTTP server on a free port of this computer, with the EXAMPLE users of
  * WebTestSupport, the in-memory catalogs of CatalogTestSupport and EmergencyService on
  * in-memory DAOs, a dashboard with fixed counts, the incidents of IncidentTestSupport and the
- * dispatch on the small city of DispatchTestSupport. Checks the contract of docs/api.md
- * (sections 1, 2, 4, 5, 6, 7, 9 and 11) as the web will see it. Does not need Oracle.
+ * dispatch on the small city of DispatchTestSupport, and the simulation of SimulationTestSupport
+ * with two EXAMPLE congested segments. Checks the contract of docs/api.md (sections 1, 2, 4, 5,
+ * 6, 7, 8.2, 9, 10 and 11) as the web will see it. Does not need Oracle.
  */
 class ApiServerTest {
 
@@ -107,6 +115,9 @@ class ApiServerTest {
     private long anaAlert;
     private ApiServer server;
     private String base;
+    private final SimulationTestSupport simulation = new SimulationTestSupport();
+    private SimulationEngine engine;
+    private LocalDateTime trafficSince;
 
     @BeforeEach
     void start() throws IOException {
@@ -173,7 +184,16 @@ class ApiServerTest {
 
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
                 dashboard, reports, incidents, roadMap, alerts, dispatch, admin, tracking,
-                new PanicTestSupport().controller(support.authService, support.sessionContext), frontend);
+                new PanicTestSupport().controller(support.authService, support.sessionContext),
+                new PanicTestSupport().citizenController(), frontend);
+
+        // Simulation (K9) on its own small city; the traffic layer reads two EXAMPLE segments.
+        engine = simulation.engine();
+        server.withSimulation(new SimulationController(engine, new TrafficMapService(since -> {
+            trafficSince = since;
+            return List.of(trafficOf(simulation.city.graph.edge(0), TrafficLevel.CONGESTED, 2.6),
+                    trafficOf(simulation.city.graph.edge(1), TrafficLevel.MODERATE, 1.3));
+        }, this::simulationSegments, support.clock), support.authService, support.sessionContext));
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -181,7 +201,30 @@ class ApiServerTest {
 
     @AfterEach
     void stop() {
+        engine.stop();
         server.stop();
+    }
+
+    /** An EXAMPLE reading of one segment of the simulation city. */
+    private TrafficSegmentView trafficOf(Edge edge, TrafficLevel level, double congestion) {
+        Node from = simulation.city.graph.node(edge.from());
+        Node to = simulation.city.graph.node(edge.to());
+        return new TrafficSegmentView(edge.dbId(), edge.name(), level, congestion,
+                LocalDateTime.now(support.clock).minusMinutes(2), TrafficSource.SIMULATION,
+                new GeoPoint(from.lat(), from.lon()), new GeoPoint(to.lat(), to.lon()));
+    }
+
+    /** The fake RoadMapDAO of the simulation city. */
+    private List<SegmentView> simulationSegments(Collection<Long> ids) {
+        List<SegmentView> views = new ArrayList<>();
+        for (long id : ids) {
+            int index = simulation.city.graph.edgeIndexOf(id);
+            if (index >= 0) {
+                TrafficSegmentView view = trafficOf(simulation.city.graph.edge(index), TrafficLevel.FLUID, 1.0);
+                views.add(new SegmentView(id, view.streetName(), view.from(), view.to()));
+            }
+        }
+        return views;
     }
 
     /** The fake RoadMapDAO: CALLE_16 and the segments of the small city of the dispatch tests. */
@@ -270,6 +313,34 @@ class ApiServerTest {
         assertEquals(400, send("POST", "/api/auth/login", null, null).statusCode(), "no body");
         assertEquals(400, send("POST", "/api/auth/login", null, "{\"username\":\"ana.perez\"}").statusCode(),
                 "no password");
+    }
+
+    @Test
+    void fiveFailedLoginsStopTheAccountForTenMinutesButNotTheOthers() throws Exception {
+        String wrong = "{\"username\":\"Ana.Perez\",\"password\":\"otra\"}";
+        for (int attempt = 1; attempt <= ApiServer.LOGIN_FAILURES_PER_ACCOUNT; attempt++) {
+            assertEquals(401, send("POST", "/api/auth/login", null, wrong).statusCode(), "attempt " + attempt);
+        }
+
+        HttpResponse<String> stopped = send("POST", "/api/auth/login", null,
+                "{\"username\":\"ana.perez\",\"password\":\"" + WebTestSupport.PASSWORD + "\"}");
+        assertEquals(409, stopped.statusCode(), "even with the right password: the password is not checked");
+        assertEquals(ApiServer.TOO_MANY_LOGINS, json.readTree(stopped.body()).get("message").asText());
+
+        login("marta.ruiz");
+        assertEquals(400, send("POST", "/api/auth/login", null, "{\"username\":\"marta.ruiz\"}").statusCode(),
+                "a request without password is not a failed attempt");
+        login("marta.ruiz");
+    }
+
+    @Test
+    void theAnswersOfTheApiAreNeverCached() throws Exception {
+        HttpResponse<String> response = send("GET", "/api/emergency-types", login("ana.perez"), null);
+
+        assertEquals("no-store", response.headers().firstValue("Cache-Control").orElse(""));
+        assertEquals("nosniff", response.headers().firstValue("X-Content-Type-Options").orElse(""));
+        assertEquals("no-store", send("GET", "/api/alerts", null, null).headers()
+                .firstValue("Cache-Control").orElse(""), "the errors too");
     }
 
     @Test
@@ -731,5 +802,71 @@ class ApiServerTest {
 
         assertEquals(401, send("GET", "/api/alerts", token, null).statusCode(),
                 "35 minutes without a request of the user (DT-08)");
+    }
+
+    // ------------------------------------------------------------ simulation and traffic (8.2, 10)
+
+    @Test
+    void theCoordinatorStartsTheSimulationForcesTrafficAndStopsIt() throws Exception {
+        String marta = login("marta.ruiz");
+
+        HttpResponse<String> status = send("GET", "/api/simulation", marta, null);
+        assertEquals(200, status.statusCode(), status.body());
+        assertFalse(value(status).get("running").asBoolean());
+        assertEquals("SIMULACION", value(status).get("source").asText());
+
+        HttpResponse<String> started = send("POST", "/api/simulation/start", marta, null);
+        assertEquals(200, started.statusCode(), started.body());
+        assertTrue(value(started).get("running").asBoolean());
+        assertTrue(value(send("POST", "/api/simulation/start", marta, null)).get("running").asBoolean(),
+                "starting one that runs is not an error");
+
+        long segment = simulation.city.graph.edge(0).dbId();
+        HttpResponse<String> forced = send("POST", "/api/simulation/traffic", marta,
+                "{\"segmentId\": " + segment + ", \"level\": \"CONGESTIONADO\"}");
+        assertEquals(200, forced.statusCode(), forced.body());
+        JsonNode view = value(forced);
+        assertEquals(segment, view.get("segmentId").asLong());
+        assertEquals("CONGESTIONADO", view.get("level").asText());
+        assertEquals(2.5, view.get("congestionFactor").asDouble());
+        assertEquals("SIMULACION", view.get("source").asText());
+        assertTrue(view.get("from").has("latitude") && view.get("to").has("longitude"), "both ends");
+
+        assertEquals(404, send("POST", "/api/simulation/traffic", marta,
+                "{\"segmentId\": 999999, \"level\": \"CONGESTIONADO\"}").statusCode());
+        assertEquals(400, send("POST", "/api/simulation/traffic", marta,
+                "{\"segmentId\": " + segment + "}").statusCode(), "without the level");
+        assertEquals(400, send("POST", "/api/simulation/traffic", marta,
+                "{\"segmentId\": " + segment + ", \"level\": \"TRANCON\"}").statusCode(), "unknown level");
+
+        HttpResponse<String> stopped = send("POST", "/api/simulation/stop", marta, null);
+        assertEquals(200, stopped.statusCode(), stopped.body());
+        assertFalse(value(stopped).get("running").asBoolean());
+        assertFalse(engine.isRunning());
+    }
+
+    @Test
+    void theMapReadsTheTrafficLayerAndOnlyTheCoordinatorControlsTheSimulation() throws Exception {
+        String ana = login("ana.perez");
+
+        HttpResponse<String> all = send("GET", "/api/traffic/segments", ana, null);
+        assertEquals(200, all.statusCode(), all.body());
+        assertEquals(2, value(all).size());
+        assertEquals("CONGESTIONADO", value(all).get(0).get("level").asText());
+        assertEquals(simulation.city.graph.edge(0).dbId(), value(all).get(0).get("segmentId").asLong());
+        assertEquals(LocalDateTime.now(support.clock).minusMinutes(15), trafficSince, "the last 15 minutes");
+
+        HttpResponse<String> congested = send("GET", "/api/traffic/segments?level=congestionado", ana, null);
+        assertEquals(1, value(congested).size());
+        assertEquals(400, send("GET", "/api/traffic/segments?level=FLUIDO", ana, null).statusCode());
+        assertEquals(400, send("GET", "/api/traffic/segments?level=TRANCON", ana, null).statusCode());
+
+        assertEquals(200, send("GET", "/api/simulation", ana, null).statusCode(), "the operator sees the state");
+        assertEquals(403, send("POST", "/api/simulation/start", ana, null).statusCode());
+        assertEquals(403, send("POST", "/api/simulation/traffic", ana,
+                "{\"segmentId\": 1, \"level\": \"CONGESTIONADO\"}").statusCode());
+        assertFalse(engine.isRunning());
+        assertEquals(403, send("GET", "/api/traffic/segments", login("luis.gomez"), null).statusCode());
+        assertEquals(401, send("GET", "/api/simulation", null, null).statusCode());
     }
 }

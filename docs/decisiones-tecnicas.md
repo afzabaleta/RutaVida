@@ -16,6 +16,7 @@ Registro de las decisiones que afectan a todo el proyecto. Cada decisión dice q
 | DT-10 | Alcance final: núcleo, botón de pánico, rol Policía y **patrullas de policía simuladas** en el mapa. Fecha de congelamiento por definir | 05/11/2026 | Decidida por el equipo; falta la fecha |
 | DT-11 | Umbrales y parámetros en un archivo `rutavida.properties` | 05/11/2026 | **Propuesta**; falta la opinión de Kendrick |
 | DT-12 | El **botón de pánico reemplaza el reporte ciudadano por QR** (CU-22). Cualquiera lo presiona sin cuenta; 3 reportes a 300 m en 10 minutos (o 1 de un Policía) validan la alerta, que crea la emergencia y despacha sola la unidad más rápida | 14/11/2026 | Decidida por el líder |
+| DT-13 | El **botón de pánico exige una cuenta de ciudadano** (CU-23). La sesión del celular dura **30 días** sin vencer por inactividad; **2 alertas descartadas en 30 días** bloquean la cuenta (RN-16). Cambia "sin cuenta" de DT-12 | 15/11/2026 | Decidida por el líder, a pedido del profesor |
 
 ---
 
@@ -137,3 +138,21 @@ Nada de esto está programado todavía: el estado actual es **diseñado**.
 | Privacidad | Guardar el identificador del dispositivo o su hash | Solo el **hash SHA-256** del identificador que genera el navegador. No se piden nombre ni teléfono |
 
 **Qué cambia:** `database/07_boton_panico.sql` agrega la tabla `REPORTE_PANICO` (tabla 24), el tipo de vehículo `POLICIA`, el rol `POLICIA`, los permisos `PANICO/CONSULTAR`, `PANICO/GESTIONAR` y `PANICO/VALIDAR`, y el usuario del sistema. En Java: `PanicReport`, `PanicReportStatus`, `PanicReportDAO` y `JdbcPanicReportDAO` (A20). Faltan el servicio con las reglas (S11), sus rutas de la API (A20b, `docs/api.md` 16) y la página del botón (D9).
+
+## DT-13 · Cuenta obligatoria para el botón de pánico
+
+**Decisión (15/11/2026, el líder, a pedido del profesor):** el botón de pánico solo funciona con una cuenta registrada, para que cada alerta tenga un responsable y quien haga bromas se pueda bloquear. Cambia la fila "Quién lo presiona" de DT-12. Casos de uso CU-22 y CU-23, reglas RN-13, RN-14 y RN-16 (`docs/analysis.md`); rutas en `docs/api.md` (sección 2 y 16).
+
+| Tema | Opciones evaluadas | Qué se decidió y por qué |
+|---|---|---|
+| Cuenta | Seguir sin cuenta, o exigirla | Exigirla, como pidió el profesor. Sin cuenta, el identificador del dispositivo lo genera el navegador y se cambia borrando los datos, así que no sirve para bloquear a nadie. Con cuenta, el límite de 3 reportes y las "3 personas distintas" de RN-14 se cuentan por usuario. El costo: en una emergencia real nadie se registra; por eso la persona se registra **antes**, una sola vez, y la página siempre muestra "Llamar al 123" |
+| Duración de la sesión | 8 horas como el personal, 30 días, o sin vencimiento | **30 días sin vencer por inactividad**: el profesor pidió que el módulo del pánico no tenga temporizador de sesión. Sin vencimiento era más cómodo, pero un celular perdido quedaría conectado para siempre. Las sesiones del personal no cambian (30 minutos / 8 horas, DT-08) |
+| Dónde vive la sesión | En memoria, como el personal, o en Oracle | En la tabla nueva **`SESION_CIUDADANO`**: una sesión de 30 días no puede perderse cada vez que se reinicia el servidor. Se guarda solo el hash SHA-256 del token, igual que el dispositivo en DT-12: quien lea la tabla no puede usar las sesiones. El celular guarda el token en `localStorage` |
+| Cuándo bloquear | 1, 2 o 3 alertas falsas; contar también las `VENCIDO` | **2 alertas `DESCARTADO` en 30 días**. Con 1, un error de buena fe bloquearía a alguien. Las `VENCIDO` no cuentan: que nadie confirmara no prueba que fuera falsa. Una alerta ya validada que después se cierra como falsa alarma tampoco cuenta todavía (limitación conocida). El bloqueo deja el usuario inactivo, cierra sus sesiones, queda en la auditoría y avisa a los coordinadores; un administrador puede reactivarlo. Policías y administradores nunca se bloquean así |
+| Datos que se piden | Solo usuario y contraseña; o los datos de una persona | Nombres, apellidos, documento, correo, usuario y contraseña, los mismos de `USUARIO`, para poder responder por una alerta. Con **autorización expresa** del tratamiento de datos (Ley 1581 de 2012), que queda en la auditoría. No se pide teléfono ni dirección |
+| Abuso del registro | Sin límite, captcha, o límite por dirección de red | Máximo **10 cuentas por hora por dirección de red**, en memoria. Un captcha necesitaría un servicio externo. Sin verificar el documento o el correo, alguien puede crear varias cuentas: es una limitación del prototipo |
+| "Doble verificación" para lo demás | Código por correo o SMS, segundo factor, o volver a pedir la contraseña | **Volver a pedir la contraseña** en las acciones sensibles: el cambio de contraseña ya pide la actual (`POST /api/auth/password`). Un código por correo o SMS necesitaría un servicio externo que el proyecto no tiene |
+
+**Qué cambia:** `database/08_ciudadanos.sql` agrega el permiso `PANICO/REPORTAR` (para `CIUDADANO`, `POLICIA` y `ADMINISTRADOR`), el rol `CIUDADANO`, la tabla `SESION_CIUDADANO` (tabla 25) con su secuencia, y los índices `ix_sesion_ciudadano_usuario` e `ix_reporte_panico_usuario`. En Java: `CitizenSession`, `CitizenSessionDAO`, `JdbcCitizenSessionDAO`, `CitizenService`, `CitizenController`, `CitizenRequest` y `CitizenLogin`; `PanicService` exige la sesión, limita y cuenta por persona y bloquea (RN-16); `WebSessionController` entrega y reconoce las sesiones de 30 días. En la web: `registro.html`, la cuenta en `panico.html` y el token del ciudadano en `localStorage`. `POST /api/panic` ya no es pública y aparece `POST /api/citizens`.
+
+**Pendiente:** confirmar que `08_ciudadanos.sql` está ejecutado en la base local y en la nube, y correr `98_verificar.sql` en cada una. `SESION_CIUDADANO` y `SEQ_SESION_CIUDADANO` ya están en `99_eliminar_esquema.sql`, con autorización del líder del 19/11/2026.

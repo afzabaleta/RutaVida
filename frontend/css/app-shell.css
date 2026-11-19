@@ -1,0 +1,495 @@
+/* App shell: side menu, page header and mobile drawer (app-shell.js).
+   Colours and sizes follow docs/mockups/menu-referencia.html. */
+
+:root {
+  --shell-bg: #070d1a;
+  --shell-side: #0a1222;
+  --shell-border: #1e2b44;
+  --shell-text: #eef2f8;
+  --shell-item: #c9d3e3;
+  --shell-muted: #8d9bb3;
+  --shell-group: #7a8cad;
+  --shell-hover: #14213a;
+  --shell-red: #e5303f;
+  --shell-red-dark: #c81e2e;
+  --shell-red-light: #ff4d5e;
+  --shell-green: #18a865;
+  --shell-focus: #79adff;
+  --shell-title: #d6deeb;
+  --shell-icon-fg: #ffffff;
+  --shell-tag-border: #3a4a66;
+  --shell-sos-border: #ff4d5e;
+  --shell-sos-text: #ff8b96;
+  --shell-sim-border: #2a5a45;
+  --shell-sim-bg: rgb(24 168 101 / 8%);
+  --shell-sim-text: #9fe3c2;
+  --shell-sim-sub: #8fcaae;
+  --shell-avatar-bg: #1d2a44;
+  --shell-avatar-text: #c9d3e3;
+  --shell-active-shadow: 0 8px 22px rgb(0 0 0 / 45%), 0 6px 18px rgb(229 48 63 / 28%);
+  --shell-backdrop: rgb(3 6 14 / 65%);
+  --shell-drawer-shadow: 20px 0 60px rgb(0 0 0 / 60%);
+  --shell-width: 284px;
+}
+
+/* Keep the bell out of sight until the shell places it in the header. */
+.dashboard-body:not(.has-shell) [data-shell-slot] {
+  display: none;
+}
+
+body.has-shell {
+  display: grid;
+  grid-template-columns: var(--shell-width) minmax(0, 1fr);
+  background: var(--shell-bg);
+}
+
+.shell-content {
+  min-width: 0;
+}
+
+/* ---------- Side menu ---------- */
+
+.shell-sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: 26px 18px 18px;
+  border-right: 1px solid var(--shell-border);
+  background: var(--shell-side);
+  color: var(--shell-text);
+}
+
+.shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 22px;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.shell-brand img {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+}
+
+.shell-brand-text {
+  display: grid;
+  min-width: 0;
+}
+
+.shell-brand-name {
+  font-size: 1.65rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.03em;
+}
+
+.shell-accent {
+  color: var(--shell-red-light);
+}
+
+.shell-brand small {
+  margin-top: 2px;
+  color: var(--shell-muted);
+  font-size: .8125rem;
+}
+
+.shell-group {
+  margin: 18px 12px 8px;
+  color: var(--shell-group);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.shell-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 46px;
+  margin-bottom: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: var(--shell-item);
+  font-size: .95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.shell-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+a.shell-item:not(.is-active):hover {
+  background: var(--shell-hover);
+  color: var(--shell-text);
+}
+
+.shell-item.is-active {
+  background: linear-gradient(90deg, #d42335, var(--shell-red-dark));
+  color: #fff;
+  box-shadow: var(--shell-active-shadow);
+}
+
+.shell-item.is-disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.shell-icon {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  background-color: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.shell-icon-home { --icon: url("../img/icons/home.svg"); }
+.shell-icon-plus { --icon: url("../img/icons/plus.svg"); }
+.shell-icon-route { --icon: url("../img/icons/route.svg"); }
+.shell-icon-chart { --icon: url("../img/icons/chart.svg"); }
+.shell-icon-sos { --icon: url("../img/icons/sos.svg"); }
+.shell-icon-gear { --icon: url("../img/icons/gear.svg"); }
+.shell-icon-out { --icon: url("../img/icons/out.svg"); }
+.shell-icon-menu { --icon: url("../img/icons/menu.svg"); }
+.shell-icon-bell { --icon: url("../img/icons/bell.svg"); }
+.shell-icon-alert { --icon: url("../img/icons/alert.svg"); }
+.shell-icon-check { --icon: url("../img/icons/check.svg"); }
+.shell-icon-hospital { --icon: url("../img/icons/hospital.svg"); }
+.shell-icon-clock { --icon: url("../img/icons/clock.svg"); }
+.shell-icon-sun { --icon: url("../img/icons/sun.svg"); }
+.shell-icon-moon { --icon: url("../img/icons/moon.svg"); }
+
+.shell-tag {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 2px 7px;
+  border: 1px solid var(--shell-tag-border);
+  border-radius: 99px;
+  color: var(--shell-muted);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.shell-tag-sos {
+  border-color: var(--shell-sos-border);
+  color: var(--shell-sos-text);
+}
+
+.shell-tag-soon {
+  border-style: dashed;
+}
+
+.shell-footer {
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.shell-sim {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 6px 6px;
+  padding: 11px 13px;
+  border: 1px solid var(--shell-sim-border);
+  border-radius: 12px;
+  background: var(--shell-sim-bg);
+  color: var(--shell-sim-text);
+  font-size: .875rem;
+  line-height: 1.35;
+}
+
+.shell-sim small {
+  display: block;
+  color: var(--shell-sim-sub);
+  font-size: .75rem;
+}
+
+.shell-sim-dot {
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--shell-green);
+  box-shadow: 0 0 0 4px rgb(24 168 101 / 20%);
+}
+
+.shell-user {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 12px;
+  padding: 14px 12px 8px;
+  border-top: 1px solid var(--shell-border);
+}
+
+.shell-avatar {
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--shell-avatar-bg);
+  color: var(--shell-avatar-text);
+  font-weight: 800;
+  font-size: .85rem;
+}
+
+.shell-user-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shell-user strong {
+  font-size: .9375rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.shell-user small {
+  color: var(--shell-muted);
+  font-size: .75rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.shell-logout {
+  margin: 6px 0 0;
+}
+
+/* ---------- Page header ---------- */
+
+.shell-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 clamp(16px, 3vw, 40px);
+  padding: 22px 0 16px;
+  border-bottom: 1px solid var(--shell-border);
+}
+
+.shell-title {
+  margin: 0;
+  color: var(--shell-title);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.shell-title::after {
+  content: "";
+  display: block;
+  width: min(260px, 100%);
+  height: 2px;
+  margin-top: 12px;
+  background: linear-gradient(90deg, var(--shell-red), transparent);
+}
+
+.shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.shell-burger,
+.shell-mobile-brand {
+  display: none;
+}
+
+.shell-burger {
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--shell-border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--shell-icon-fg);
+  cursor: pointer;
+}
+
+.shell-burger:hover {
+  background: var(--shell-hover);
+}
+
+.shell-mobile-brand {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+/* Alert bell inside the shell header (logic stays in alert-bell.js). */
+.shell-header .bell-container {
+  margin-left: 0;
+}
+
+.shell-header .bell-button {
+  width: 44px;
+  height: 44px;
+  border-color: var(--shell-border);
+  background: transparent;
+  color: var(--shell-icon-fg);
+}
+
+.shell-header .bell-button:hover {
+  background: var(--shell-hover);
+}
+
+.shell-header .bell-button .shell-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.shell-header .bell-count {
+  background: #d42335;
+}
+
+/* Theme switch: sun = light, moon = dark; the pressed one is red. */
+.theme-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--shell-border);
+  border-radius: 12px;
+}
+
+.theme-switch button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--shell-icon-fg);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.theme-switch button:hover {
+  background: var(--shell-hover);
+}
+
+.theme-switch button[aria-pressed="true"] {
+  background: #d42335;
+  color: #fff;
+}
+
+.theme-switch .shell-icon {
+  flex-basis: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+/* ---------- Keyboard focus ---------- */
+
+.shell-sidebar a:focus-visible,
+.shell-burger:focus-visible,
+.theme-switch button:focus-visible,
+.shell-header .bell-button:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Mobile: drawer ---------- */
+
+.shell-backdrop {
+  display: none;
+}
+
+@media (max-width: 899.98px) {
+  body.has-shell {
+    display: block;
+  }
+
+  body.shell-locked {
+    overflow: hidden;
+  }
+
+  .shell-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 3000;
+    width: min(300px, 86vw);
+    height: 100%;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 240ms cubic-bezier(.2, .8, .2, 1), visibility 0s linear 240ms;
+  }
+
+  .shell-sidebar.is-open {
+    transform: none;
+    visibility: visible;
+    box-shadow: var(--shell-drawer-shadow);
+    transition: transform 240ms cubic-bezier(.2, .8, .2, 1), visibility 0s;
+  }
+
+  .shell-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2900;
+    display: block;
+    background: var(--shell-backdrop);
+  }
+
+  .shell-backdrop[hidden] {
+    display: none;
+  }
+
+  .shell-header {
+    position: sticky;
+    top: 0;
+    z-index: 1500;
+    margin: 0;
+    padding: 14px 16px;
+    background: var(--shell-side);
+  }
+
+  .shell-burger {
+    display: grid;
+  }
+
+  .shell-mobile-brand {
+    display: inline;
+  }
+
+  .shell-title {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-sidebar,
+  .shell-sidebar.is-open {
+    transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell-header .bell-panel {
+    right: 0;
+  }
+}
