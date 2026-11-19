@@ -22,6 +22,7 @@ import {
 } from "./valledupar-data.js";
 
 import { startLiveMap } from "./live-map.js";
+import { startSimulationPanel } from "./simulation-panel.js";
 import { startAlertBell } from "./alert-bell.js";
 import { startPage } from "./page-session.js";
 
@@ -476,11 +477,34 @@ async function initializeDashboard() {
     list: byId("alert-list"),
   });
 
+  // D12: the panel says whether the simulation really runs, and draws the traffic layer.
+  const simulation = startSimulationPanel(map, session, {
+    panel: byId("sim-panel"),
+    stateText: byId("sim-state"),
+    startButton: byId("sim-start"),
+    stopButton: byId("sim-stop"),
+    congestButton: byId("sim-congest"),
+    releaseButton: byId("sim-release"),
+    message: byId("sim-message"),
+    liveStatus: byId("live-status"),
+    toast: byId("route-toast"),
+  });
+  let unitCodes = new Map();
+
   const live = startLiveMap(map, session, {
+    onRouteChanged(mission, route) {
+      const unit = unitCodes.get(mission.vehicleId) ?? `la unidad ${mission.vehicleId}`;
+      simulation?.routeChanged(
+        `Ruta recalculada: ${unit} toma un camino nuevo (${route.distanceKm} km, `
+        + `${route.estimatedMinutes} min). Tráfico SIMULADO.`
+      );
+    },
+
     onSnapshot(snapshot) {
+      unitCodes = new Map((snapshot.units ?? []).map((unit) => [unit.vehicleId, unit.unitCode]));
       const status = byId("live-status");
-      if (status) {
-        status.textContent = "Seguimiento activo · SIMULACIÓN";
+      if (status && !simulation) {
+        status.textContent = "Seguimiento activo · datos SIMULACIÓN";
       }
 
       bell.setCount(snapshot.unreadAlerts ?? 0);

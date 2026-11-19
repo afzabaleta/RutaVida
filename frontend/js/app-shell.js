@@ -345,6 +345,22 @@ function startDrawer(sidebar, burger, backdrop) {
  * Elements marked data-shell-slot="header-actions" (the alert bell)
  * move into the header with their ids intact.
  */
+/**
+ * Shows in the sidebar whether the simulation really runs (D12). Without this call the
+ * box keeps its first text, so pages without the simulation panel do not lie: they say
+ * only that the data is SIMULACION.
+ */
+export function showSimulationState(running) {
+  const box = document.querySelector(".shell-sim");
+  if (!box) return;
+
+  box.classList.toggle("is-stopped", !running);
+  const title = box.querySelector("span:not(.shell-sim-dot)");
+  if (title?.firstChild) {
+    title.firstChild.textContent = running ? "Simulación en marcha" : "Simulación detenida";
+  }
+}
+
 export function renderAppShell(session) {
   if (document.body.classList.contains("has-shell")) {
     return;

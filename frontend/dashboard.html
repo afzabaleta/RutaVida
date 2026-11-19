@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="./css/rutavida.css">
   <link rel="stylesheet" href="./css/dashboard.css">
   <link rel="stylesheet" href="./css/app-shell.css">
+  <link rel="stylesheet" href="./css/simulacion.css">
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -141,6 +142,26 @@
           <span class="map-status" id="live-status"><span></span> Conectando seguimiento…</span>
         </div>
 
+        <!-- D12: simulation control. Hidden for users without TRAFICO:CONSULTAR. -->
+        <section class="sim-panel" id="sim-panel" aria-labelledby="sim-title" hidden>
+          <div class="sim-state">
+            <span class="sim-dot" aria-hidden="true"></span>
+            <div>
+              <h2 id="sim-title">Simulación</h2>
+              <p id="sim-state" role="status">Consultando…</p>
+            </div>
+          </div>
+          <div class="sim-actions">
+            <button type="button" class="button" id="sim-start">Iniciar</button>
+            <button type="button" class="button button-secondary" id="sim-stop">Detener</button>
+            <button type="button" class="button button-secondary" id="sim-congest">Congestionar ruta activa</button>
+            <button type="button" class="button button-secondary" id="sim-release">Liberar tráfico</button>
+          </div>
+          <p class="sim-message" id="sim-message" role="status"></p>
+        </section>
+
+        <p class="route-toast" id="route-toast" role="status" hidden></p>
+
         <div
           id="map"
           role="application"
@@ -167,6 +188,8 @@
           <span><i class="legend-ring available-ring"></i> Disponible</span>
           <span><i class="legend-ring busy-ring"></i> Ocupada</span>
           <span><i class="legend-zone"></i> Zona vial K4</span>
+          <span><i class="legend-traffic moderate"></i> Tráfico moderado</span>
+          <span><i class="legend-traffic congested"></i> Congestionado</span>
         </div>
 
         <p class="map-footnote">

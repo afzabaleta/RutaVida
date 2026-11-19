@@ -572,3 +572,35 @@ export function homeOf(session) {
     ? "./panico.html"
     : "./dashboard.html";
 }
+
+// ------------------------------------------------------------------ D12: simulation and traffic
+
+/** State of the simulation: { running, startedAt, tickSeconds, source } (docs/api.md, 10.1). */
+export function getSimulation() {
+  return request("GET", "/api/simulation");
+}
+
+/** Starts the simulation; starting one that runs is not an error (docs/api.md, 10.2). */
+export function startSimulation() {
+  return request("POST", "/api/simulation/start");
+}
+
+/** Stops the simulation; the units stay where they are (docs/api.md, 10.2). */
+export function stopSimulation() {
+  return request("POST", "/api/simulation/stop");
+}
+
+/** Forces the traffic of one segment for the demo: FLUIDO, MODERADO or CONGESTIONADO (10.3). */
+export function forceTraffic(segmentId, level) {
+  return request("POST", "/api/simulation/traffic", { segmentId, level });
+}
+
+/** Segments with MODERADO or CONGESTIONADO traffic now, with both ends (docs/api.md, 8.2). */
+export async function listTrafficSegments() {
+  const segments = await request("GET", "/api/traffic/segments");
+  return segments.map((segment) => ({
+    ...segment,
+    from: toPoint(segment.from),
+    to: toPoint(segment.to),
+  }));
+}
