@@ -450,6 +450,27 @@ export function changeMissionStatus(assignmentId, status) {
   );
 }
 
+/**
+ * Hospitals for the transfer of a mission EN_SITIO (docs/api.md 6.5), the most convenient
+ * first (RN-10), with location as [lat, lng].
+ */
+export async function listTransferHospitals(assignmentId) {
+  const hospitals = await request(
+    "GET",
+    `/api/dispatches/${encodeURIComponent(assignmentId)}/hospitals`
+  );
+  return hospitals.map((hospital) => ({ ...hospital, location: toPoint(hospital.location) }));
+}
+
+/** Starts the transfer to the chosen hospital (6.6): the mission goes TRASLADANDO. */
+export function startTransfer(assignmentId, hospitalId) {
+  return request(
+    "PATCH",
+    `/api/dispatches/${encodeURIComponent(assignmentId)}/status`,
+    { status: "TRASLADANDO", hospitalId }
+  );
+}
+
 /** The open assignment of an emergency, read from its history (5.5), or null. */
 export async function findOpenAssignment(emergencyId) {
   const history = await request(

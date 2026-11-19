@@ -162,13 +162,20 @@ El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad ha
 | Despachar | `POST /api/dispatches` (6.3) | `DESPACHO:GESTIONAR` |
 | Rutas de una misión ya despachada | `GET /api/dispatches/{id}/routes` (6.4) | `RUTAS:CONSULTAR` |
 | La unidad salió, llegó o se cancela | `PATCH /api/dispatches/{id}/status` (6.6) | `DESPACHO:GESTIONAR` |
+| Hospitales para el traslado, el más conveniente primero | `GET /api/dispatches/{id}/hospitals` (6.5) | `DESPACHO:GESTIONAR` |
+| Trasladar al hospital elegido y finalizar la misión | `PATCH /api/dispatches/{id}/status` (6.6) con `TRASLADANDO` y `hospitalId`, después `FINALIZADA` | `DESPACHO:GESTIONAR` |
 | Cerrar la emergencia | `POST /api/emergencies/{id}/close` (6.7) | `DESPACHO:GESTIONAR` |
 
 - La página no calcula rutas: dibuja las que devuelve el servidor, con la explicación que él escribe.
 - Una emergencia que no está `REPORTADA` muestra su misión abierta, que la página busca en el historial (`GET /api/emergencies/{id}/history`).
 - Cerrar pide un segundo clic de confirmación. Una emergencia `REPORTADA` se puede cerrar como falsa alarma.
 - La página no se actualiza sola, porque esas consultas mantendrían viva la sesión (DT-08): se usa «Actualizar estado». El seguimiento en vivo llega con `/api/tracking` (A12e).
-- El traslado al hospital (`TRASLADANDO`) llega con K7b.
+- **Traslado al hospital (CU-11):**
+  - Con la misión `EN_SITIO` y una ambulancia, el botón «Elegir hospital para el traslado» muestra los hospitales con su tiempo, su distancia y si las urgencias están sin confirmar (suman 10 min al orden, RN-10).
+  - Los hospitales se marcan en el mapa. «Trasladar aquí» pone la misión en `TRASLADANDO` y dibuja las rutas al hospital.
+  - Al llegar, «Llegó al hospital: finalizar misión» deja la misión `FINALIZADA` y la ambulancia `DISPONIBLE`. Después se cierra la emergencia.
+  - Una unidad que no es ambulancia no ve el botón.
+
 ## 6. Verificación funcional
 
 Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
