@@ -216,6 +216,36 @@
                   validación antes de afectar las rutas.
               </p>
 
+              <button type="button" id="incident-report-button" class="button incident-report-button"
+                      aria-pressed="false" hidden>Reportar incidente</button>
+
+              <form id="incident-form" class="incident-form" hidden novalidate>
+                  <p class="incident-form-street">
+                      <strong>Calle:</strong> <span id="incident-street"></span>
+                  </p>
+                  <label for="incident-type">Tipo
+                      <select id="incident-type" name="type" required></select>
+                  </label>
+                  <label for="incident-severity">Severidad
+                      <select id="incident-severity" name="severity" required></select>
+                  </label>
+                  <label class="incident-check">
+                      <input type="checkbox" name="blocksSegment">
+                      Cierra la vía: las unidades no pasan por ahí
+                  </label>
+                  <label class="incident-check" id="incident-both-field">
+                      <input type="checkbox" id="incident-both" checked>
+                      En los dos sentidos de la calle
+                  </label>
+                  <label for="incident-description">Descripción (opcional)
+                      <textarea id="incident-description" name="description" rows="2" maxlength="300"></textarea>
+                  </label>
+                  <div class="incident-form-actions">
+                      <button type="button" class="map-action" data-cancel>Cancelar</button>
+                      <button type="submit" class="button">Registrar incidente</button>
+                  </div>
+              </form>
+
               <div id="incident-list" class="item-list">
                   <p class="empty-state">Cargando incidentes…</p>
               </div>

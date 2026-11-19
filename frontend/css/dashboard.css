@@ -725,6 +725,83 @@
 
 /* D6 — Incidentes viales */
 
+/* Report a road incident (CU-13) */
+.incident-report-button {
+  width: 100%;
+  margin: 4px 0 12px;
+}
+
+.incident-report-button[hidden] {
+  display: none;
+}
+
+.incident-report-button[aria-pressed="true"] {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.leaflet-container.is-picking,
+.leaflet-container.is-picking .leaflet-interactive {
+  cursor: crosshair;
+}
+
+.incident-form {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.incident-form[hidden] {
+  display: none;
+}
+
+.incident-form p {
+  margin: 0;
+  font-size: .875rem;
+  overflow-wrap: anywhere;
+}
+
+.incident-form label {
+  display: grid;
+  gap: 4px;
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.incident-form select,
+.incident-form textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.incident-form .incident-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.incident-check input {
+  margin-top: 3px;
+}
+
+.incident-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .incidents-panel {
   min-width: 0;
 }
