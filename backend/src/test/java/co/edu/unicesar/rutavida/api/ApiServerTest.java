@@ -274,6 +274,34 @@ class ApiServerTest {
     }
 
     @Test
+    void fiveFailedLoginsStopTheAccountForTenMinutesButNotTheOthers() throws Exception {
+        String wrong = "{\"username\":\"Ana.Perez\",\"password\":\"otra\"}";
+        for (int attempt = 1; attempt <= ApiServer.LOGIN_FAILURES_PER_ACCOUNT; attempt++) {
+            assertEquals(401, send("POST", "/api/auth/login", null, wrong).statusCode(), "attempt " + attempt);
+        }
+
+        HttpResponse<String> stopped = send("POST", "/api/auth/login", null,
+                "{\"username\":\"ana.perez\",\"password\":\"" + WebTestSupport.PASSWORD + "\"}");
+        assertEquals(409, stopped.statusCode(), "even with the right password: the password is not checked");
+        assertEquals(ApiServer.TOO_MANY_LOGINS, json.readTree(stopped.body()).get("message").asText());
+
+        login("marta.ruiz");
+        assertEquals(400, send("POST", "/api/auth/login", null, "{\"username\":\"marta.ruiz\"}").statusCode(),
+                "a request without password is not a failed attempt");
+        login("marta.ruiz");
+    }
+
+    @Test
+    void theAnswersOfTheApiAreNeverCached() throws Exception {
+        HttpResponse<String> response = send("GET", "/api/emergency-types", login("ana.perez"), null);
+
+        assertEquals("no-store", response.headers().firstValue("Cache-Control").orElse(""));
+        assertEquals("nosniff", response.headers().firstValue("X-Content-Type-Options").orElse(""));
+        assertEquals("no-store", send("GET", "/api/alerts", null, null).headers()
+                .firstValue("Cache-Control").orElse(""), "the errors too");
+    }
+
+    @Test
     void protectedRoutesNeedTokenAndPermission() throws Exception {
         HttpResponse<String> anonymous = send("GET", "/api/emergency-types", null, null);
         assertEquals(401, anonymous.statusCode());
