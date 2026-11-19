@@ -17,6 +17,7 @@ import co.edu.unicesar.rutavida.model.enums.RouteStatus;
 import co.edu.unicesar.rutavida.model.enums.Severity;
 import co.edu.unicesar.rutavida.model.enums.TrafficLevel;
 import co.edu.unicesar.rutavida.model.enums.TrafficSource;
+import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import co.edu.unicesar.rutavida.service.DispatchTestSupport;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static co.edu.unicesar.rutavida.service.DispatchTestSupport.AMBULANCE;
+import static co.edu.unicesar.rutavida.service.DispatchTestSupport.CONFIRMED_HOSPITAL;
 import static co.edu.unicesar.rutavida.service.DispatchTestSupport.MEDICAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -98,6 +100,34 @@ class SimulationEngineTest {
         engine.tick();
         assertFalse(support.movement.isFollowing(AMBULANCE));
         assertEquals(saved.size(), support.history.saved.size(), "a unit that does not move is not written again");
+    }
+
+    @Test
+    void afterTheTransferTheAmbulanceDrivesToTheHospital() {
+        long mission = dispatchAmbulance();
+        engine.tick();
+        support.clock.advance(70);
+        engine.tick();
+        assertEquals(AssignmentStatus.ON_SCENE, status(mission), "first it reaches the scene at (1,2)");
+
+        support.dispatch.startTransfer(mission, CONFIRMED_HOSPITAL, COORDINATOR);
+        engine.tick();
+        Route toHospital = activeRoute().orElseThrow();
+        assertEquals(CONFIRMED_HOSPITAL, toHospital.getDestinationHospitalId(), "the new ACTIVA route of K10");
+        assertTrue(support.movement.isFollowing(AMBULANCE), "K9 follows the route to the hospital");
+
+        support.clock.advance(600);
+        engine.tick();
+        engine.tick();
+        assertNear(DispatchTestSupport.at(0, 0), ambulanceAt(), "at the hospital");
+        assertEquals(AssignmentStatus.TRANSPORTING, status(mission),
+                "the simulation does not mark it EN_SITIO again: the coordinator ends the mission");
+
+        support.dispatch.advance(mission, AssignmentStatus.FINISHED);
+        assertEquals(VehicleOperationalStatus.AVAILABLE,
+                support.city.vehicles.findById(AMBULANCE).orElseThrow().getOperationalStatus());
+        engine.tick();
+        assertFalse(support.movement.isFollowing(AMBULANCE), "a finished mission is not followed");
     }
 
     @Test
