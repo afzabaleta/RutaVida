@@ -11,6 +11,7 @@ import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.Hospital;
+import co.edu.unicesar.rutavida.model.HospitalServiceOffering;
 import co.edu.unicesar.rutavida.model.VehicleType;
 import co.edu.unicesar.rutavida.model.enums.HospitalLevel;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
@@ -179,6 +180,11 @@ public final class CatalogTestSupport {
             @Override
             public void update(Hospital hospital) {
                 throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<HospitalServiceOffering> findServices(long hospitalId) {
+                return List.of();
             }
         };
     }
