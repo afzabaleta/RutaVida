@@ -88,6 +88,11 @@ exit
 
 `database/99_eliminar_esquema.sql` borra todas las tablas. **Solo se ejecuta con autorización explícita del líder**; después hay que repetir desde `01`.
 
+`database/09_reiniciar_demo.sql` deja la base lista para una demostración. Borra los datos de operación: emergencias, despachos, rutas, posiciones, tráfico, incidentes viales, alertas, notificaciones y reportes de pánico. Además devuelve las unidades `EJEMPLO-` a su estación.
+- **Qué conserva:** usuarios, auditoría, red vial, hospitales, estaciones y unidades.
+- **Cómo se usa:** se detiene `WebServer` antes, el script pide escribir `REINICIAR` y después se vuelve a iniciar el servidor.
+- **Cuándo:** antes de cada ensayo y antes de la exposición.
+
 #### Base de datos en Oracle Cloud (DT-09)
 
 La base compartida del equipo y de la sustentación es una **Autonomous Database Always Free** (Oracle 19c, región Colombia Central - Bogotá). Se conecta con el *wallet* de la base (mTLS). El código no cambia: solo `backend/db.properties`.
