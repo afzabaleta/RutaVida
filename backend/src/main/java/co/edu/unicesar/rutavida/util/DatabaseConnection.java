@@ -40,6 +40,16 @@ public final class DatabaseConnection {
     static final String KEY_USER = "db.user";
     static final String KEY_PASSWORD = "db.password";
 
+    /** Oracle driver property: rows fetched per round trip to the database. */
+    static final String ROW_PREFETCH_PROPERTY = "defaultRowPrefetch";
+
+    /**
+     * The driver default is 10 rows per round trip. Against Oracle Cloud each trip crosses
+     * the internet, so loading the road graph (about 30 000 rows) took minutes; with 500 it
+     * needs about 60 trips.
+     */
+    static final int ROW_PREFETCH = 500;
+
     private final String url;
     private final String user;
     private final String password;
@@ -81,7 +91,16 @@ public final class DatabaseConnection {
 
     /** Opens a new connection. The caller is responsible for closing it. */
     public Connection open() throws SQLException {
-        return DriverManager.getConnection(url, user, password);
+        return DriverManager.getConnection(url, connectionProperties());
+    }
+
+    /** The login and the row prefetch sent to the driver. Package-private for the tests. */
+    Properties connectionProperties() {
+        Properties properties = new Properties();
+        properties.setProperty("user", user);
+        properties.setProperty("password", password);
+        properties.setProperty(ROW_PREFETCH_PROPERTY, String.valueOf(ROW_PREFETCH));
+        return properties;
     }
 
     public String url() {
