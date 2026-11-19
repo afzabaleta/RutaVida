@@ -38,8 +38,6 @@ const MENU = [
     icon: "chart",
     href: "./reportes.html",
     permission: "REPORTES:CONSULTAR",
-    // Enable when reportes.html (D10) is merged.
-    available: false,
   },
   {
     group: "CIUDADANOS",

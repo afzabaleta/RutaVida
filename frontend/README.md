@@ -371,3 +371,23 @@ Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
 - Los íconos son SVG propios en `img/icons/`. No se agregaron librerías, fuentes ni CDN.
 - **Modo claro y oscuro:** el botón ☀/☾ del encabezado cambia el tema. La primera vez se usa el tema del sistema; la elección se guarda en `localStorage` (`rutavida.theme`), y si el navegador lo bloquea, el botón igual funciona. `js/theme-boot.js` pone el tema en el `<head>` antes de pintar, para que no parpadee, y `css/theme.css` redefine las variables de color del modo claro. En modo claro el mapa va sin filtro. Solo aplica a las páginas internas; el login, el botón de pánico y el registro del ciudadano (`registro.html`, que usa `css/panico.css`) conservan su diseño.
 - Ningún texto funcional mide menos de 12 px, para que el panel se lea proyectado.
+
+
+## D10. Historial y reportes
+
+La pagina reportes.html permite consultar indicadores historicos desde Oracle.
+
+- Archivos: reportes.html, css/reportes.css y js/reportes.js.
+- API: GET /api/reports/operations?from=&to=
+- API: GET /api/emergencies?from=&to=
+- API: GET /api/emergencies/{id}/history
+- Permisos: REPORTES:CONSULTAR y EMERGENCIAS:CONSULTAR.
+- Periodos: hoy, 7 dias, 30 dias y fechas personalizadas.
+- Indicadores: emergencias, tiempo de respuesta, despachos e incidentes.
+- Graficos por dia, tipo, gravedad y tipo de vehiculo.
+- Historial de emergencias, misiones, rutas y auditoria.
+- Exportacion CSV e impresion en PDF.
+- Interfaz responsive para computadores y celulares.
+- Los indicadores proceden de Oracle; no se inventan resultados.
+
+Pendiente: verificar el funcionamiento real y la visualizacion movil.
