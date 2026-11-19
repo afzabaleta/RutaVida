@@ -11,7 +11,8 @@ import java.util.List;
 
 /**
  * Development tool: verifies that the local Oracle database is reachable and that
- * the 24 RutaVida tables exist (REPORTE_PANICO comes from 07_boton_panico.sql). It is not part of the final application.
+ * the 25 RutaVida tables exist (REPORTE_PANICO comes from 07_boton_panico.sql and SESION_CIUDADANO
+ * from 08_ciudadanos.sql). It is not part of the final application.
  *
  * <p>Run it from IntelliJ (working directory = backend/) after creating
  * backend/db.properties. Exit code 0 = OK, 1 = problem found.
@@ -23,7 +24,8 @@ public final class DatabaseCheck {
             "TIPO_VEHICULO", "VEHICULO_EMERGENCIA", "HOSPITAL", "SERVICIO_HOSPITAL",
             "TIPO_EMERGENCIA", "EMERGENCIA", "NODO_VIAL", "TRAMO_VIAL", "SEMAFORO",
             "TRAFICO", "INCIDENTE_VIAL", "RUTA", "RUTA_TRAMO", "ASIGNACION_EMERGENCIA",
-            "UBICACION_VEHICULO", "ALERTA", "NOTIFICACION", "AUDITORIA", "REPORTE_PANICO");
+            "UBICACION_VEHICULO", "ALERTA", "NOTIFICACION", "AUDITORIA", "REPORTE_PANICO",
+            "SESION_CIUDADANO");
 
     private DatabaseCheck() {
     }

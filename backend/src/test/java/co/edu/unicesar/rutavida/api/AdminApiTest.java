@@ -75,7 +75,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * The administration routes of the API (A17, docs/api.md 15) through real HTTP, with in-memory
  * DAOs and EXAMPLE data:
  * <ul>
- *   <li>"admin.prueba": ADMINISTRADOR, manages users, units, stations and hospitals;</li>
+ *   <li>"admin.prueba": ADMINISTRADOR, manages users, units, stations and hospitals, and sees
+ *   the traffic (this server has no simulation, so those routes answer 503);</li>
  *   <li>"operador.prueba": OPERADOR_CENTRAL, only sees units and hospitals;</li>
  *   <li>station 1 "EJEMPLO - Base de prueba", active; vehicle types 1 AMBULANCIA and 2 BOMBERO.</li>
  * </ul>
@@ -104,7 +105,8 @@ class AdminApiTest {
                 new Permission(6, "UNIDADES", "GESTIONAR", "Prueba"),
                 new Permission(7, "HOSPITALES", "CONSULTAR", "Prueba"),
                 new Permission(8, "HOSPITALES", "GESTIONAR", "Prueba"),
-                new Permission(20, "AUDITORIA", "CONSULTAR", "Prueba"))));
+                new Permission(20, "AUDITORIA", "CONSULTAR", "Prueba"),
+                new Permission(9, "TRAFICO", "CONSULTAR", "Prueba"))));
         roleDao.add(new Role(2, "OPERADOR_CENTRAL", "Prueba", RecordStatus.ACTIVE, Set.of(
                 new Permission(5, "UNIDADES", "CONSULTAR", "Prueba"),
                 new Permission(7, "HOSPITALES", "CONSULTAR", "Prueba"))));
@@ -157,7 +159,7 @@ class AdminApiTest {
         server = new ApiServer(new WebSessionController(auth, session, CLOCK),
                 new CatalogController(new CatalogTestSupport().service()), emergencies, dashboard, reports, incidents,
                 roadMap, alerts, dispatch, admin, new TrackingTestSupport().controller(auth, session),
-                new PanicTestSupport().controller(auth, session), null);
+                new PanicTestSupport().controller(auth, session), new PanicTestSupport().citizenController(), null);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -166,6 +168,18 @@ class AdminApiTest {
     @AfterEach
     void stop() {
         server.stop();
+    }
+
+    @Test
+    void withoutTheSimulationItsRoutesAnswer503() throws Exception {
+        String admin = login("admin.prueba", PASSWORD);
+
+        HttpResponse<String> status = send("GET", "/api/simulation", admin, null);
+        assertEquals(503, status.statusCode(), status.body());
+        assertEquals(ApiServer.NO_SIMULATION, json.readTree(status.body()).get("message").asText());
+        assertEquals(503, send("GET", "/api/traffic/segments", admin, null).statusCode());
+        assertEquals(403, send("GET", "/api/simulation", login("operador.prueba", PASSWORD), null).statusCode(),
+                "the permission is checked first");
     }
 
     @Test

@@ -34,6 +34,7 @@ RutaVida/
 |---|---|
 | Esquema de base de datos (23 tablas, 21 secuencias, 24 índices, restricciones) | Ejecutado y verificado en Oracle XE 18c con `98_verificar.sql` (14/10/2026) |
 | Botón de pánico en la base de datos (`07_boton_panico.sql`: tabla 24 `REPORTE_PANICO`, rol y tipo de vehículo `POLICIA`, permisos `PANICO`, usuario del sistema) y su DAO (A20) | Programado; prueba con Oracle pendiente |
+| Cuentas de ciudadano del botón de pánico (`08_ciudadanos.sql`: tabla 25 `SESION_CIUDADANO`, rol `CIUDADANO`, permiso `PANICO/REPORTAR`; DT-13) | Programado y probado sin Oracle; prueba con Oracle pendiente |
 | Datos maestros (roles, permisos, tipos de vehículo y de emergencia) | Cargados y verificados |
 | Conexión JDBC (`DatabaseConnection`) y verificación (`DatabaseCheck`) | Funciona: "23 de 23" con el driver ojdbc11 21.9 |
 | Arquitectura: paquetes, reglas de dependencia, enums, transacciones, `AppContext` | Programado y probado ([`docs/arquitectura-software.md`](docs/arquitectura-software.md)). Desde el 30/10/2026 el modelo solo guarda datos y las reglas están en `service` |
@@ -71,6 +72,8 @@ SPOOL instalacion.log
 @05_red_vial_valledupar.sql
 @06_unidades_ejemplo.sql
 @07_boton_panico.sql
+@08_ciudadanos.sql
+@10_hospitales_y_unidades.sql
 @98_verificar.sql
 SPOOL OFF
 exit
@@ -79,11 +82,18 @@ exit
 - `00_crear_usuario.sql` pide la contraseña del nuevo usuario `RUTAVIDA` (solo se ejecuta una vez).
 - `06_unidades_ejemplo.sql` crea 5 unidades de **EJEMPLO** (códigos `EJEMPLO-…`, sin placa) y una base de ambulancias de ejemplo para la simulación. No son unidades reales.
 - `07_boton_panico.sql` crea la tabla `REPORTE_PANICO`, el rol y el tipo de vehículo `POLICIA`, los permisos del módulo `PANICO` y el usuario `sistema.rutavida` (inactivo: nadie inicia sesión con él). Al final muestra 7 líneas que deben decir `SI`.
+- `08_ciudadanos.sql` (DT-13) crea el rol `CIUDADANO`, el permiso `PANICO/REPORTAR` y la tabla `SESION_CIUDADANO` (tabla 25), donde viven las sesiones de 30 días del celular. Se puede ejecutar dos veces sin error. Al final muestra 6 líneas que deben decir `SI`.
+- `10_hospitales_y_unidades.sql` (DT-14) agrega 5 hospitales y clínicas **reales**, con su posición de OpenStreetMap y la fuente de cada dato. También crea 4 bases de **EJEMPLO** (norte, occidente, oriente y sur) con 10 unidades `EJEMPLO-…` más, para que el despacho se reparta por la ciudad. Necesita la red vial de toda el área urbana.
 - En `98_verificar.sql` todas las columnas `OK` deben decir `SI`, y cada línea de la prueba 8 (PL/SQL) debe terminar en `SI`. Las dos pruebas marcadas "DEBE FALLAR" deben mostrar `ORA-02290`: eso es correcto.
 - También sirve SQL Developer (host `localhost`, puerto `1521`, servicio `XEPDB1`, ejecutar cada archivo con F5).
 - En los scripts, un comentario nunca va después del `;` en la misma línea: SQL*Plus lo envía como parte de la sentencia. `SqlScriptStyleTest` lo verifica.
 
 `database/99_eliminar_esquema.sql` borra todas las tablas. **Solo se ejecuta con autorización explícita del líder**; después hay que repetir desde `01`.
+
+`database/09_reiniciar_demo.sql` deja la base lista para una demostración. Borra los datos de operación: emergencias, despachos, rutas, posiciones, tráfico, incidentes viales, alertas, notificaciones y reportes de pánico. Además devuelve las unidades `EJEMPLO-` a su estación.
+- **Qué conserva:** usuarios, auditoría, red vial, hospitales, estaciones y unidades.
+- **Cómo se usa:** se detiene `WebServer` antes, el script pide escribir `REINICIAR` y después se vuelve a iniciar el servidor.
+- **Cuándo:** antes de cada ensayo y antes de la exposición.
 
 #### Base de datos en Oracle Cloud (DT-09)
 
@@ -96,10 +106,10 @@ La base compartida del equipo y de la sustentación es una **Autonomous Database
    ```
    db.url=jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=C:/oracle/wallet/Wallet_rutavida
    ```
-   y ejecutar `DatabaseCheck`: debe decir "24 de 24" y "Oracle Database 19c".
+   y ejecutar `DatabaseCheck`: debe decir "25 de 25" y "Oracle Database 19c".
    Si dice "Database password not configured", la configuración de ejecución de IntelliJ (*Run → Edit Configurations → Working directory*) debe terminar en `\backend`, donde está `db.properties`.
 
-Solo el líder instala o reinstala el esquema en la nube: conectado como `ADMIN`, `00_crear_usuario_nube.sql`; luego, como `RUTAVIDA`, los scripts `01` a `07` y `98`. El `05` se ejecuta desde una hoja de trabajo con `SET FEEDBACK OFF` antes de `@05_red_vial_valledupar.sql`, porque son casi 17 000 inserciones por internet.
+Solo el líder instala o reinstala el esquema en la nube: conectado como `ADMIN`, `00_crear_usuario_nube.sql`; luego, como `RUTAVIDA`, los scripts `01` a `08` y `98`. El `05` se ejecuta desde una hoja de trabajo con `SET FEEDBACK OFF` antes de `@05_red_vial_valledupar.sql`, porque son casi 17 000 inserciones por internet.
 
 Límites del plan gratuito: 30 sesiones simultáneas, **se detiene sola después de 7 días sin uso** (se vuelve a iniciar desde la consola, *Start*) y puede borrarse si queda detenida 90 días. Las pruebas se corren contra la base **local**; la nube es para la demostración.
 
@@ -110,7 +120,7 @@ Límites del plan gratuito: 30 sesiones simultáneas, **se detiene sola después
 3. Ejecutar la clase `co.edu.unicesar.rutavida.DatabaseCheck`. Resultado esperado:
    ```
    [OK] Conexión establecida: ...
-   Tablas de RutaVida encontradas: 24 de 24
+   Tablas de RutaVida encontradas: 25 de 25
    [OK] El esquema está completo.
    ```
 4. Ejecutar las pruebas: clic derecho sobre `src/test/java` → *Run 'All Tests'* (o `mvn test`).
@@ -119,13 +129,23 @@ Límites del plan gratuito: 30 sesiones simultáneas, **se detiene sola después
 
 ### 3. Red vial (OpenStreetMap)
 
-`database/05_red_vial_valledupar.sql` carga `NODO_VIAL` y `TRAMO_VIAL` con las calles de la zona de la demostración. Lo genera la herramienta `co.edu.unicesar.rutavida.app.OsmImporter` y no se edita a mano. Para volver a generarlo:
+`database/05_red_vial_valledupar.sql` carga `NODO_VIAL` y `TRAMO_VIAL` con las calles del **área urbana de Valledupar** (DT-14): sur 10.405, oeste -73.305, norte 10.510, este -73.215. Lo genera la herramienta `co.edu.unicesar.rutavida.app.OsmImporter` y no se edita a mano. Las filas van en bloques PL/SQL de 200, para que cargue rápido también en Oracle Cloud.
+
+**Para volver a generarlo:**
 
 1. Descargar los datos con la consulta guardada (desde la carpeta `RutaVida`, en PowerShell):
    ```
-   curl.exe -o database\osm\valledupar_demo.osm --data-urlencode "data@database\osm\valledupar_demo.overpassql" https://overpass-api.de/api/interpreter
+   curl.exe -o database\osm\valledupar_ciudad.osm --data-urlencode "data@database\osm\valledupar_ciudad.overpassql" https://overpass-api.de/api/interpreter
    ```
-2. Ejecutar `OsmImporter` con los argumentos `../database/osm/valledupar_demo.osm ../database/05_red_vial_valledupar.sql AAAA-MM-DD` (fecha de la descarga).
+2. Ejecutar `OsmImporter` (carpeta de trabajo `backend/`) con los argumentos `../database/osm/valledupar_ciudad.osm ../database/05_red_vial_valledupar.sql AAAA-MM-DD` (fecha de la descarga).
+
+**Para cambiar la red de una base que ya tiene una cargada**, en este orden:
+1. Detener `WebServer`.
+2. Ejecutar `09_reiniciar_demo.sql`.
+3. Ejecutar `database/osm/borrar_red_vial.sql`, que pide escribir `BORRAR RED`.
+4. Ejecutar `05_red_vial_valledupar.sql`.
+5. Ejecutar `98_verificar.sql`.
+6. Iniciar `WebServer`. **Siempre** hay que reiniciarlo después de cambiar la red: el servidor carga las calles una sola vez, al arrancar. Si sigue con la red vieja, una emergencia fuera de esa red queda sin unidades ("No hay unidades disponibles que lleguen por la red vial cargada").
 
 El archivo `.osm` no se sube al repositorio (`.gitignore`). Datos de la red vial: © OpenStreetMap contributors, licencia [ODbL](https://www.openstreetmap.org/copyright).
 
@@ -138,6 +158,10 @@ Deja el resultado en `frontend/data/rutas-demo.geojson` y en `frontend/data/ruta
 ### 5. Servidor web y API (A12a y A12b)
 
 Con Oracle encendido, ejecutar `co.edu.unicesar.rutavida.app.WebServer` (carpeta de trabajo `backend/`). Debe mostrar `[OK] RutaVida está en http://localhost:8080`. El mismo servidor entrega las páginas de `frontend/` y la API de [`docs/api.md`](docs/api.md); se detiene con el botón *Stop* de IntelliJ. Si el puerto 8080 está ocupado, se puede pasar otro como argumento (por ejemplo `8081`).
+
+**Sin IntelliJ (computador de la presentación):** en IntelliJ, *Maven → Lifecycle → package* (o `mvn -f backend/pom.xml package`) deja `backend/target/rutavida.jar` y sus librerías en `backend/target/lib/`. Después, doble clic en `iniciar-servidor.bat` (Windows) o `./iniciar-servidor.sh` (Linux o macOS), desde la raíz del repositorio. Necesita Java 21 y `backend/db.properties`. Para otro puerto: `iniciar-servidor.bat 8081`.
+
+**Pruebas automáticas en GitHub:** `.github/workflows/pruebas.yml` corre `mvn package` (todas las pruebas y el JAR) en cada Pull Request y en cada push a `develop` o `main`. Allí no hay Oracle, así que las pruebas de integración se omiten solas; esas se siguen corriendo en el computador de cada uno.
 
 Prueba rápida desde PowerShell, con un usuario creado con `CreateAdminUser`. El usuario y la contraseña se escriben cuando la consola los pide, nunca en un archivo del repositorio:
 

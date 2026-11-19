@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.controller;
 
+import co.edu.unicesar.rutavida.dto.CitizenLogin;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.LoginResponse;
 import co.edu.unicesar.rutavida.dto.OperationResult;
@@ -9,6 +10,7 @@ import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.service.AuthService;
+import co.edu.unicesar.rutavida.service.CitizenService;
 import co.edu.unicesar.rutavida.util.Messages;
 
 import java.security.SecureRandom;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,6 +40,11 @@ import java.util.logging.Logger;
  * <p>Many users at once: each token has its own {@link UserSession}. The web server runs
  * every request with {@link #runAs}, so the other controllers and the audit triggers see
  * the user of that request.
+ *
+ * <p>Citizens of the panic button (DT-13) are the exception: their token lasts 30 days, has
+ * no idle timeout and is saved (hashed) in Oracle by {@link CitizenService}, so the phone
+ * stays logged in even if the server restarts. Their role only has PANICO/REPORTAR, so that
+ * token only serves to press the button.
  */
 public class WebSessionController {
 
@@ -65,20 +73,35 @@ public class WebSessionController {
     private final Clock clock;
     private final Duration idle;
     private final Duration maxAge;
+    /** Null without citizens (tests of the staff sessions). */
+    private final CitizenService citizens;
     private final SecureRandom random = new SecureRandom();
     private final Map<String, Entry> sessions = new ConcurrentHashMap<>();
 
     public WebSessionController(AuthService authService, SessionContext sessionContext, Clock clock) {
-        this(authService, sessionContext, clock, DEFAULT_IDLE, DEFAULT_MAX_AGE);
+        this(authService, sessionContext, clock, DEFAULT_IDLE, DEFAULT_MAX_AGE, null);
+    }
+
+    /** With the 30-day sessions of the citizens of the panic button (DT-13). */
+    public WebSessionController(AuthService authService, SessionContext sessionContext, Clock clock,
+                                CitizenService citizens) {
+        this(authService, sessionContext, clock, DEFAULT_IDLE, DEFAULT_MAX_AGE,
+                Objects.requireNonNull(citizens, "citizens"));
     }
 
     public WebSessionController(AuthService authService, SessionContext sessionContext, Clock clock,
                                 Duration idle, Duration maxAge) {
+        this(authService, sessionContext, clock, idle, maxAge, null);
+    }
+
+    private WebSessionController(AuthService authService, SessionContext sessionContext, Clock clock,
+                                 Duration idle, Duration maxAge, CitizenService citizens) {
         this.authService = Objects.requireNonNull(authService, "authService");
         this.sessionContext = Objects.requireNonNull(sessionContext, "sessionContext");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.idle = Objects.requireNonNull(idle, "idle");
         this.maxAge = Objects.requireNonNull(maxAge, "maxAge");
+        this.citizens = citizens;
         if (idle.isNegative() || idle.isZero() || maxAge.compareTo(idle) < 0) {
             throw new IllegalArgumentException("idle must be > 0 and not longer than maxAge");
         }
@@ -88,6 +111,9 @@ public class WebSessionController {
     public OperationResult<LoginResponse> login(String username, char[] password) {
         try {
             UserSession session = authService.login(username, password);
+            if (citizens != null && CitizenService.isCitizen(session)) {
+                return OperationResult.ok(toCitizenResponse(citizens.startSession(session)));
+            }
             removeExpired();
             String token = newToken();
             Entry entry = new Entry(session, clock.instant());
@@ -116,7 +142,9 @@ public class WebSessionController {
         String token = tokenOf(authorizationHeader);
         Entry entry = token == null ? null : sessions.get(token);
         if (entry == null) {
-            return OperationResult.error(ErrorKind.AUTHENTICATION, Messages.SESSION_REQUIRED);
+            return citizenSession(token)
+                    .map(found -> OperationResult.ok(found.session()))
+                    .orElseGet(() -> OperationResult.error(ErrorKind.AUTHENTICATION, Messages.SESSION_REQUIRED));
         }
         Instant now = clock.instant();
         if (isExpired(entry, now)) {
@@ -147,7 +175,9 @@ public class WebSessionController {
         }
         Entry entry = sessions.get(tokenOf(authorizationHeader));
         if (entry == null) {
-            return OperationResult.error(ErrorKind.AUTHENTICATION, Messages.SESSION_REQUIRED);
+            return citizenSession(tokenOf(authorizationHeader))
+                    .map(citizen -> OperationResult.ok(toCitizenResponse(citizen)))
+                    .orElseGet(() -> OperationResult.error(ErrorKind.AUTHENTICATION, Messages.SESSION_REQUIRED));
         }
         return OperationResult.ok(toResponse(null, entry));
     }
@@ -156,9 +186,18 @@ public class WebSessionController {
     public OperationResult<Void> logout(String authorizationHeader) {
         String token = tokenOf(authorizationHeader);
         Entry entry = token == null ? null : sessions.remove(token);
-        if (entry != null) {
+        UserSession ended = entry != null ? entry.session : null;
+        if (entry == null && citizens != null && token != null) {
             try {
-                authService.logout(entry.session);
+                ended = citizens.findSession(token).map(CitizenLogin::session).orElse(null);
+                citizens.endSession(token);
+            } catch (RuntimeException e) {
+                LOG.log(Level.WARNING, "Citizen logout failed", e);
+            }
+        }
+        if (ended != null) {
+            try {
+                authService.logout(ended);
             } catch (RuntimeException e) {
                 LOG.log(Level.WARNING, "Logout audit failed", e);
             }
@@ -174,6 +213,28 @@ public class WebSessionController {
     /** Number of open sessions (for tests and the server log). */
     public int openSessions() {
         return sessions.size();
+    }
+
+    /**
+     * The 30-day session of a citizen for a token that is not a staff session. Empty when
+     * there are no citizens here or the database cannot be read (the request gets a 401, as
+     * with any unknown token).
+     */
+    private Optional<CitizenLogin> citizenSession(String token) {
+        if (citizens == null || token == null) {
+            return Optional.empty();
+        }
+        try {
+            return citizens.findSession(token);
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "Citizen session lookup failed", e);
+            return Optional.empty();
+        }
+    }
+
+    /** A citizen session never expires for lack of use: idleTimeoutMinutes is 0. */
+    private LoginResponse toCitizenResponse(CitizenLogin login) {
+        return response(login.token(), login.session(), login.expiresAt().withNano(0), 0);
     }
 
     private boolean isExpired(Entry entry, Instant now) {
@@ -192,16 +253,20 @@ public class WebSessionController {
     }
 
     private LoginResponse toResponse(String token, Entry entry) {
-        UserSession session = entry.session;
-        User user = session.user();
         LocalDateTime expiresAt = LocalDateTime.ofInstant(entry.startedAt.plus(maxAge), clock.getZone())
                 .withNano(0);
+        return response(token, entry.session, expiresAt, idle.toMinutes());
+    }
+
+    private static LoginResponse response(String token, UserSession session, LocalDateTime expiresAt,
+                                          long idleMinutes) {
+        User user = session.user();
         List<String> permissions = session.role().getPermissions().stream()
                 .map(permission -> permission.getModule().toUpperCase(Locale.ROOT) + ":"
                         + permission.getAction().toUpperCase(Locale.ROOT))
                 .sorted()
                 .toList();
-        return new LoginResponse(token, expiresAt, idle.toMinutes(),
+        return new LoginResponse(token, expiresAt, idleMinutes,
                 new SessionUser(user.getId(), user.getUsername(), user.getFirstNames(), user.getLastNames()),
                 session.role().getName(), permissions);
     }

@@ -68,10 +68,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The panic button through real HTTP (A20b, docs/api.md 16), on the small city of
+ * The panic button through real HTTP (A20b and DT-13, docs/api.md 16), on the small city of
  * PanicTestSupport with EXAMPLE data:
  * <ul>
- *   <li>without token: a citizen;</li>
+ *   <li>"ciudadano1", "ciudadano2"...: CIUDADANO, created when a test asks for them;</li>
  *   <li>"policia.web": POLICIA, validates the alert alone and sees the reports;</li>
  *   <li>"coordinador.web": COORDINADOR, sees and discards the reports;</li>
  *   <li>"sinpermisos.web": a role without permissions.</li>
@@ -135,10 +135,10 @@ class PanicApiTest {
             throw new UnsupportedOperationException("not used here");
         }, CLOCK));
 
-        server = new ApiServer(new WebSessionController(auth, session, CLOCK),
+        server = new ApiServer(new WebSessionController(auth, session, CLOCK, panic.citizenService()),
                 new CatalogController(new CatalogTestSupport().service()), emergencies, dashboard, reports, incidents,
                 roadMap, alerts, dispatch, admin, new TrackingTestSupport().controller(auth, session),
-                panic.controller(auth, session), null);
+                panic.controller(auth, session), panic.citizenController(), null);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -162,9 +162,59 @@ class PanicApiTest {
                 "the full catalog route still needs a session");
     }
 
+    // ------------------------------------------------------------------ CU-23: citizen accounts
+
     @Test
-    void aCitizenPressesTheButtonWithoutAccountAndIsToldToWait() throws Exception {
-        HttpResponse<String> response = send("POST", "/api/panic", null, press("celular-1", 0));
+    void aPersonRegistersLogsInOnceAndThePhoneStaysLoggedIn30Days() throws Exception {
+        HttpResponse<String> created = send("POST", "/api/citizens", null, registration("laura.web", true));
+        assertEquals(201, created.statusCode(), created.body());
+        assertTrue(json.readTree(created.body()).get("message").asText().contains("30 días"));
+        assertFalse(created.body().contains("Clave-Segura1"), "the password never comes back");
+        assertFalse(created.body().contains("passwordHash"));
+
+        HttpResponse<String> login = send("POST", "/api/auth/login", null,
+                "{\"username\": \"laura.web\", \"password\": \"" + PASSWORD + "\"}");
+        assertEquals(200, login.statusCode(), login.body());
+        JsonNode session = value(login);
+        assertEquals("CIUDADANO", session.get("role").asText());
+        assertEquals(0, session.get("idleTimeoutMinutes").asInt(), "no idle timeout on the button");
+        assertEquals(LocalDateTime.now(CLOCK).plusDays(30).withNano(0),
+                LocalDateTime.parse(session.get("expiresAt").asText()));
+        assertEquals("[\"PANICO:REPORTAR\"]", session.get("permissions").toString());
+
+        String token = session.get("token").asText();
+        assertEquals(200, send("GET", "/api/auth/session", token, null).statusCode());
+        assertEquals(403, send("GET", "/api/panic/reports", token, null).statusCode(),
+                "the citizen token only serves to press the button");
+    }
+
+    @Test
+    void withoutAuthorizationOrWithTakenDataThereIsNoAccountAndAddressesAreLimited() throws Exception {
+        assertEquals(400, send("POST", "/api/citizens", null, registration("sin.permiso", false)).statusCode());
+        assertEquals(201, send("POST", "/api/citizens", null, registration("laura.web", true)).statusCode());
+        assertEquals(409, send("POST", "/api/citizens", null, registration("laura.web", true)).statusCode());
+
+        for (int i = 0; i < ApiServer.REGISTRATIONS_PER_ADDRESS; i++) {
+            send("POST", "/api/citizens", null, registration("persona" + i + ".web", true));
+        }
+        HttpResponse<String> flood = send("POST", "/api/citizens", null, registration("una.mas", true));
+        assertEquals(409, flood.statusCode(), flood.body());
+        assertTrue(json.readTree(flood.body()).get("message").asText().contains("demasiadas cuentas"));
+    }
+
+    // ------------------------------------------------------------------ CU-22: the button with an account
+
+    @Test
+    void withoutAnAccountTheButtonSays401() throws Exception {
+        assertEquals(401, send("POST", "/api/panic", null, press("celular-1", 0)).statusCode());
+        assertEquals(401, send("POST", "/api/panic", "token-vencido", press("celular-1", 0)).statusCode());
+        assertEquals(403, send("POST", "/api/panic", login("coordinador.web"), press("celular-1", 0)).statusCode(),
+                "the coordinator does not press the button");
+    }
+
+    @Test
+    void aCitizenPressesTheButtonAndIsToldToWait() throws Exception {
+        HttpResponse<String> response = send("POST", "/api/panic", citizen(1), press("celular-1", 0));
 
         assertEquals(201, response.statusCode(), response.body());
         JsonNode body = json.readTree(response.body());
@@ -177,10 +227,10 @@ class PanicApiTest {
     }
 
     @Test
-    void threePhonesCloseTogetherValidateTheAlertAndAUnitIsSent() throws Exception {
-        send("POST", "/api/panic", null, press("celular-1", 0));
-        send("POST", "/api/panic", null, press("celular-2", 60));
-        HttpResponse<String> third = send("POST", "/api/panic", null, press("celular-3", -40));
+    void threeCitizensCloseTogetherValidateTheAlertAndAUnitIsSent() throws Exception {
+        send("POST", "/api/panic", citizen(1), press("celular-1", 0));
+        send("POST", "/api/panic", citizen(2), press("celular-2", 60));
+        HttpResponse<String> third = send("POST", "/api/panic", citizen(3), press("celular-3", -40));
 
         assertEquals(201, third.statusCode(), third.body());
         JsonNode body = json.readTree(third.body());
@@ -191,46 +241,44 @@ class PanicApiTest {
     }
 
     @Test
-    void aPoliceOfficerWithSessionValidatesAloneAndABadTokenCountsAsACitizen() throws Exception {
+    void aPoliceOfficerWithSessionValidatesAlone() throws Exception {
         HttpResponse<String> police = send("POST", "/api/panic", login("policia.web"), press("celular-policia", 0));
         assertEquals(201, police.statusCode(), police.body());
         assertEquals("VALIDADO", value(police).get("status").asText());
-
-        HttpResponse<String> expired = send("POST", "/api/panic", "token-vencido", pressAt("otro-celular", FAR));
-        assertEquals(201, expired.statusCode(), "in an emergency the button never asks to log in");
-        assertEquals("PENDIENTE", value(expired).get("status").asText());
     }
 
     @Test
-    void wrongReportsAre400AndTheFourthOfADeviceIs409() throws Exception {
-        assertEquals(400, send("POST", "/api/panic", null, "{\"deviceId\": \"celular-1\"}").statusCode(), "no location");
-        assertEquals(400, send("POST", "/api/panic", null,
+    void wrongReportsAre400AndTheFourthOfAPersonIs409() throws Exception {
+        String token = citizen(9);
+        assertEquals(400, send("POST", "/api/panic", token, "{\"deviceId\": \"celular-1\"}").statusCode(),
+                "no location");
+        assertEquals(400, send("POST", "/api/panic", token,
                 "{\"deviceId\": \"celular-1\", \"location\": {\"latitude\": 10.60, \"longitude\": -73.00}}")
                 .statusCode(), "outside the road network");
-        assertEquals(400, send("POST", "/api/panic", null, "{\"deviceId\":").statusCode(), "malformed");
+        assertEquals(400, send("POST", "/api/panic", token, "{\"deviceId\":").statusCode(), "malformed");
 
         for (int i = 0; i < 3; i++) {
-            assertEquals(201, send("POST", "/api/panic", null, press("celular-9", i * 10)).statusCode());
+            assertEquals(201, send("POST", "/api/panic", token, press("celular-" + i, i * 10)).statusCode());
         }
-        HttpResponse<String> fourth = send("POST", "/api/panic", null, press("celular-9", 0));
-        assertEquals(409, fourth.statusCode());
+        HttpResponse<String> fourth = send("POST", "/api/panic", token, press("otro-celular", 0));
+        assertEquals(409, fourth.statusCode(), "the limit is per person, whatever phone it uses");
         assertTrue(json.readTree(fourth.body()).get("message").asText().contains("123"));
     }
 
     @Test
     void oneNetworkAddressCannotFloodTheButton() throws Exception {
         for (int i = 0; i < ApiServer.PANIC_PER_ADDRESS; i++) {
-            send("POST", "/api/panic", null, press("celular-" + i, 0));
+            send("POST", "/api/panic", citizen(i / 3 + 1), press("celular-" + i, 0));
         }
 
-        HttpResponse<String> flood = send("POST", "/api/panic", null, press("celular-nuevo", 0));
+        HttpResponse<String> flood = send("POST", "/api/panic", citizen(20), press("celular-nuevo", 0));
         assertEquals(409, flood.statusCode(), flood.body());
         assertTrue(json.readTree(flood.body()).get("message").asText().contains("demasiadas alertas"));
     }
 
     @Test
     void thePanelListsTheReportsWithoutTheDeviceAndFiltersByStatus() throws Exception {
-        send("POST", "/api/panic", null, press("celular-1", 0));
+        send("POST", "/api/panic", citizen(1), press("celular-1", 0));
         send("POST", "/api/panic", login("policia.web"), pressAt("celular-policia", FAR));
         String coordinator = login("coordinador.web");
 
@@ -251,7 +299,7 @@ class PanicApiTest {
 
     @Test
     void aCoordinatorDiscardsAPendingAlertAndOnlyThat() throws Exception {
-        long id = value(send("POST", "/api/panic", null, press("celular-1", 0))).get("reportId").asLong();
+        long id = value(send("POST", "/api/panic", citizen(1), press("celular-1", 0))).get("reportId").asLong();
         String path = "/api/panic/reports/" + id + "/status";
         String coordinator = login("coordinador.web");
 
@@ -268,6 +316,24 @@ class PanicApiTest {
                 "{\"status\": \"DESCARTADO\"}").statusCode());
     }
 
+    @Test
+    void twoFalseAlarmsBlockTheCitizenAndItsPhoneStopsWorking() throws Exception {
+        String phone = citizen(1);
+        String coordinator = login("coordinador.web");
+
+        for (int i = 0; i < 2; i++) {
+            long id = value(send("POST", "/api/panic", phone, press("celular-1", 0))).get("reportId").asLong();
+            assertEquals(200, send("PATCH", "/api/panic/reports/" + id + "/status", coordinator,
+                    "{\"status\": \"DESCARTADO\"}").statusCode());
+        }
+
+        assertEquals(401, send("POST", "/api/panic", phone, press("celular-1", 0)).statusCode(),
+                "the phone was logged out");
+        HttpResponse<String> again = send("POST", "/api/auth/login", null,
+                "{\"username\": \"ciudadano1\", \"password\": \"" + PASSWORD + "\"}");
+        assertEquals(401, again.statusCode(), "blocked: it cannot log in again");
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /** Body of a press of the button {@code metersNorth} away from the scene of PanicTestSupport. */
@@ -280,6 +346,19 @@ class PanicApiTest {
         return String.format(Locale.ROOT,
                 "{\"deviceId\": \"%s\", \"location\": {\"latitude\": %.6f, \"longitude\": %.6f}}",
                 device, point.latitude(), point.longitude());
+    }
+
+    /** Body of a citizen registration (CU-23) with the password of these tests. */
+    private static String registration(String username, boolean consent) {
+        return "{\"document\": \"DOC" + Math.abs(username.hashCode()) + "\", \"firstNames\": \"Laura\","
+                + " \"lastNames\": \"Prueba\", \"email\": \"" + username + "@ejemplo.com\","
+                + " \"username\": \"" + username + "\", \"password\": \"" + PASSWORD + "\","
+                + " \"dataConsent\": " + consent + "}";
+    }
+
+    /** Logs in citizen number {@code n} of PanicTestSupport (created the first time) and returns its token. */
+    private String citizen(int n) throws Exception {
+        return login(panic.citizen(n).user().getUsername());
     }
 
     private String login(String username) throws Exception {

@@ -177,7 +177,7 @@ La vista es **web** (HTML, CSS, JavaScript y Leaflet), decisión DT-01 en `docs/
 - DT-02: **Oracle local** durante el desarrollo; Oracle Cloud se evalúa antes de la entrega final.
 - DT-03: tablas y columnas de Oracle **en español**, código Java en inglés.
 
-**Tomada por Andrés y Kendrick (21/10/2026):** zona de la red vial de la demostración: sur 10.435, oeste -73.280, norte 10.480, este -73.235 (unos 5 × 4,9 km). Incluye la estación de bomberos y los dos hospitales de `03_datos_valledupar.sql` y el Parque La Popa (lugar de la emergencia de la demostración) con al menos 1 km de margen.
+**Tomada por Andrés y Kendrick (21/10/2026), reemplazada por DT-14 el 19/11/2026:** zona de la red vial de la demostración: sur 10.435, oeste -73.280, norte 10.480, este -73.235 (unos 5 × 4,9 km). Incluye la estación de bomberos y los dos hospitales de `03_datos_valledupar.sql` y el Parque La Popa (lugar de la emergencia de la demostración) con al menos 1 km de margen.
 
 **Pendientes:**
 

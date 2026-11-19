@@ -19,7 +19,7 @@ Fuentes: requerimientos RF-01 a RF-12 de la propuesta, flujo general de atenció
 | **Bombero / Paramédico** | Principal | Personal en la unidad: consulta su misión asignada y la ruta | `BOMBERO_PARAMEDICO` |
 | **Administrador** | Principal | Gestiona usuarios y catálogos (unidades, estaciones, hospitales) y consulta la auditoría | `ADMINISTRADOR` |
 | **Simulador** | Secundario (sistema, temporizado) | Cada pocos segundos cambia el tráfico simulado y mueve las unidades simuladas. En la fase 2 lo reemplazan una fuente real de tráfico y el GPS | — |
-| **Ciudadano** | Secundario | Presiona el botón de pánico en su celular, sin cuenta (CU-22, DT-12) | — |
+| **Ciudadano** | Secundario | Crea su cuenta una vez (CU-23) y presiona el botón de pánico en su celular, que queda conectado 30 días (CU-22, DT-13). Dos alertas falsas bloquean su cuenta (RN-16) | `CIUDADANO` |
 | **Policía** | Secundario | Presiona el mismo botón con su sesión: su reporte valida la alerta sin esperar a otros (CU-22) | `POLICIA` |
 
 El **Coordinador** hereda los casos de uso del **Operador** (generalización de actores).
@@ -95,13 +95,15 @@ flowchart LR
         CU04([CU-04 Gestionar unidades y estaciones])
         CU05([CU-05 Gestionar hospitales y servicios])
         CU21([CU-21 Consultar auditoría])
+        CU23([CU-23 Registrarse como ciudadano])
         CU22([CU-22 Activar botón de pánico])
         CU09([CU-09 Despachar unidad])
     end
     BP --- CU01 & CU20
     AD --- CU01 & CU03 & CU04 & CU05 & CU21
-    CI --- CU22
-    PO --- CU22
+    CI --- CU23 & CU01 & CU22
+    PO --- CU01 & CU22
+    CU22 -. requiere sesión .-> CU01
     CU22 -. include: alerta validada .-> CU09
     classDef actor fill:#1d3557,color:#ffffff,stroke:#1d3557
 ```
@@ -155,7 +157,8 @@ flowchart LR
 | CU-19 | Controlar simulación y escenarios de demostración | Coordinador | `TRAFICO/GESTIONAR` | RF-06 | N |
 | CU-20 | Consultar misión asignada | Bombero / Paramédico | `DESPACHO/CONSULTAR` | RF-09 | C |
 | CU-21 | Consultar auditoría | Administrador, Coordinador | `AUDITORIA/CONSULTAR` | RF-12 | C |
-| CU-22 | Activar botón de pánico (reemplaza el reporte por QR, DT-12) | Ciudadano, Policía | Ninguno (sin sesión); `PANICO/VALIDAR` valida solo | RF-02, RF-09 | N |
+| CU-22 | Activar botón de pánico (reemplaza el reporte por QR, DT-12; con cuenta desde DT-13) | Ciudadano, Policía | `PANICO/REPORTAR`; `PANICO/VALIDAR` valida solo | RF-02, RF-09 | N |
+| CU-23 | Registrarse como ciudadano (DT-13) | Ciudadano | — (pública) | RF-01 | N |
 
 **Ajuste de permisos:** CU-12 (cerrar emergencia) exige `DESPACHO/GESTIONAR`, que solo tienen el Coordinador y el Administrador. Así el Operador registra, pero no cierra, emergencias. Coincide con los datos de `02_datos_iniciales.sql`.
 
@@ -384,27 +387,50 @@ flowchart LR
 
 | Campo | Contenido |
 |---|---|
-| Actor | Ciudadano (sin cuenta) o Policía (con su sesión) |
-| Precondición | La ubicación del celular está dentro de la zona de la red vial cargada |
+| Actor | Ciudadano o Policía, los dos con su sesión (DT-13) |
+| Precondición | La persona inició sesión con un rol que tiene `PANICO/REPORTAR` (CU-23 y CU-01); la ubicación del celular está dentro de la zona de la red vial cargada |
 | Postcondición | Queda un `REPORTE_PANICO`. Si la alerta se valida: hay una emergencia `REPORTADA` y, si hay una unidad disponible, despachada (`ASIGNADA`) con sus 3 rutas |
 
 **Flujo principal**
-1. La persona abre la página del botón en el celular y lo presiona. El navegador envía la ubicación, un identificador del dispositivo y, si la persona quiere, el tipo de emergencia y una descripción corta.
-2. El sistema guarda el reporte como `PENDIENTE` (RN-13).
-3. El sistema busca reportes `PENDIENTE` de **otros dispositivos** a menos de **300 m** en los últimos **10 minutos** (RN-14).
+1. La persona abre la página del botón en el celular (sigue conectada desde la última vez, hasta 30 días) y lo presiona. El navegador envía, con su token, la ubicación, un identificador del dispositivo y, si la persona quiere, el tipo de emergencia y una descripción corta.
+2. El sistema guarda el reporte como `PENDIENTE`, a nombre de la persona (RN-13).
+3. El sistema busca reportes `PENDIENTE` de **otras personas** a menos de **300 m** en los últimos **10 minutos** (RN-14).
 4. Si con el nuevo son 3 o más, la alerta queda **validada**: el sistema crea una emergencia `REPORTADA` en el punto medio de los reportes, con severidad `ALTA`, a nombre del usuario del sistema, y marca esos reportes `VALIDADO` (RN-15).
 5. El sistema despacha sola la unidad disponible más rápida (como en CU-09, con sus 3 rutas) y avisa a los coordinadores con una alerta.
 6. La página le confirma a la persona que la ayuda va en camino, o que su reporte espera a otros.
 
 **Flujos alternativos**
 - 1a. Quien reporta tiene sesión con `PANICO/VALIDAR` (Policía): su reporte valida la alerta solo, sin esperar a otros (paso 4 directo).
-- 2a. El dispositivo ya envió 3 reportes en 10 minutos: se rechaza con un mensaje (RN-13).
+- 1b. La persona no tiene sesión, o se venció: el botón queda apagado y la página le ofrece iniciar sesión o crear la cuenta (CU-23). Si la sesión vence justo al enviar, el servidor responde `401` y la página muestra lo mismo.
+- 2a. La persona ya envió 3 reportes en 10 minutos: se rechaza con un mensaje (RN-13).
 - 3a. No hay suficientes reportes: el reporte queda `PENDIENTE`; si en 10 minutos nadie más reporta cerca, pasa a `VENCIDO`.
 - 5a. No hay unidades disponibles: la emergencia queda `REPORTADA` y la alerta a los coordinadores lo dice; el despacho se hace a mano (CU-09).
 - 4a. Ya hay una alerta validada y abierta a menos de 300 m en los últimos 10 minutos: el reporte se une a esa emergencia (`VALIDADO`) y no se crea otra ni se despacha otra unidad.
-- 7a. Un coordinador ve que una alerta pendiente es falsa: la descarta y sus reportes cercanos pasan a `DESCARTADO`. Si la alerta ya se validó, cancela la misión (CU-10) y cierra la emergencia como falsa alarma (CU-12).
+- 7a. Un coordinador ve que una alerta pendiente es falsa: la descarta y sus reportes cercanos pasan a `DESCARTADO`. Cada ciudadano de esos reportes que llegue a 2 alertas descartadas en 30 días queda bloqueado (RN-16). Si la alerta ya se validó, cancela la misión (CU-10) y cierra la emergencia como falsa alarma (CU-12).
 
-**Clases:** `PanicService` (S11) → `PanicReportDAO`, `EmergencyService`, `DispatchService`, `AlertService`. Tabla `REPORTE_PANICO` de `07_boton_panico.sql`.
+**Clases:** `PanicService` (S11) → `PanicReportDAO`, `EmergencyService`, `DispatchService`, `AlertService`, `CitizenService` (bloqueo, RN-16). Tabla `REPORTE_PANICO` de `07_boton_panico.sql`.
+
+### CU-23 · Registrarse como ciudadano
+
+| Campo | Contenido |
+|---|---|
+| Actor | Ciudadano |
+| Precondición | El rol `CIUDADANO` existe y está activo (`08_ciudadanos.sql`) |
+| Postcondición | Hay un `USUARIO` activo con rol `CIUDADANO` y una auditoría `REGISTRAR_CIUDADANO` con la autorización de datos. Tras iniciar sesión, una `SESION_CIUDADANO` de 30 días |
+
+**Flujo principal**
+1. Desde la página del botón (o desde el inicio de sesión) la persona abre "Crear cuenta" (`registro.html`).
+2. Escribe sus nombres, apellidos, documento, correo, un usuario y una contraseña, y marca la autorización del tratamiento de sus datos (Ley 1581 de 2012), que le avisa que las alertas quedan a su nombre y que dos falsas bloquean la cuenta.
+3. El sistema valida los datos con las mismas reglas que la creación de usuarios (CU-03) y crea el usuario con rol `CIUDADANO`. La persona no elige el rol.
+4. La página inicia sesión con esos datos: el celular queda conectado **30 días**, sin vencer por inactividad, y pasa al botón (CU-22).
+
+**Flujos alternativos**
+- 2a. No marca la autorización: no se crea la cuenta y se le explica por qué.
+- 3a. El usuario, el documento o el correo ya existen, o un dato no tiene el formato: se rechaza con el mensaje del dato.
+- 3b. Desde la misma dirección de red ya se crearon 10 cuentas en una hora: se rechaza ("Intente más tarde").
+- 4a. La persona cierra sesión en el celular: se revoca ese token y vuelve a pedir el inicio de sesión.
+
+**Clases:** `CitizenController` → `CitizenService` → `UserDAO`, `RoleDAO`, `CitizenSessionDAO`, `AuditService`; `WebSessionController` entrega la sesión de 30 días. Tabla `SESION_CIUDADANO` de `08_ciudadanos.sql`.
 
 ---
 
@@ -424,11 +450,12 @@ flowchart LR
 | RN-10 | Solo una ambulancia `EN_SITIO` traslada. El hospital debe estar operativo, ofrecer `URGENCIAS` y alcanzarse por la red vial; se ordenan por ETA, con 10 minutos de penalización si `URGENCIAS` no está confirmado como disponible (`disponible = 'N'`, como en los datos de D2) | `DispatchService.hospitalsFor` (K10) |
 | RN-11 | Los datos simulados se marcan `SIMULACION` y nunca se presentan como reales; el historial se guarda por lotes | Enums `TrafficSource`, `PositionSource` |
 | RN-12 | Toda operación que modifica datos y todo inicio de sesión se audita | `AuditService` |
-| RN-13 | Un reporte de pánico entra `PENDIENTE`. Cada dispositivo puede enviar como máximo 3 reportes cada 10 minutos, y la página nunca guarda el identificador real del dispositivo (solo su hash SHA-256) | `PanicService` + `REPORTE_PANICO` |
-| RN-14 | Una alerta de pánico se valida con 3 reportes `PENDIENTE` de dispositivos distintos a menos de 300 m entre sí en los últimos 10 minutos, o con 1 reporte de un usuario con `PANICO/VALIDAR` (Policía) | `PanicService` |
+| RN-13 | Un reporte de pánico necesita una sesión con `PANICO/REPORTAR` (DT-13) y entra `PENDIENTE`, a nombre de esa persona. Cada persona puede enviar como máximo 3 reportes cada 10 minutos. Del dispositivo solo se guarda el hash SHA-256 de su identificador | `PanicService` + `REPORTE_PANICO` |
+| RN-14 | Una alerta de pánico se valida con 3 reportes `PENDIENTE` de personas distintas (cuentas distintas) a menos de 300 m entre sí en los últimos 10 minutos, o con 1 reporte de un usuario con `PANICO/VALIDAR` (Policía) | `PanicService` |
 | RN-15 | Una alerta validada crea una emergencia `REPORTADA` (severidad `ALTA`, usuario del sistema) y despacha sola la unidad disponible más rápida. Los reportes que la validaron quedan `VALIDADO` y ligados a esa emergencia, igual que los que llegan después cerca de ella mientras esté abierta; los `PENDIENTE` de más de 10 minutos pasan a `VENCIDO` | `PanicService` + CHECK `ck_reporte_panico_validado` |
+| RN-16 | Un ciudadano con **2 alertas descartadas** (`DESCARTADO`) en los últimos **30 días** queda bloqueado: su usuario pasa a inactivo, se cierran todas sus sesiones del celular, se audita `BLOQUEAR` y los coordinadores reciben una alerta. Un reporte `VENCIDO` no cuenta (nadie confirmó, pero tampoco se probó que fuera falso). Solo se bloquean cuentas `CIUDADANO`; un administrador puede reactivar la cuenta (CU-03) | `PanicService` + `CitizenService` |
 
-Los valores de RN-08, RN-09 y RN-14 (80 %, 1,5×, 15 %, 30 s, 3 reportes, 300 m, 10 min) son **parámetros iniciales a calibrar** con pruebas, no datos medidos.
+Los valores de RN-08, RN-09, RN-14 y RN-16 (80 %, 1,5×, 15 %, 30 s, 3 reportes, 300 m, 10 min, 2 alertas, 30 días) son **parámetros iniciales a calibrar** con pruebas, no datos medidos.
 
 ---
 
@@ -436,7 +463,7 @@ Los valores de RN-08, RN-09 y RN-14 (80 %, 1,5×, 15 %, 30 s, 3 reportes, 300 m,
 
 | Requerimiento | Casos de uso |
 |---|---|
-| RF-01 Autenticación | CU-01, CU-02, CU-03 |
+| RF-01 Autenticación | CU-01, CU-02, CU-03, CU-23 |
 | RF-02 Emergencias | CU-06, CU-07, CU-12, CU-15, CU-22 |
 | RF-03 Unidades | CU-04, CU-09 |
 | RF-04 Hospitales | CU-05, CU-11 |

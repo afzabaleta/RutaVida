@@ -45,7 +45,8 @@ public final class WebServer {
                 context.roadMapController(), context.alertController(), dispatch,
                 new AdminControllers(context.userController(), context.fleetController(), context.hospitalController(),
                         context.auditController()),
-                context.trackingController(), context.panicController(), frontend);
+                context.trackingController(), context.panicController(), context.citizenController(), frontend)
+                .withSimulation(context.simulationController());
         try {
             server.start(port);
         } catch (RuntimeException e) {
@@ -54,7 +55,10 @@ public final class WebServer {
             System.out.println("Detalle: " + e.getMessage());
             return;
         }
-        Runtime.getRuntime().addShutdownHook(new Thread(server::stop, "rutavida-stop"));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            context.stopSimulation();
+            server.stop();
+        }, "rutavida-stop"));
         System.out.println("[OK] RutaVida está en http://localhost:" + port + "  (API en /api)");
         System.out.println("     Para detenerlo, use el botón Stop de IntelliJ.");
     }

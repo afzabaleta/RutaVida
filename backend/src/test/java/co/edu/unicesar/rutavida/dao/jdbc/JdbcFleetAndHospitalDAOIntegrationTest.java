@@ -5,6 +5,7 @@ import co.edu.unicesar.rutavida.model.EmergencyStation;
 import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.Hospital;
+import co.edu.unicesar.rutavida.model.HospitalServiceOffering;
 import co.edu.unicesar.rutavida.model.VehicleType;
 import co.edu.unicesar.rutavida.model.enums.HospitalLevel;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
@@ -83,6 +84,14 @@ class JdbcFleetAndHospitalDAOIntegrationTest {
         assertNull(rosario.getEmergencyCapacity(), "capacidad_urgencias is NULL in the script");
         assertEquals(RecordStatus.ACTIVE, rosario.getStatus());
         assertEquals(rosario.getName(), hospitalDao.findById(rosario.getId()).orElseThrow().getName());
+
+        // SERVICIO_HOSPITAL (03_datos_valledupar.sql): by name, and 'N' until the hospital confirms them.
+        List<HospitalServiceOffering> services = hospitalDao.findServices(rosario.getId());
+        assertEquals(List.of("CIRUGIA", "HOSPITALIZACION", "URGENCIAS"),
+                services.stream().map(HospitalServiceOffering::getServiceName).toList());
+        assertTrue(services.stream().allMatch(offering -> offering.getHospitalId() == rosario.getId()));
+        assertFalse(services.get(0).isAvailable(), "disponible = 'N' in the script");
+        assertTrue(hospitalDao.findServices(-1).isEmpty());
 
         assertTrue(stationDao.findById(-1).isEmpty());
         assertTrue(hospitalDao.findById(-1).isEmpty());

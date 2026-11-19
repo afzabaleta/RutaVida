@@ -28,17 +28,20 @@ export class ApiError extends Error {
   }
 }
 
+// The staff token lives in sessionStorage: closing the tab logs out. The citizen token of
+// the panic button (DT-13) lives in localStorage: the phone stays logged in for 30 days.
 function readToken() {
   try {
-    return sessionStorage.getItem(TOKEN_KEY);
+    return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
 }
 
-function saveToken(token) {
+function saveToken(token, keepOnThisDevice = false) {
   try {
-    sessionStorage.setItem(TOKEN_KEY, token);
+    clearToken();
+    (keepOnThisDevice ? localStorage : sessionStorage).setItem(TOKEN_KEY, token);
   } catch {
     // Session lasts only while this page is open.
   }
@@ -47,6 +50,7 @@ function saveToken(token) {
 function clearToken() {
   try {
     sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
   } catch {
     // Nothing to clear.
   }
@@ -111,7 +115,7 @@ export async function login(username, password) {
     password,
   });
 
-  saveToken(session.token);
+  saveToken(session.token, session.role === "CIUDADANO");
   return session;
 }
 
@@ -287,6 +291,48 @@ export async function listHospitals() {
   }));
 }
 
+// ------------------------------------------------------------------ D10: history and reports
+
+/** Build query parameters for a period. */
+function periodQuery(from, to) {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return params.toString();
+}
+
+/** Operations report calculated in Oracle. */
+export function getOperationsReport(from, to) {
+  return request("GET", `/api/reports/operations?${periodQuery(from, to)}`);
+}
+
+/** All emergencies in the period, including closed ones. */
+export async function listEmergenciesByPeriod(from, to) {
+  const query = periodQuery(from, to) || `to=${encodeURIComponent(todayIso())}`;
+  const [types, emergencies] = await Promise.all([
+    listEmergencyTypes(),
+    request("GET", `/api/emergencies?${query}`),
+  ]);
+
+  return emergencies.map((emergency) => ({
+    ...toEmergency(emergency, types),
+    closedAt: emergency.closedAt,
+  }));
+}
+
+/** Complete history of an emergency. */
+export function getEmergencyHistory(id) {
+  return request("GET", `/api/emergencies/${encodeURIComponent(id)}/history`);
+}
+
+/** Local date in YYYY-MM-DD format. */
+export function todayIso(offsetDays = 0) {
+  const day = new Date();
+  day.setDate(day.getDate() + offsetDays);
+  const month = String(day.getMonth() + 1).padStart(2, "0");
+  const date = String(day.getDate()).padStart(2, "0");
+  return `${day.getFullYear()}-${month}-${date}`;
+}
 /** Indicators of the main panel, counted in Oracle (docs/api.md, 11.1). */
 export function getDashboardSummary() {
   return request("GET", "/api/dashboard/summary");
@@ -501,4 +547,28 @@ export function discardPanicReport(reportId) {
     `/api/panic/reports/${encodeURIComponent(reportId)}/status`,
     { status: "DESCARTADO" }
   );
+}
+
+/**
+ * A person creates the citizen account of the panic button (CU-23, docs/api.md 16.5).
+ * Public: it works without a session. Returns the new user and the message of the server.
+ */
+export async function registerCitizen(form) {
+  const answer = await call("POST", "/api/citizens", {
+    document: form.document,
+    firstNames: form.firstNames,
+    lastNames: form.lastNames,
+    email: form.email,
+    username: form.username,
+    password: form.password,
+    dataConsent: form.dataConsent === true,
+  });
+  return { user: answer.value, message: answer.message };
+}
+
+/** Where a session starts working: the button for citizens and police, the panel for the staff. */
+export function homeOf(session) {
+  return hasPermission(session, "PANICO:REPORTAR") && !hasPermission(session, "DESPACHO:GESTIONAR")
+    ? "./panico.html"
+    : "./dashboard.html";
 }

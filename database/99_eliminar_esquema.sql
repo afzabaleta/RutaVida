@@ -2,11 +2,12 @@
 -- RutaVida · 99_eliminar_esquema.sql
 -- Borra TODAS las tablas y secuencias de RutaVida para volver a crear
 -- el esquema desde cero. Se pierden los datos.
--- Ejecutar como RUTAVIDA. Solo toca los objetos de esta lista.
+-- Ejecutar como RUTAVIDA. Solo toca los objetos de esta lista, que
+-- incluye los de 07_boton_panico.sql y 08_ciudadanos.sql.
 -- =====================================================================
 BEGIN
     FOR t IN (SELECT column_value AS nombre FROM TABLE(sys.odcivarchar2list(
-                'REPORTE_PANICO', 'AUDITORIA', 'NOTIFICACION', 'ALERTA', 'UBICACION_VEHICULO',
+                'SESION_CIUDADANO', 'REPORTE_PANICO', 'AUDITORIA', 'NOTIFICACION', 'ALERTA', 'UBICACION_VEHICULO',
                 'ASIGNACION_EMERGENCIA', 'RUTA_TRAMO', 'RUTA', 'INCIDENTE_VIAL',
                 'TRAFICO', 'SEMAFORO', 'TRAMO_VIAL', 'NODO_VIAL', 'EMERGENCIA',
                 'TIPO_EMERGENCIA', 'SERVICIO_HOSPITAL', 'HOSPITAL',
@@ -27,7 +28,7 @@ BEGIN
                 'SEQ_NODO_VIAL', 'SEQ_TRAMO_VIAL', 'SEQ_SEMAFORO', 'SEQ_TRAFICO',
                 'SEQ_INCIDENTE_VIAL', 'SEQ_RUTA', 'SEQ_ASIGNACION_EMERGENCIA',
                 'SEQ_UBICACION_VEHICULO', 'SEQ_ALERTA', 'SEQ_NOTIFICACION',
-                'SEQ_AUDITORIA', 'SEQ_REPORTE_PANICO'))) LOOP
+                'SEQ_AUDITORIA', 'SEQ_REPORTE_PANICO', 'SEQ_SESION_CIUDADANO'))) LOOP
         BEGIN
             EXECUTE IMMEDIATE 'DROP SEQUENCE ' || s.nombre;
         EXCEPTION
