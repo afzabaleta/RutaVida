@@ -181,7 +181,7 @@ function buildSidebar(session, page) {
   simulation.setAttribute("role", "note");
   const dot = el("span", "shell-sim-dot");
   dot.setAttribute("aria-hidden", "true");
-  const simText = el("span", "", "Simulación en vivo");
+  const simText = el("span", "", "Datos de simulación");
   simText.appendChild(el("small", "", "Datos SIMULACIÓN · EJEMPLO"));
   simulation.append(dot, simText);
 
@@ -345,6 +345,21 @@ function startDrawer(sidebar, burger, backdrop) {
  * Elements marked data-shell-slot="header-actions" (the alert bell)
  * move into the header with their ids intact.
  */
+/**
+ * Shows whether the simulation really runs (D12).
+ * Pages without the simulation panel only identify simulated data.
+ */
+export function showSimulationState(running) {
+  const box = document.querySelector(".shell-sim");
+  if (!box) return;
+
+  box.classList.toggle("is-stopped", !running);
+  const title = box.querySelector("span:not(.shell-sim-dot)");
+  if (title?.firstChild) {
+    title.firstChild.textContent = running ? "Simulación en marcha" : "Simulación detenida";
+  }
+}
+
 export function renderAppShell(session) {
   if (document.body.classList.contains("has-shell")) {
     return;
