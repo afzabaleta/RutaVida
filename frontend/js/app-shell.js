@@ -51,11 +51,8 @@ const MENU = [
     group: "SISTEMA",
     label: "Administración",
     icon: "gear",
-    href: null,
+    href: "./admin.html",
     permission: "USUARIOS:GESTIONAR",
-    tag: { text: "D11", kind: "soon" },
-    // The page does not exist yet: shown greyed out, not a link.
-    disabledTitle: "Próximamente (D11)",
   },
 ];
 
