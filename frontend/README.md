@@ -169,7 +169,12 @@ El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad ha
 - La página no calcula rutas: dibuja las que devuelve el servidor, con la explicación que él escribe.
 - Una emergencia que no está `REPORTADA` muestra su misión abierta, que la página busca en el historial (`GET /api/emergencies/{id}/history`).
 - Cerrar pide un segundo clic de confirmación. Una emergencia `REPORTADA` se puede cerrar como falsa alarma.
-- La página no se actualiza sola, porque esas consultas mantendrían viva la sesión (DT-08): se usa «Actualizar estado». El seguimiento en vivo llega con `/api/tracking` (A12e).
+- **Despacho en vivo (D13):** `dispatch-live.js` consulta `GET /api/tracking` cada 5 segundos mientras existe una misión abierta y la pestaña está visible.
+- La posición de la unidad se actualiza en el mapa y se identifica como `SIMULACION`.
+- La página detecta cambios de estado, recálculos de rutas mediante `routesVersion` y la finalización de la misión.
+- Las consultas automáticas de seguimiento no mantienen viva la sesión (DT-08).
+- El seguimiento requiere `EMERGENCIAS:CONSULTAR`. Sin este permiso se conserva el botón «Actualizar estado».
+- Al llegar una ambulancia a `EN_SITIO`, se actualiza el panel para permitir el traslado al hospital.
 - **Traslado al hospital (CU-11):**
   - Con la misión `EN_SITIO` y una ambulancia, el botón «Elegir hospital para el traslado» muestra los hospitales con su tiempo, su distancia y si las urgencias están sin confirmar (suman 10 min al orden, RN-10).
   - Los hospitales se marcan en el mapa. «Trasladar aquí» pone la misión en `TRASLADANDO` y dibuja las rutas al hospital.
