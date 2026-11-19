@@ -100,7 +100,7 @@
                 <div>
                     <h2>Emergencia, unidades y rutas</h2>
                 </div>
-                <span class="map-status">
+                <span class="map-status" id="map-live" role="status">
                     <span></span> Mapa de referencia
                 </span>
             </div>
@@ -166,8 +166,9 @@
                     transacción.
                 </p>
                 <p>
-                    La página no se actualiza sola: usa «Actualizar estado» para ver si la
-                    unidad ya llegó. El movimiento en vivo se ve en el Panel de control.
+                    Con una misión abierta, la página pregunta cada 5 s dónde va la unidad
+                    (posición SIMULACION) y se actualiza sola cuando llega, cuando el
+                    sistema recalcula la ruta o cuando la misión termina.
                 </p>
             </div>
         </aside>
