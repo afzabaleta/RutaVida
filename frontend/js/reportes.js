@@ -2,6 +2,7 @@ import {
   getOperationsReport,
   listEmergenciesByPeriod,
   getEmergencyHistory,
+  listUnits,
   hasPermission,
   todayIso,
 } from "./api-client.js";
@@ -9,6 +10,7 @@ import { startPage } from "./page-session.js";
 
 const $ = (id) => document.getElementById(id);
 let emergencies = [];
+let unitCodes = new Map();
 let currentRequest = 0;
 
 function showMessage(message, error = false) {
@@ -44,7 +46,7 @@ function validPeriod(from, to) {
   const days = Math.round((last - first) / 86400000) + 1;
 
   if (!Number.isFinite(days) || days < 1 || days > 366) {
-    return "El periodo debe tener entre 1 y 366 dias.";
+    return "El periodo debe tener entre 1 y 366 días.";
   }
   return null;
 }
@@ -197,7 +199,7 @@ function detailSection(title, items, fields) {
       const strong = document.createElement("strong");
       strong.textContent = `${label}: `;
       const value = document.createElement("span");
-      value.textContent = display(item[key]);
+      value.textContent = key.endsWith("At") ? dateText(item[key]) : display(item[key]);
       paragraph.append(strong, value);
       article.appendChild(paragraph);
     }
@@ -226,9 +228,14 @@ async function loadDetail(id) {
     status.textContent = `Estado: ${display(history.emergency?.status)}`;
     target.appendChild(status);
 
-    target.appendChild(detailSection("Misiones", history.assignments ?? [], [
+    const assignments = (history.assignments ?? []).map((assignment) => ({
+      ...assignment,
+      vehicleCode: unitCodes.get(String(assignment.vehicleId)) ?? null,
+    }));
+
+    target.appendChild(detailSection("Misiones", assignments, [
       ["ID", "id"],
-      ["Vehiculo", "vehicleId"],
+      ["Vehículo", "vehicleCode"],
       ["Estado", "status"],
       ["Asignada", "assignedAt"],
       ["Salida", "departedAt"],
@@ -243,9 +250,9 @@ async function loadDetail(id) {
       ["Estado", "status"],
     ]));
 
-    target.appendChild(detailSection("Auditoria", history.auditTrail ?? [], [
-      ["Operacion", "operation"],
-      ["Modulo", "module"],
+    target.appendChild(detailSection("Auditoría", history.auditTrail ?? [], [
+      ["Operación", "operation"],
+      ["Módulo", "module"],
       ["Fecha", "occurredAt"],
       ["Resultado", "result"],
       ["Detalle", "detail"],
@@ -265,7 +272,7 @@ function csvValue(value) {
 
 function downloadCsv() {
   const rows = [
-    ["Codigo", "Fecha", "Tipo", "Gravedad", "Estado"],
+    ["Código", "Fecha", "Tipo", "Gravedad", "Estado"],
     ...filteredEmergencies().map((item) => [
       item.code, item.reportedAt, item.type, item.severity, item.status,
     ]),
@@ -334,6 +341,17 @@ async function init() {
     $("report-filters").hidden = true;
     $("csv-button").disabled = true;
     return;
+  }
+
+  if (hasPermission(session, "UNIDADES:CONSULTAR")) {
+    try {
+      const units = await listUnits();
+      unitCodes = new Map(
+        units.map((unit) => [String(unit.id), unit.code])
+      );
+    } catch (error) {
+      console.warn("Unit codes unavailable:", error);
+    }
   }
 
   setPeriod(7);

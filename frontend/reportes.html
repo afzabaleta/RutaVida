@@ -6,43 +6,30 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <meta name="theme-color" content="#101923">
   <title>RutaVida | Historial y reportes</title>
+  <script src="./js/theme-boot.js"></script>
   <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./css/rutavida.css">
   <link rel="stylesheet" href="./css/dashboard.css">
+  <link rel="stylesheet" href="./css/app-shell.css">
   <link rel="stylesheet" href="./css/operacion.css">
   <link rel="stylesheet" href="./css/reportes.css">
+  <link rel="stylesheet" href="./css/theme.css">
   <script type="module" src="./js/reportes.js"></script>
 </head>
 
 <body class="dashboard-body reports-body">
-  <header class="dashboard-header">
-    <a class="dashboard-brand" href="./dashboard.html">
-      <img src="./img/logo.svg" alt="" width="42" height="42">
-      <span>
-        <strong>RutaVida</strong>
-        <small>Historial y reportes</small>
-      </span>
-    </a>
 
-    <div class="header-user">
-      <div>
-        <strong id="user-name">Cargando...</strong>
-        <small id="user-role"></small>
-      </div>
-      <a class="logout-link" href="./index.html">Salir</a>
-    </div>
-  </header>
 
   <main class="dashboard-main reports-main">
     <section class="welcome-row">
       <div>
-        <p class="eyebrow">ANALISIS OPERATIVO</p>
-        <h1>Historial y reportes</h1>
+        <p class="eyebrow">ANÁLISIS OPERATIVO</p>
+        <h1 class="page-title">Historial y <span>reportes</span></h1>
         <p class="muted">Indicadores calculados en Oracle e historial de emergencias.</p>
       </div>
 
       <div class="welcome-actions">
-        <a class="button button-secondary" href="./dashboard.html">Volver al panel</a>
+
         <button class="button button-secondary" id="print-button" type="button">
           Imprimir / PDF
         </button>
@@ -61,10 +48,10 @@
           <input id="date-to" name="to" type="date" required>
         </label>
 
-        <div class="reports-presets" aria-label="Periodos rapidos">
+        <div class="reports-presets" aria-label="Periodos rápidos">
           <button type="button" data-period="today">Hoy</button>
-          <button type="button" data-period="7">7 dias</button>
-          <button type="button" data-period="30">30 dias</button>
+          <button type="button" data-period="7">7 días</button>
+          <button type="button" data-period="30">30 días</button>
         </div>
 
         <button class="button" type="submit">Consultar</button>
@@ -107,9 +94,9 @@
       </article>
     </section>
 
-    <section class="reports-charts" aria-label="Graficos operativos">
+    <section class="reports-charts" aria-label="Gráficos operativos">
       <article class="reports-panel">
-        <h2>Emergencias por dia</h2>
+        <h2>Emergencias por día</h2>
         <div id="chart-days" class="report-chart"></div>
       </article>
 
@@ -124,7 +111,7 @@
       </article>
 
       <article class="reports-panel">
-        <h2>Despachos por tipo de vehiculo</h2>
+        <h2>Despachos por tipo de vehículo</h2>
         <div id="chart-vehicles" class="report-chart"></div>
       </article>
     </section>
@@ -150,7 +137,7 @@
         <table class="reports-table">
           <thead>
             <tr>
-              <th scope="col">Codigo</th>
+              <th scope="col">Código</th>
               <th scope="col">Fecha</th>
               <th scope="col">Tipo</th>
               <th scope="col">Gravedad</th>
