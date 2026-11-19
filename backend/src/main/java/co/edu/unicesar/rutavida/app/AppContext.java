@@ -350,8 +350,8 @@ public final class AppContext {
             dispatchService = new DispatchService(new JdbcEmergencyDAO(jdbc),
                     new JdbcEmergencyTypeDAO(jdbc), new JdbcEmergencyVehicleDAO(jdbc),
                     new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyStationDAO(jdbc),
-                    new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), routeService(),
-                    auditService, jdbc, clock);
+                    new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc), new JdbcHospitalDAO(jdbc),
+                    routeService(), auditService, jdbc, clock);
         }
         return dispatchService;
     }

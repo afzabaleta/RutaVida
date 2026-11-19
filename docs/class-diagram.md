@@ -1109,6 +1109,7 @@ class UserService {
         -stationDao : EmergencyStationDAO
         -assignmentDao : EmergencyAssignmentDAO
         -routeDao : RouteDAO
+        -hospitalDao : HospitalDAO
         -routeService : RouteService
         -auditService : AuditService
         -transactions : TransactionManager
@@ -1126,7 +1127,8 @@ class UserService {
         +changeStatus(assignment: EmergencyAssignment, next: AssignmentStatus, at: LocalDateTime) void
         +isOpen(assignment: EmergencyAssignment) boolean
         +moveVehicle(vehicle: EmergencyVehicle, point: GeoPoint, at: LocalDateTime) void
-        +startTransfer(assignmentId: long, hospitalId: long, session: UserSession) void
+        +hospitalsFor(assignmentId: long) List~HospitalOption~
+        +startTransfer(assignmentId: long, hospitalId: long, session: UserSession) DispatchResult
         +closeEmergency(emergencyId: long, session: UserSession) Emergency
         +dispatchOptimal(emergencyIds: List~Long~, session: UserSession) List~EmergencyAssignment~
     }
@@ -1165,7 +1167,6 @@ class HospitalService {
     +register(request: HospitalRequest, session: UserSession) Hospital
     +update(id: long, request: HospitalRequest, session: UserSession) Hospital
     +changeStatus(id: long, status: RecordStatus, session: UserSession) Hospital
-    +rankForTransfer(from: GeoPoint, requiredService: String, vehicleTypeId: long) List~HospitalOption~
     +updateServiceAvailability(offering: HospitalServiceOffering, session: UserSession) void
 }
 
@@ -1249,10 +1250,9 @@ class HospitalService {
     FleetService ..> AlertService : avisa (S8)
     HospitalService ..> AuditService
     DispatchService ..> RouteService
-    DispatchService ..> HospitalService : K7b
+    DispatchService ..> HospitalDAO : traslado (K10)
     DispatchService ..> HungarianAlgorithm : fase 2
     DispatchService ..> AlertService : avisa (S8)
-    HospitalService ..> RouteService
     PanicService ..> EmergencyService : crea la emergencia
     PanicService ..> DispatchService : despacha sola
     PanicService ..> RouteService : zona de la red
@@ -1353,10 +1353,14 @@ classDiagram
     }
     class HospitalOption {
         <<record>>
-        +hospital : Hospital
-        +etaSeconds : double
-        +availabilityPenalty : double
-        +score : double
+        +hospitalId : long
+        +name : String
+        +level : String
+        +location : GeoPoint
+        +etaMinutes : double
+        +distanceKm : double
+        +serviceConfirmed : boolean
+        +scoreMinutes : double
     }
     class EmergencyHistory {
         <<record>>
@@ -1563,12 +1567,11 @@ class Messages {
     class LiveMapService
     class AuditQueryService
 
-    DispatchService ..> HospitalService
     EmergencyService ..> EmergencyRequest
     EmergencyService ..> EmergencyHistory
     DispatchService ..> UnitCandidate
     DispatchService ..> DispatchResult
-    HospitalService ..> HospitalOption
+    DispatchService ..> HospitalOption
     DashboardService ..> DashboardSummary
     ReportService ..> OperationsReport
     OperationsReport *-- ReportCount
@@ -2135,8 +2138,8 @@ classDiagram
         +dispatch(emergencyId: long, vehicleId: long) OperationResult~DispatchResult~
         +advance(assignmentId: long, next: AssignmentStatus) OperationResult~EmergencyAssignment~
         +missionRoutes(assignmentId: long) OperationResult~List~Route~~
-        +rankHospitals(assignmentId: long, requiredService: String) OperationResult~List~HospitalOption~~
-        +startTransfer(assignmentId: long, hospitalId: long) OperationResult~Void~
+        +hospitalsFor(assignmentId: long) OperationResult~List~HospitalOption~~
+        +startTransfer(assignmentId: long, hospitalId: long) OperationResult~DispatchResult~
         +close(emergencyId: long) OperationResult~Emergency~
     }
     class RouteController {

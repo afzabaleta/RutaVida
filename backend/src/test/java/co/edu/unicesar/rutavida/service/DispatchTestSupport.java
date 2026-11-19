@@ -9,8 +9,10 @@ import co.edu.unicesar.rutavida.model.EmergencyStation;
 import co.edu.unicesar.rutavida.model.EmergencyType;
 import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.GeoPoint;
+import co.edu.unicesar.rutavida.model.Hospital;
 import co.edu.unicesar.rutavida.model.VehicleType;
 import co.edu.unicesar.rutavida.model.enums.EmergencyStatus;
+import co.edu.unicesar.rutavida.model.enums.HospitalLevel;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 import co.edu.unicesar.rutavida.model.enums.Severity;
 import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
@@ -49,11 +51,19 @@ public final class DispatchTestSupport {
     public static final long NO_POSITION_AMBULANCE = 4;
     public static final long FAR_AMBULANCE = 5;
 
+    /** Hospitals of the transfer (K10), created in this order: ids 1 to 5. */
+    public static final long NEAR_UNCONFIRMED_HOSPITAL = 1;
+    public static final long CONFIRMED_HOSPITAL = 2;
+    public static final long NO_EMERGENCY_ROOM_HOSPITAL = 3;
+    public static final long INACTIVE_HOSPITAL = 4;
+    public static final long FAR_HOSPITAL = 5;
+
     public final InMemoryEmergencyDAO emergencies = new InMemoryEmergencyDAO();
     public final InMemoryEmergencyTypeDAO emergencyTypes = new InMemoryEmergencyTypeDAO();
     public final InMemoryEmergencyVehicleDAO vehicles = new InMemoryEmergencyVehicleDAO();
     public final InMemoryEmergencyAssignmentDAO assignments = new InMemoryEmergencyAssignmentDAO(vehicles, emergencies);
     public final InMemoryRouteDAO routes = new InMemoryRouteDAO();
+    public final InMemoryHospitalDAO hospitals = new InMemoryHospitalDAO();
     public final InMemoryAuditDAO audit = new InMemoryAuditDAO();
     public final EmergencyTestSupport.CountingTransactions transactions = new EmergencyTestSupport.CountingTransactions();
     public final RoadGraph graph = grid();
@@ -66,13 +76,27 @@ public final class DispatchTestSupport {
         vehicles.insert(unit("EJEMPLO-AMB-02", 1, VehicleOperationalStatus.BUSY, at(0, 2)));
         vehicles.insert(unit("EJEMPLO-AMB-03", 1, VehicleOperationalStatus.AVAILABLE, null));
         vehicles.insert(unit("EJEMPLO-AMB-04", 1, VehicleOperationalStatus.AVAILABLE, new GeoPoint(10.60, -73.00)));
+        // (1,2), 1 street from the ambulance, URGENCIAS not confirmed ('N', like the data of D2).
+        hospital("PRUEBA HOSPITAL CERCANO", at(1, 2), RecordStatus.ACTIVE, "URGENCIAS", false);
+        // (0,0), 2 streets away, URGENCIAS confirmed ('S').
+        hospital("PRUEBA HOSPITAL CONFIRMADO", at(0, 0), RecordStatus.ACTIVE, "URGENCIAS", true);
+        hospital("PRUEBA HOSPITAL SIN URGENCIAS", at(2, 1), RecordStatus.ACTIVE, "CIRUGIA", true);
+        hospital("PRUEBA HOSPITAL INACTIVO", at(0, 2), RecordStatus.INACTIVE, "URGENCIAS", true);
+        hospital("PRUEBA HOSPITAL LEJANO", new GeoPoint(10.60, -73.00), RecordStatus.ACTIVE, "URGENCIAS", true);
+    }
+
+    private void hospital(String name, GeoPoint where, RecordStatus status, String service, boolean confirmed) {
+        long id = hospitals.insert(new Hospital(0, name, HospitalLevel.LEVEL_II, "Calle de prueba", null, where,
+                null, status));
+        hospitals.addService(id, service, confirmed);
     }
 
     /** The service with every fake; the routes are calculated on the small city. */
     public DispatchService service() {
         RouteService routeService = new RouteService(graph, routes, transactions, CLOCK);
         return new DispatchService(emergencies, emergencyTypes, vehicles, () -> VEHICLE_TYPES,
-                stations(), assignments, routes, routeService, new AuditService(audit, CLOCK), transactions, CLOCK);
+                stations(), assignments, routes, hospitals, routeService, new AuditService(audit, CLOCK),
+                transactions, CLOCK);
     }
 
     /** Only the state rules (isDispatchable, changeStatus, moveVehicle...); the fakes are not used. */
