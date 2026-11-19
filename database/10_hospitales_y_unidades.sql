@@ -99,12 +99,15 @@ COMMIT;
 
 -- 3. UNIDADES DE EJEMPLO (10): dos ambulancias por base nueva, y una
 -- maquina de bomberos en el norte y otra en el sur. Empiezan en su base.
+-- La hora va en hora de Colombia, como la escribe el servidor Java: en Oracle Cloud
+-- SYSTIMESTAMP sale en UTC (5 horas adelante) y la simulacion descartaria las
+-- posiciones nuevas por ser "anteriores" a la guardada.
 INSERT INTO vehiculo_emergencia (
     id_tipo_vehiculo, id_estacion, codigo_unidad, placa,
     estado_operativo, latitud, longitud, fecha_actualizacion
 )
 SELECT t.id_tipo_vehiculo, e.id_estacion, u.codigo, NULL,
-       'DISPONIBLE', e.latitud, e.longitud, SYSTIMESTAMP
+       'DISPONIBLE', e.latitud, e.longitud, CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP)
 FROM (
          SELECT 'EJEMPLO-AMB-04' AS codigo, 'AMBULANCIA' AS tipo, 'EJEMPLO - Base norte' AS estacion FROM dual
          UNION ALL SELECT 'EJEMPLO-AMB-05', 'AMBULANCIA', 'EJEMPLO - Base norte' FROM dual

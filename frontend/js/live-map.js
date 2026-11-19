@@ -48,7 +48,7 @@ function unitPopup(unit) {
   return box;
 }
 
-export function startLiveMap(map, session, { onSnapshot, onError } = {}) {
+export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged } = {}) {
   if (!map || !hasPermission(session, "EMERGENCIAS:CONSULTAR")) {
     return null;
   }
@@ -149,6 +149,11 @@ export function startLiveMap(map, session, { onSnapshot, onError } = {}) {
           line,
           route: active ?? null,
         });
+
+        // D12: a mission that already had a route and got a new one was recalculated.
+        if (drawn?.route && drawn.version !== mission.routesVersion && active) {
+          onRouteChanged?.(mission, active);
+        }
       } catch (error) {
         console.warn("No se pudo leer la ruta de la misión", mission.assignmentId, error);
       }

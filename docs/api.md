@@ -273,7 +273,7 @@ Las rutas del historial no traen el trazado: el historial es para leer, no para 
 
 ## 6. Despacho y rutas
 
-Estado: 6.1, 6.2, 6.3, 6.4 y 6.6 (A12d) y 6.7 (A16) están programadas. 6.5 y el paso a `TRASLADANDO` esperan el traslado al hospital (CU-11, K7b).
+Estado: 6.1 a 6.4 y 6.6 (A12d), 6.7 (A16) y 6.5 con el paso a `TRASLADANDO` (A25, sobre K10) están programadas.
 
 ### 6.1 `GET /api/emergencies/{id}/candidates`
 
@@ -373,17 +373,22 @@ La web vuelve a pedir esta ruta cuando `/api/tracking` indica que cambió `route
 
 ### 6.5 `GET /api/dispatches/{id}/hospitals`
 
-Hospitales operativos para el traslado (CU-11), el más conveniente primero:
+Hospitales para el traslado de la misión `{id}` (CU-11, RN-10), el más conveniente primero. Permiso `DESPACHO/GESTIONAR`.
+
+- Solo entran los hospitales **activos** que ofrecen `URGENCIAS` y a los que se llega por la red vial cargada.
+- El orden es por `scoreMinutes`: el tiempo de la mejor ruta desde la ambulancia, con el tráfico actual, más **10 minutos** si el hospital no ha confirmado el servicio (`serviceConfirmed: false`). Hoy ninguno está confirmado en la base (`disponible = 'N'`), así que todos suman lo mismo y el orden queda por tiempo.
 
 ```json
 { "success": true, "message": null, "value": [
   { "hospitalId": 1, "name": "HOSPITAL ROSARIO PUMAREJO DE LOPEZ", "level": "II",
     "location": { "latitude": 10.469330, "longitude": -73.254520 },
-    "etaMinutes": 4.2, "distanceKm": 1.65 }
+    "etaMinutes": 4.2, "distanceKm": 1.65, "serviceConfirmed": false, "scoreMinutes": 14.2 }
 ] }
 ```
 
-`409` si la misión no está `EN_SITIO`.
+Los números del ejemplo son ilustrativos; los reales los calcula el servidor.
+
+Errores: `409` si la misión no está `EN_SITIO` o la unidad no es una ambulancia; `404` si la misión no existe. Una lista vacía (`200`) quiere decir que ningún hospital cumple las condiciones.
 
 ### 6.6 `PATCH /api/dispatches/{id}/status`
 
@@ -401,9 +406,13 @@ Para pasar a `TRASLADANDO` se envía también el hospital (CU-11):
 { "status": "TRASLADANDO", "hospitalId": 1 }
 ```
 
-Salida `200`: la asignación actualizada (forma de 6.3). Con `TRASLADANDO`, el servidor calcula y guarda las rutas al hospital, y la web las lee con 6.4.
+Salida `200`: la asignación actualizada (forma de 6.3). Con `TRASLADANDO`, el servidor calcula y guarda las rutas al hospital en la misma transacción: la recomendada queda `ACTIVA` y las otras `PROPUESTA`. La web las lee con 6.4 y el simulador lleva la ambulancia por la `ACTIVA`. Al llegar al hospital la misión **sigue** en `TRASLADANDO`: el coordinador la pasa a `FINALIZADA`, lo que termina las rutas y libera la ambulancia.
 
-Errores: `409` con `"No se puede cambiar la asignación de ASIGNADA a TRASLADANDO."` si la transición no está permitida; `400` si falta `hospitalId` al pasar a `TRASLADANDO`. Mientras no esté CU-11 (K7b), `TRASLADANDO` responde `400` con `"El traslado necesita el hospital de destino (CU-11, pendiente)."`.
+Errores:
+- `400` con `"Para el traslado elija el hospital de destino (hospitalId)."` si falta `hospitalId` al pasar a `TRASLADANDO`.
+- `400` con `"El hospital (hospitalId) solo se envía con el estado TRASLADANDO."` si se manda `hospitalId` con otro estado.
+- `409` si la transición no está permitida (por ejemplo, `"No se puede cambiar la asignación de ASIGNADA a FINALIZADA."`), si se pide `TRASLADANDO` y la misión no está `EN_SITIO` o la unidad no es una ambulancia, o si ese hospital no puede recibir el traslado (inactivo, sin `URGENCIAS` o sin camino por la red vial).
+- `404` si la misión o el hospital no existen.
 
 La llegada al sitio (`EN_SITIO`) también la puede marcar el simulador por su cuenta.
 

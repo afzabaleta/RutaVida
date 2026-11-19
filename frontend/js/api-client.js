@@ -291,6 +291,48 @@ export async function listHospitals() {
   }));
 }
 
+// ------------------------------------------------------------------ D10: history and reports
+
+/** Build query parameters for a period. */
+function periodQuery(from, to) {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return params.toString();
+}
+
+/** Operations report calculated in Oracle. */
+export function getOperationsReport(from, to) {
+  return request("GET", `/api/reports/operations?${periodQuery(from, to)}`);
+}
+
+/** All emergencies in the period, including closed ones. */
+export async function listEmergenciesByPeriod(from, to) {
+  const query = periodQuery(from, to) || `to=${encodeURIComponent(todayIso())}`;
+  const [types, emergencies] = await Promise.all([
+    listEmergencyTypes(),
+    request("GET", `/api/emergencies?${query}`),
+  ]);
+
+  return emergencies.map((emergency) => ({
+    ...toEmergency(emergency, types),
+    closedAt: emergency.closedAt,
+  }));
+}
+
+/** Complete history of an emergency. */
+export function getEmergencyHistory(id) {
+  return request("GET", `/api/emergencies/${encodeURIComponent(id)}/history`);
+}
+
+/** Local date in YYYY-MM-DD format. */
+export function todayIso(offsetDays = 0) {
+  const day = new Date();
+  day.setDate(day.getDate() + offsetDays);
+  const month = String(day.getMonth() + 1).padStart(2, "0");
+  const date = String(day.getDate()).padStart(2, "0");
+  return `${day.getFullYear()}-${month}-${date}`;
+}
 /** Indicators of the main panel, counted in Oracle (docs/api.md, 11.1). */
 export function getDashboardSummary() {
   return request("GET", "/api/dashboard/summary");
@@ -405,6 +447,27 @@ export function changeMissionStatus(assignmentId, status) {
     "PATCH",
     `/api/dispatches/${encodeURIComponent(assignmentId)}/status`,
     { status }
+  );
+}
+
+/**
+ * Hospitals for the transfer of a mission EN_SITIO (docs/api.md 6.5), the most convenient
+ * first (RN-10), with location as [lat, lng].
+ */
+export async function listTransferHospitals(assignmentId) {
+  const hospitals = await request(
+    "GET",
+    `/api/dispatches/${encodeURIComponent(assignmentId)}/hospitals`
+  );
+  return hospitals.map((hospital) => ({ ...hospital, location: toPoint(hospital.location) }));
+}
+
+/** Starts the transfer to the chosen hospital (6.6): the mission goes TRASLADANDO. */
+export function startTransfer(assignmentId, hospitalId) {
+  return request(
+    "PATCH",
+    `/api/dispatches/${encodeURIComponent(assignmentId)}/status`,
+    { status: "TRASLADANDO", hospitalId }
   );
 }
 
@@ -529,4 +592,37 @@ export function homeOf(session) {
   return hasPermission(session, "PANICO:REPORTAR") && !hasPermission(session, "DESPACHO:GESTIONAR")
     ? "./panico.html"
     : "./dashboard.html";
+}
+
+
+// ------------------------------------------------------------------ D12: simulation and traffic
+
+/** State of the simulation: { running, startedAt, tickSeconds, source } (docs/api.md, 10.1). */
+export function getSimulation() {
+  return request("GET", "/api/simulation");
+}
+
+/** Starts the simulation; starting one that runs is not an error (docs/api.md, 10.2). */
+export function startSimulation() {
+  return request("POST", "/api/simulation/start");
+}
+
+/** Stops the simulation; the units stay where they are (docs/api.md, 10.2). */
+export function stopSimulation() {
+  return request("POST", "/api/simulation/stop");
+}
+
+/** Forces the traffic of one segment for the demo: FLUIDO, MODERADO or CONGESTIONADO (10.3). */
+export function forceTraffic(segmentId, level) {
+  return request("POST", "/api/simulation/traffic", { segmentId, level });
+}
+
+/** Segments with MODERADO or CONGESTIONADO traffic now, with both ends (docs/api.md, 8.2). */
+export async function listTrafficSegments() {
+  const segments = await request("GET", "/api/traffic/segments");
+  return segments.map((segment) => ({
+    ...segment,
+    from: toPoint(segment.from),
+    to: toPoint(segment.to),
+  }));
 }

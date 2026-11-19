@@ -1140,6 +1140,7 @@ class UserService {
         -stationDao : EmergencyStationDAO
         -assignmentDao : EmergencyAssignmentDAO
         -routeDao : RouteDAO
+        -hospitalDao : HospitalDAO
         -routeService : RouteService
         -auditService : AuditService
         -transactions : TransactionManager
@@ -1158,7 +1159,8 @@ class UserService {
         +changeStatus(assignment: EmergencyAssignment, next: AssignmentStatus, at: LocalDateTime) void
         +isOpen(assignment: EmergencyAssignment) boolean
         +moveVehicle(vehicle: EmergencyVehicle, point: GeoPoint, at: LocalDateTime) void
-        +startTransfer(assignmentId: long, hospitalId: long, session: UserSession) void
+        +hospitalsFor(assignmentId: long) List~HospitalOption~
+        +startTransfer(assignmentId: long, hospitalId: long, session: UserSession) DispatchResult
         +closeEmergency(emergencyId: long, session: UserSession) Emergency
         +dispatchOptimal(emergencyIds: List~Long~, session: UserSession) List~EmergencyAssignment~
     }
@@ -1197,7 +1199,6 @@ class HospitalService {
     +register(request: HospitalRequest, session: UserSession) Hospital
     +update(id: long, request: HospitalRequest, session: UserSession) Hospital
     +changeStatus(id: long, status: RecordStatus, session: UserSession) Hospital
-    +rankForTransfer(from: GeoPoint, requiredService: String, vehicleTypeId: long) List~HospitalOption~
     +updateServiceAvailability(offering: HospitalServiceOffering, session: UserSession) void
 }
 
@@ -1302,10 +1303,9 @@ class HospitalService {
     FleetService ..> AlertService : avisa (S8)
     HospitalService ..> AuditService
     DispatchService ..> RouteService
-    DispatchService ..> HospitalService : K7b
+    DispatchService ..> HospitalDAO : traslado (K10)
     DispatchService ..> HungarianAlgorithm : fase 2
     DispatchService ..> AlertService : avisa (S8)
-    HospitalService ..> RouteService
     PanicService ..> EmergencyService : crea la emergencia
     PanicService ..> DispatchService : despacha sola
     PanicService ..> RouteService : zona de la red
@@ -1427,10 +1427,14 @@ classDiagram
     }
     class HospitalOption {
         <<record>>
-        +hospital : Hospital
-        +etaSeconds : double
-        +availabilityPenalty : double
-        +score : double
+        +hospitalId : long
+        +name : String
+        +level : String
+        +location : GeoPoint
+        +etaMinutes : double
+        +distanceKm : double
+        +serviceConfirmed : boolean
+        +scoreMinutes : double
     }
     class EmergencyHistory {
         <<record>>
@@ -1655,12 +1659,11 @@ class Messages {
     class LiveMapService
     class AuditQueryService
 
-    DispatchService ..> HospitalService
     EmergencyService ..> EmergencyRequest
     EmergencyService ..> EmergencyHistory
     DispatchService ..> UnitCandidate
     DispatchService ..> DispatchResult
-    HospitalService ..> HospitalOption
+    DispatchService ..> HospitalOption
     DashboardService ..> DashboardSummary
     ReportService ..> OperationsReport
     OperationsReport *-- ReportCount
@@ -2265,8 +2268,8 @@ classDiagram
         +dispatch(emergencyId: long, vehicleId: long) OperationResult~DispatchResult~
         +advance(assignmentId: long, next: AssignmentStatus) OperationResult~EmergencyAssignment~
         +missionRoutes(assignmentId: long) OperationResult~List~Route~~
-        +rankHospitals(assignmentId: long, requiredService: String) OperationResult~List~HospitalOption~~
-        +startTransfer(assignmentId: long, hospitalId: long) OperationResult~Void~
+        +hospitalsFor(assignmentId: long) OperationResult~List~HospitalOption~~
+        +startTransfer(assignmentId: long, hospitalId: long) OperationResult~DispatchResult~
         +close(emergencyId: long) OperationResult~Emergency~
     }
     class RouteController {
@@ -2620,6 +2623,7 @@ classDiagram
     class AssignmentStatusRequest {
         <<record>>
         +status : AssignmentStatus
+        +hospitalId : Long
     }
     class TrafficRequest {
         <<record>>
@@ -2813,14 +2817,15 @@ classDiagram
 | `DashboardDAO`, `JdbcDashboardDAO`, `DashboardService`, `DashboardSummary`, `DashboardController`, `AppContext.dashboardController()` y `GET /api/dashboard/summary` | `dao`, `dao.jdbc`, `service`, `dto`, `controller`, `app`, `api` | **Programado y probado** (A14): una consulta sobre las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` con 3 pruebas de integración contra Oracle XE 18c; servicio, controlador y ruta probados sin Oracle |
 | `SegmentView`, `IncidentView`, `RoadMapDAO`, `JdbcRoadMapDAO`, `RoadMapService`, `RoadMapController`, `IncidentStatusRequest`, `AppContext.incidentController()`/`roadMapController()` y las rutas `/api/incidents` | `dto`, `dao`, `dao.jdbc`, `service`, `controller`, `app`, `api` | **Programado y probado** (A12c): `IncidentController` (S7) publicado en la API, con el tramo de cada incidente para el mapa; `JdbcRoadMapDAO`, contra Oracle XE 18c. Aplicar el incidente al grafo es de K8 y K9 |
 | `AppContext.alertService()`/`alertController()`, `ApiServer.authenticated` y las rutas `/api/alerts` | `app`, `api` | **Programado y probado** (A12f): `AlertController` (S8) publicado en la API con solo la sesión, sin permiso; `GET` no mantiene viva la sesión (DT-08). Las alertas las crean K7, K8 y K9 con `alertService()` |
-| `MissionRoute`, `DispatchedMission`, `RoadMapService.describeRoutes`/`describeDispatch`, `RoadMapController.routesOnMap`/`dispatchOnMap`, `DispatchRequest`, `AssignmentStatusRequest` y las rutas de despacho (`/api/emergencies/{id}/candidates`, `/api/routes/preview`, `/api/dispatches`) | `dto`, `service`, `controller`, `api`, `app` | **Programado y probado** (A12d): `DispatchController` (K7) publicado en la API, con la línea de cada ruta guardada para el mapa; sin Oracle. `WebServer` carga la red vial al arrancar. El traslado (K7b) y el cierre (CU-12) siguen pendientes |
+| `MissionRoute`, `DispatchedMission`, `RoadMapService.describeRoutes`/`describeDispatch`, `RoadMapController.routesOnMap`/`dispatchOnMap`, `DispatchRequest`, `AssignmentStatusRequest` y las rutas de despacho (`/api/emergencies/{id}/candidates`, `/api/routes/preview`, `/api/dispatches`) | `dto`, `service`, `controller`, `api`, `app` | **Programado y probado** (A12d): `DispatchController` (K7) publicado en la API, con la línea de cada ruta guardada para el mapa; sin Oracle. `WebServer` carga la red vial al arrancar. El cierre (CU-12) se publicó en A16 y el traslado (6.5 y 6.6) en A25 |
 | Cerrar emergencia (CU-12): `EmergencyDAO.close` y `JdbcEmergencyDAO.close` (con `sp_cerrar_emergencia`), `DispatchService.closeEmergency`, `DispatchController.close` y `POST /api/emergencies/{id}/close` | `dao`, `dao.jdbc`, `service`, `controller`, `api` | **Programado y probado** (A16): reglas, auditoría y ruta sin Oracle; `JdbcEmergencyDAO.close` contra Oracle XE 18c. Reemplaza a `closeEmergency`/`close` de la fila de K7 |
 | Demás servicios y DTO | `service`, `dto` | Diseñado |
 | Motor de rutas | `graph` | **Programado y probado** |
 | Tráfico | `traffic` | **Programado y probado** |
 | `RouteOption`, `RouteExplanationBuilder` | `dto`, `service` | **Programado y probado** (K3) |
 | `RouteService` y `AppContext.routeService()` | `service`, `app` | **Programado y probado** (K6) con un grafo de prueba, sin Oracle. Guarda las rutas con `RouteDAO` (A6) |
-| Despacho: `DispatchService` (`candidates`, `preview`, `dispatch`, `advance`, `missionRoutes`, `suits`), `DispatchController`, `UnitCandidate`, `DispatchResult`, `AppContext.dispatchController()` | `service`, `controller`, `dto`, `app` | **Programado y probado** (K7) con DAO falsos y una red de prueba, sin Oracle. `startTransfer`, `rankHospitals` (K7b), `closeEmergency`/`close` (CU-12) y `dispatchOptimal` siguen diseñados |
+| Despacho: `DispatchService` (`candidates`, `preview`, `dispatch`, `advance`, `missionRoutes`, `suits`), `DispatchController`, `UnitCandidate`, `DispatchResult`, `AppContext.dispatchController()` | `service`, `controller`, `dto`, `app` **Programado y probado** (K7) con DAO falsos y una red de prueba, sin Oracle. `dispatchOptimal` sigue diseñado |
+| Traslado al hospital (CU-11, RN-10): `DispatchService.hospitalsFor` y `startTransfer`, `DispatchController.hospitalsFor` y `startTransfer`, `HospitalOption` | `service`, `controller`, `dto` | **Programado y probado** (K10) con DAO falsos y una red de prueba, sin Oracle. Publicado en la API (A25): `GET /api/dispatches/{id}/hospitals` (6.5) y `TRASLADANDO` con `hospitalId` en `PATCH /api/dispatches/{id}/status` (6.6). Falta el botón en la web (Diego) |
 | Recálculo de rutas: `RoadConditionService` (`syncIncidents`, `applyTraffic`), `RouteMonitor` y `RouteService.remainingSeconds`/`destinationOf` | `service` | **Programado y probado** (K8) con DAO falsos y una red de prueba, sin Oracle. Se conecta en `AppContext` y lo llama el ciclo de la simulación en K9 |
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. `SimulationEngine` lo llama en cada ciclo (K9) |
@@ -2836,7 +2841,7 @@ classDiagram
 | Vista web | `frontend/` | **Programada (D5b, D5c, D6 y D6b); pruebas de integración de D6 y D6b pendientes**. Inicio de sesión, registro de emergencias y panel principal conectados a la API REST. El panel consulta emergencias, unidades, hospitales y estaciones desde Oracle, muestra los indicadores de `GET /api/dashboard/summary` y dibuja los incidentes viales sobre su tramo, con validar, rechazar y cerrar (`incident-panel.js`). La página de despacho (`despacho.js` y `dispatch-routes.js`) ordena las unidades por su tiempo de llegada, dibuja las 3 rutas del motor con su explicación, despacha, cambia el estado de la misión y cierra la emergencia. Las unidades de demostración se identifican como `EJEMPLO`. Las rutas del panel principal siguen siendo demostrativas (D4). |
 | `IncidentService`, `IncidentRequest`, `IncidentController`, `RoadSegmentDAO.findById` | `service`, `dto`, `controller`, `dao` | **Programado y probado (S7)** con DAO falsos; `findById`, contra Oracle. Aplicar el incidente al grafo y recalcular rutas corresponde a K7 |
 | `Alert`, `AlertDAO`, `JdbcAlertDAO`, `AlertService`, `AlertController` | `model`, `dao`, `dao.jdbc`, `service`, `controller` | **Programado y probado** (S8): servicio y controlador con DAO falsos; `JdbcAlertDAO`, contra Oracle. Se conecta en `AppContext` y en `/api/alerts` en A12f; K7, K8 y K9 llaman al servicio. `Notification` y `NotificationDAO` siguen diseñados |
-| `UserService`, `UserController`, `UserRequest`, `UserView`, `HospitalService`, `HospitalController`, `HospitalRequest` | `service`, `controller`, `dto` | **Programado y probado** (S9) con DAO falsos: crear, listar, desactivar y activar usuarios, y cambiar la propia contraseña (CU-03); registrar, editar, activar y desactivar hospitales (CU-05). Falta conectarlos en `AppContext` y en la API (Andrés). `HospitalService.rankForTransfer` (K7b), `updateServiceAvailability` y `HospitalController.updateService` siguen diseñados |
+| `UserService`, `UserController`, `UserRequest`, `UserView`, `HospitalService`, `HospitalController`, `HospitalRequest` | `service`, `controller`, `dto` | **Programado y probado** (S9) con DAO falsos: crear, listar, desactivar y activar usuarios, y cambiar la propia contraseña (CU-03); registrar, editar, activar y desactivar hospitales (CU-05). Falta conectarlos en `AppContext` y en la API (Andrés). `updateServiceAvailability` y `HospitalController.updateService` siguen diseñados; la elección del hospital del traslado quedó en `DispatchService.hospitalsFor` (K10) |
 | `FleetService`, `FleetController`, `VehicleRequest`, `StationRequest` | `service`, `controller`, `dto` | **Programado y probado** (S10) con DAO falsos: registrar y editar unidades, cambiar su disponibilidad a mano (`OCUPADO` solo lo pone el despacho) con alerta a los coordinadores, y registrar, editar, activar y desactivar estaciones (CU-04). Falta conectarlos en `AppContext` y en la API (Andrés) |
 
 
@@ -2895,3 +2900,23 @@ consultados en el dashboard.
 La validación, el cambio de estado, la creación de
 emergencias y el despacho pertenecen al backend.
 La vista no reproduce esas reglas de negocio.
+
+## D10. Historial y reportes en la web
+
+La pagina reportes.html utiliza reportes.js y api-client.js
+para consultar los endpoints REST de historial y reportes.
+
+Flujo de datos:
+
+1. reportes.html y reportes.js
+2. api-client.js
+3. API REST de reportes, emergencias e historial
+4. Servicios y DAO del backend
+5. Base de datos Oracle
+
+La interfaz presenta indicadores, graficos e historial sin
+recalcular los resultados del servidor. No incorpora nuevas
+entidades al modelo de dominio.
+
+El acceso requiere una sesion valida y permisos autorizados.
+La pagina es adaptable a escritorio y celular.

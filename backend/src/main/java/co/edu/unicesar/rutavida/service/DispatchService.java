@@ -5,10 +5,12 @@ import co.edu.unicesar.rutavida.dao.EmergencyDAO;
 import co.edu.unicesar.rutavida.dao.EmergencyStationDAO;
 import co.edu.unicesar.rutavida.dao.EmergencyTypeDAO;
 import co.edu.unicesar.rutavida.dao.EmergencyVehicleDAO;
+import co.edu.unicesar.rutavida.dao.HospitalDAO;
 import co.edu.unicesar.rutavida.dao.RouteDAO;
 import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.VehicleTypeDAO;
 import co.edu.unicesar.rutavida.dto.DispatchResult;
+import co.edu.unicesar.rutavida.dto.HospitalOption;
 import co.edu.unicesar.rutavida.dto.RouteOption;
 import co.edu.unicesar.rutavida.dto.UnitCandidate;
 import co.edu.unicesar.rutavida.exception.BusinessRuleException;
@@ -20,6 +22,8 @@ import co.edu.unicesar.rutavida.model.EmergencyAssignment;
 import co.edu.unicesar.rutavida.model.EmergencyStation;
 import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.GeoPoint;
+import co.edu.unicesar.rutavida.model.Hospital;
+import co.edu.unicesar.rutavida.model.HospitalServiceOffering;
 import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.VehicleType;
@@ -63,6 +67,20 @@ public class DispatchService {
     private static final Set<AssignmentStatus> MOVING =
             EnumSet.of(AssignmentStatus.ASSIGNED, AssignmentStatus.EN_ROUTE, AssignmentStatus.TRANSPORTING);
 
+    /** CU-11 (RN-10): the service a hospital must offer to receive a patient. */
+    static final String REQUIRED_SERVICE = "URGENCIAS";
+
+    /** Only an ambulance takes a patient to a hospital. */
+    static final String TRANSFER_VEHICLE = "AMBULANCIA";
+
+    /**
+     * Minutes added to a hospital whose service is not confirmed as available ('N'). The data of
+     * D2 is 'N' until each hospital confirms it, so those hospitals are listed, but after the
+     * confirmed ones that are as close. An assumption to calibrate, like RN-08 and RN-09.
+     */
+
+    static final double UNCONFIRMED_PENALTY_MINUTES = 10;
+
     /** An emergency is closed as a false alarm (REPORTADA) or after a unit arrived. */
     private static final Set<EmergencyStatus> CLOSABLE =
             EnumSet.of(EmergencyStatus.REPORTED, EmergencyStatus.ON_SCENE, EmergencyStatus.TRANSPORTING);
@@ -93,6 +111,7 @@ public class DispatchService {
     private final EmergencyStationDAO stationDao;
     private final EmergencyAssignmentDAO assignmentDao;
     private final RouteDAO routeDao;
+    private final HospitalDAO hospitalDao;
     private final RouteService routeService;
     private final AuditService auditService;
     private final TransactionManager transactions;
@@ -101,8 +120,8 @@ public class DispatchService {
     public DispatchService(EmergencyDAO emergencyDao, EmergencyTypeDAO emergencyTypeDao,
                            EmergencyVehicleDAO vehicleDao, VehicleTypeDAO vehicleTypeDao,
                            EmergencyStationDAO stationDao, EmergencyAssignmentDAO assignmentDao,
-                           RouteDAO routeDao, RouteService routeService, AuditService auditService,
-                           TransactionManager transactions, Clock clock) {
+                           RouteDAO routeDao, HospitalDAO hospitalDao, RouteService routeService,
+                           AuditService auditService, TransactionManager transactions, Clock clock) {
         this.emergencyDao = Objects.requireNonNull(emergencyDao, "emergencyDao");
         this.emergencyTypeDao = Objects.requireNonNull(emergencyTypeDao, "emergencyTypeDao");
         this.vehicleDao = Objects.requireNonNull(vehicleDao, "vehicleDao");
@@ -110,6 +129,7 @@ public class DispatchService {
         this.stationDao = Objects.requireNonNull(stationDao, "stationDao");
         this.assignmentDao = Objects.requireNonNull(assignmentDao, "assignmentDao");
         this.routeDao = Objects.requireNonNull(routeDao, "routeDao");
+        this.hospitalDao = Objects.requireNonNull(hospitalDao, "hospitalDao");
         this.routeService = Objects.requireNonNull(routeService, "routeService");
         this.auditService = Objects.requireNonNull(auditService, "auditService");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
@@ -211,13 +231,14 @@ public class DispatchService {
 
     /**
      * Moves the mission to EN_RUTA, EN_SITIO, FINALIZADA or CANCELADA and keeps the rest in
-     * step: the emergency follows the unit, the routes to the scene end when it arrives or
-     * is cancelled, and the unit is free again when the mission ends.
+     * step: the emergency follows the unit, the routes end when it arrives, is cancelled or
+     * finishes, and the unit is free again when the mission ends. TRASLADANDO needs the
+     * hospital: it is {@link #startTransfer}.
      */
     public EmergencyAssignment advance(long assignmentId, AssignmentStatus next) {
         ValidationUtil.requireNonNull(next, "nuevo estado");
         if (next == AssignmentStatus.TRANSPORTING) {
-            throw new ValidationException("El traslado necesita el hospital de destino (CU-11, pendiente).");
+            throw new ValidationException("Para el traslado elija el hospital de destino (CU-11).");
         }
 
         return transactions.callInTransaction(() -> {
@@ -238,8 +259,9 @@ public class DispatchService {
                 emergencyDao.updateStatus(emergency.getId(), EmergencyStatus.REPORTED, null);
             }
 
-            if (next == AssignmentStatus.ON_SCENE || next == AssignmentStatus.CANCELLED) {
-                endRoutes(assignment, next == AssignmentStatus.ON_SCENE);
+            if (next == AssignmentStatus.ON_SCENE || next == AssignmentStatus.CANCELLED
+                    || next == AssignmentStatus.FINISHED) {
+                endRoutes(assignment, next != AssignmentStatus.CANCELLED);
             }
             if (next == AssignmentStatus.FINISHED || next == AssignmentStatus.CANCELLED) {
                 vehicleDao.updateStatus(assignment.getVehicleId(), VehicleOperationalStatus.AVAILABLE);
@@ -287,6 +309,97 @@ public class DispatchService {
             }
         }
         return missions;
+    }
+
+    // ------------------------------------------------------------------ CU-11 / K10: transfer to a hospital
+
+    /**
+     * The hospitals that can receive the patient of a mission EN_SITIO, the most convenient first
+     * (RN-10): operational, offering URGENCIAS and reachable by the loaded road network, ordered by
+     * the ETA from where the ambulance is, plus a penalty if URGENCIAS is not confirmed.
+     */
+    public List<HospitalOption> hospitalsFor(long assignmentId) {
+        EmergencyAssignment assignment = findAssignment(assignmentId);
+        EmergencyVehicle vehicle = requireTransferUnit(assignment);
+        return rankHospitals(requireStart(vehicle), VehicleProfile.forType(TRANSFER_VEHICLE));
+    }
+
+    /**
+     * Starts the transfer in one transaction: the routes to the hospital (the recommended one
+     * ACTIVA, the others PROPUESTA, all with the hospital as destination), the mission and the
+     * emergency TRASLADANDO, and the audit. The simulation (K9) then drives the ambulance by the
+     * new ACTIVA route. At the hospital, the coordinator ends the mission (FINALIZADA).
+     */
+    public DispatchResult startTransfer(long assignmentId, long hospitalId, UserSession session) {
+        ValidationUtil.requireNonNull(session, "sesión");
+        ValidationUtil.requirePositiveId(hospitalId, "hospital");
+        long userId = session.user().getId();
+        return transactions.callInTransaction(() -> {
+            EmergencyAssignment assignment = findAssignment(assignmentId);
+            EmergencyVehicle vehicle = requireTransferUnit(assignment);
+            Hospital hospital = hospitalDao.findById(hospitalId)
+                    .orElseThrow(() -> new NotFoundException("Hospital", hospitalId));
+            GeoPoint start = requireStart(vehicle);
+            VehicleProfile profile = VehicleProfile.forType(TRANSFER_VEHICLE);
+            boolean canReceive = rankHospitals(start, profile).stream()
+                    .anyMatch(option -> option.hospitalId() == hospitalId);
+            if (!canReceive) {
+                throw new BusinessRuleException("El hospital " + hospital.getName() + " no puede recibir el"
+                        + " traslado: no está operativo, no ofrece " + REQUIRED_SERVICE
+                        + " o no se llega a él por la red vial cargada.");
+            }
+            List<RouteOption> options = routeService.calculateOptions(start, hospital.getLocation(), profile);
+            List<Route> routes = routeService.saveForMission(
+                    assignment.getEmergencyId(), assignment.getVehicleId(), hospitalId, profile, options);
+            changeStatus(assignment, AssignmentStatus.TRANSPORTING, LocalDateTime.now(clock));
+            assignmentDao.update(assignment);
+            Emergency emergency = findEmergency(assignment.getEmergencyId());
+            if (emergency.getStatus() == EmergencyStatus.ON_SCENE) {
+                emergencyDao.updateStatus(emergency.getId(), EmergencyStatus.TRANSPORTING, null);
+            }
+            auditService.record(userId, AUDIT_MODULE, "TRASLADAR", assignment.getId(), AuditResult.SUCCESS,
+                    "Unidad " + vehicle.getUnitCode() + " al hospital " + hospital.getName());
+            return new DispatchResult(assignment, routes);
+        });
+    }
+
+    /** RN-10 on every operational hospital; one that cannot be reached is left out. */
+    private List<HospitalOption> rankHospitals(GeoPoint from, VehicleProfile profile) {
+        List<HospitalOption> options = new ArrayList<>();
+        for (Hospital hospital : hospitalDao.findOperational()) {
+            Optional<HospitalServiceOffering> service = hospitalDao.findServices(hospital.getId()).stream()
+                    .filter(offering -> REQUIRED_SERVICE.equals(offering.getServiceName()))
+                    .findFirst();
+            if (service.isEmpty()) {
+                continue;
+            }
+            try {
+                RouteOption best = routeService.calculateOptions(from, hospital.getLocation(), profile).get(0);
+                boolean confirmed = service.get().isAvailable();
+                double score = best.estimatedMinutes() + (confirmed ? 0 : UNCONFIRMED_PENALTY_MINUTES);
+                options.add(new HospitalOption(hospital.getId(), hospital.getName(), hospital.getLevel().code(),
+                        hospital.getLocation(), best.estimatedMinutes(), best.distanceKm(), confirmed, score));
+            } catch (BusinessRuleException outsideOrNoWay) {
+                // This hospital cannot be reached by the loaded road network.
+            }
+        }
+        options.sort(Comparator.comparingDouble(HospitalOption::scoreMinutes));
+        return options;
+    }
+
+    /** A transfer starts from a mission EN_SITIO, and only with an ambulance. */
+    private EmergencyVehicle requireTransferUnit(EmergencyAssignment assignment) {
+        if (assignment.getStatus() != AssignmentStatus.ON_SCENE) {
+            throw new BusinessRuleException("El hospital se elige cuando la unidad está EN_SITIO; esta misión está "
+                    + assignment.getStatus().code() + ".");
+        }
+        EmergencyVehicle vehicle = findVehicle(assignment.getVehicleId());
+        String vehicleType = typeName(vehicleTypeDao.findAll(), vehicle);
+        if (!TRANSFER_VEHICLE.equals(vehicleType)) {
+            throw new BusinessRuleException("Solo una ambulancia traslada pacientes; "
+                    + vehicle.getUnitCode() + " es " + vehicleType + ".");
+        }
+        return vehicle;
     }
 
     // ------------------------------------------------------------------ CU-12: close

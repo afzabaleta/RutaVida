@@ -44,6 +44,8 @@ frontend/
 │   ├── route-layer.js
 │   ├── valledupar-data.js
 │   └── Otros módulos JavaScript
+├── vendor/
+│   └── leaflet-1.9.4/   Copia local de Leaflet (ver sección 3)
 ├── index.html
 ├── dashboard.html
 ├── emergencia.html
@@ -65,6 +67,14 @@ Antes de ejecutar la aplicación se necesita:
 - IntelliJ IDEA o un entorno compatible para ejecutar el servidor Java.
 
 La configuración de conexión a Oracle debe mantenerse en el backend. No se deben publicar credenciales ni contraseñas.
+
+### Leaflet sin depender de un CDN
+
+Leaflet 1.9.4 va dentro del proyecto, en `vendor/leaflet-1.9.4/` (`leaflet.js`, `leaflet.css`, `images/` y su licencia BSD-2-Clause). Las páginas ya no lo descargan de `unpkg.com`, así que la Política de Seguridad de Contenido solo permite scripts y estilos del propio servidor (`'self'`).
+
+- Los archivos salen del paquete oficial `leaflet@1.9.4` de npm, sin cambios: su SHA-256 es el mismo `integrity` que tenían las etiquetas del CDN (`leaflet.css`: `sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=`, `leaflet.js`: `sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=`).
+- Para comprobarlo en Windows: `certutil -hashfile frontend\vendor\leaflet-1.9.4\leaflet.js SHA256` da el mismo valor en hexadecimal.
+- **El mapa base sigue necesitando internet:** las teselas vienen de `tile.openstreetmap.org`. Sin conexión, la aplicación funciona y dibuja unidades, rutas e incidentes, pero sin el fondo de calles. Para la demostración conviene tener un plan B de conexión (por ejemplo, datos del celular).
 
 ## 4. Ejecución de la aplicación
 
@@ -152,13 +162,20 @@ El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad ha
 | Despachar | `POST /api/dispatches` (6.3) | `DESPACHO:GESTIONAR` |
 | Rutas de una misión ya despachada | `GET /api/dispatches/{id}/routes` (6.4) | `RUTAS:CONSULTAR` |
 | La unidad salió, llegó o se cancela | `PATCH /api/dispatches/{id}/status` (6.6) | `DESPACHO:GESTIONAR` |
+| Hospitales para el traslado, el más conveniente primero | `GET /api/dispatches/{id}/hospitals` (6.5) | `DESPACHO:GESTIONAR` |
+| Trasladar al hospital elegido y finalizar la misión | `PATCH /api/dispatches/{id}/status` (6.6) con `TRASLADANDO` y `hospitalId`, después `FINALIZADA` | `DESPACHO:GESTIONAR` |
 | Cerrar la emergencia | `POST /api/emergencies/{id}/close` (6.7) | `DESPACHO:GESTIONAR` |
 
 - La página no calcula rutas: dibuja las que devuelve el servidor, con la explicación que él escribe.
 - Una emergencia que no está `REPORTADA` muestra su misión abierta, que la página busca en el historial (`GET /api/emergencies/{id}/history`).
 - Cerrar pide un segundo clic de confirmación. Una emergencia `REPORTADA` se puede cerrar como falsa alarma.
 - La página no se actualiza sola, porque esas consultas mantendrían viva la sesión (DT-08): se usa «Actualizar estado». El seguimiento en vivo llega con `/api/tracking` (A12e).
-- El traslado al hospital (`TRASLADANDO`) llega con K7b.
+- **Traslado al hospital (CU-11):**
+  - Con la misión `EN_SITIO` y una ambulancia, el botón «Elegir hospital para el traslado» muestra los hospitales con su tiempo, su distancia y si las urgencias están sin confirmar (suman 10 min al orden, RN-10).
+  - Los hospitales se marcan en el mapa. «Trasladar aquí» pone la misión en `TRASLADANDO` y dibuja las rutas al hospital.
+  - Al llegar, «Llegó al hospital: finalizar misión» deja la misión `FINALIZADA` y la ambulancia `DISPONIBLE`. Después se cierra la emergencia.
+  - Una unidad que no es ambulancia no ve el botón.
+
 ## 6. Verificación funcional
 
 Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
@@ -371,3 +388,76 @@ Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
 - Los íconos son SVG propios en `img/icons/`. No se agregaron librerías, fuentes ni CDN.
 - **Modo claro y oscuro:** el botón ☀/☾ del encabezado cambia el tema. La primera vez se usa el tema del sistema; la elección se guarda en `localStorage` (`rutavida.theme`), y si el navegador lo bloquea, el botón igual funciona. `js/theme-boot.js` pone el tema en el `<head>` antes de pintar, para que no parpadee, y `css/theme.css` redefine las variables de color del modo claro. En modo claro el mapa va sin filtro. Solo aplica a las páginas internas; el login, el botón de pánico y el registro del ciudadano (`registro.html`, que usa `css/panico.css`) conservan su diseño.
 - Ningún texto funcional mide menos de 12 px, para que el panel se lea proyectado.
+
+
+## D10. Historial y reportes
+
+La pagina reportes.html permite consultar indicadores historicos desde Oracle.
+
+- Archivos: reportes.html, css/reportes.css y js/reportes.js.
+- API: GET /api/reports/operations?from=&to=
+- API: GET /api/emergencies?from=&to=
+- API: GET /api/emergencies/{id}/history
+- Permisos: REPORTES:CONSULTAR y EMERGENCIAS:CONSULTAR.
+- Periodos: hoy, 7 dias, 30 dias y fechas personalizadas.
+- Indicadores: emergencias, tiempo de respuesta, despachos e incidentes.
+- Graficos por dia, tipo, gravedad y tipo de vehiculo.
+- Historial de emergencias, misiones, rutas y auditoria.
+- Exportacion CSV e impresion en PDF.
+- Interfaz responsive para computadores y celulares.
+- Los indicadores proceden de Oracle; no se inventan resultados.
+
+Pendiente: verificar el funcionamiento real y la visualizacion movil.
+
+
+## D12. Panel de simulación
+
+El centro de operaciones permite controlar la simulación de unidades y visualizar el tráfico simulado sobre el mapa de Valledupar.
+
+### Funcionalidades
+
+- Consultar el estado de la simulación cada 5 segundos.
+- Iniciar y detener la simulación.
+- Congestionar el tercio central de una ruta activa.
+- Liberar los tramos congestionados desde el panel.
+- Actualizar la capa de tráfico cada 15 segundos.
+- Mostrar avisos de recálculo de rutas durante 10 segundos.
+- Adaptar los controles a computadores, tabletas y celulares.
+
+### Archivos
+
+| Archivo | Responsabilidad |
+|---|---|
+| `dashboard.html` | Estructura del panel y leyenda de tráfico. |
+| `js/simulation-panel.js` | Control de la simulación, tráfico, permisos y avisos. |
+| `js/dashboard.js` | Integración del panel con el centro de operaciones. |
+| `js/live-map.js` | Detección de cambios en las rutas activas. |
+| `js/api-client.js` | Comunicación con la API REST de simulación. |
+| `js/app-shell.js` | Indicador de estado en el menú lateral. |
+| `css/app-shell.css` | Estilos del indicador de simulación. |
+| `css/simulacion.css` | Estilos del panel y adaptación responsive. |
+
+### Endpoints
+
+| Método | Endpoint | Función |
+|---|---|---|
+| GET | `/api/simulation` | Consultar estado. |
+| POST | `/api/simulation/start` | Iniciar simulación. |
+| POST | `/api/simulation/stop` | Detener simulación. |
+| POST | `/api/simulation/traffic` | Modificar tráfico de un tramo. |
+| GET | `/api/traffic/segments` | Consultar tramos con tráfico. |
+
+### Permisos
+
+- `TRAFICO:CONSULTAR`: visualizar el estado y la capa de tráfico.
+- `TRAFICO:GESTIONAR`: iniciar y detener la simulación.
+- `TRAFICO:GESTIONAR` y `RUTAS:CONSULTAR`: congestionar rutas y liberar los tramos modificados.
+
+### Colores del tráfico
+
+- Naranja (`#f59e0b`): tráfico moderado.
+- Rojo (`#e11d48`): tráfico congestionado.
+
+Todos los movimientos y datos de tráfico son simulados. No corresponden a GPS ni a tráfico real.
+
+El cálculo y recálculo de rutas es responsabilidad del backend. El frontend consulta y representa los resultados.
