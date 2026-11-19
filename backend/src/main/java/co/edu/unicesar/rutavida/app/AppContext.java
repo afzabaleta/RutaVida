@@ -15,6 +15,7 @@ import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
 import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
+import co.edu.unicesar.rutavida.controller.SimulationController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.SessionContext;
 import co.edu.unicesar.rutavida.controller.UserController;
@@ -41,12 +42,17 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcRoleDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcPanicReportDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcRouteDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficLightDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficMapDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcTrafficReadingDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleLocationDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcCitizenSessionDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcReportDAO;
+import co.edu.unicesar.rutavida.graph.EmergencyCost;
+import co.edu.unicesar.rutavida.graph.RoadGraph;
 import co.edu.unicesar.rutavida.service.AdminBootstrapService;
 import co.edu.unicesar.rutavida.service.AuditQueryService;
 import co.edu.unicesar.rutavida.service.AuditService;
@@ -63,14 +69,23 @@ import co.edu.unicesar.rutavida.service.HospitalService;
 import co.edu.unicesar.rutavida.service.IncidentService;
 import co.edu.unicesar.rutavida.service.LiveMapService;
 import co.edu.unicesar.rutavida.service.PanicService;
+import co.edu.unicesar.rutavida.service.RoadConditionService;
 import co.edu.unicesar.rutavida.service.RoadMapService;
+import co.edu.unicesar.rutavida.service.RouteMonitor;
 import co.edu.unicesar.rutavida.service.RouteService;
+import co.edu.unicesar.rutavida.service.TrackingService;
+import co.edu.unicesar.rutavida.service.TrafficMapService;
+import co.edu.unicesar.rutavida.service.TrafficRecorder;
 import co.edu.unicesar.rutavida.service.UserService;
+import co.edu.unicesar.rutavida.simulation.SimulationEngine;
+import co.edu.unicesar.rutavida.simulation.VehicleMovementSimulator;
+import co.edu.unicesar.rutavida.traffic.SimulatedTrafficProvider;
 import co.edu.unicesar.rutavida.util.DatabaseConnection;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
 
 import java.time.Clock;
 import java.util.Objects;
+import java.util.Random;
 
 /**
  * Composition root: the single place where implementations are chosen and
@@ -100,6 +115,9 @@ import java.util.Objects;
  */
 public final class AppContext {
 
+    /** Seed of the simulated traffic: the same demo gives the same traffic every time (K2). */
+    static final long TRAFFIC_SEED = 2026L;
+
     private final DatabaseConnection database;
     private final JdbcTransactionManager jdbc;
     private final Clock clock;
@@ -127,7 +145,10 @@ public final class AppContext {
     private final UserDAO userDao;
     private final RoleDAO roleDao;
     private final EmergencyService emergencyService;
+    private RoadGraph roadGraph;
     private RouteService routeService;
+    private SimulationEngine simulationEngine;
+    private SimulationController simulationController;
     private DispatchService dispatchService;
     private DispatchController dispatchController;
     private PanicController panicController;
@@ -202,7 +223,7 @@ public final class AppContext {
                 authService, session);
 
         // Live map (A12e): positions, open missions and unread alerts. The simulation engine
-        // (K9) gives the "running" flag through isSimulationRunning().
+        // (K9, simulationEngine()) gives the "running" flag through isSimulationRunning().
         this.trackingController = new TrackingController(new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
                 new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc),
                 new JdbcAlertDAO(jdbc), this::isSimulationRunning, clock), authService, session);
@@ -318,11 +339,15 @@ public final class AppContext {
     }
 
     /**
-     * True while the simulation moves the units. Always false until the simulation engine
-     * (K9) exists; K9 changes this method to ask its engine.
+     * True while the simulation moves the units. It does not create the engine: before the
+     * first start the answer is false without loading the road graph.
      */
     public boolean isSimulationRunning() {
-        return false;
+        SimulationEngine engine;
+        synchronized (this) {
+            engine = simulationEngine;
+        }
+        return engine != null && engine.isRunning();
     }
 
     /** Builds the road graph from Oracle each time load() is called (it takes well under a second). */
@@ -336,9 +361,66 @@ public final class AppContext {
      */
     public synchronized RouteService routeService() {
         if (routeService == null) {
-            routeService = new RouteService(graphLoader.load(), new JdbcRouteDAO(jdbc), jdbc, clock);
+            routeService = new RouteService(roadGraph(), new JdbcRouteDAO(jdbc), jdbc, clock);
         }
         return routeService;
+    }
+
+    /**
+     * The road graph of the application, loaded from Oracle the first time. The routes and the
+     * simulation share this one instance: the traffic the simulation applies is the traffic
+     * the routes see.
+     */
+    public synchronized RoadGraph roadGraph() {
+        if (roadGraph == null) {
+            roadGraph = graphLoader.load();
+        }
+        return roadGraph;
+    }
+
+    /**
+     * The simulation (CU-19, K9), created the first time and stopped until someone starts it.
+     * Every part works on the shared graph and reads and writes Oracle; everything it
+     * produces is marked SIMULACION.
+     */
+    public synchronized SimulationEngine simulationEngine() {
+        if (simulationEngine == null) {
+            RoadGraph graph = roadGraph();
+            VehicleMovementSimulator movement = new VehicleMovementSimulator(graph, new EmergencyCost(), clock);
+            RouteMonitor monitor = new RouteMonitor(new JdbcRouteDAO(jdbc), routeService(),
+                    new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleTypeDAO(jdbc),
+                    new JdbcEmergencyAssignmentDAO(jdbc), alertService, jdbc);
+            TrackingService tracking = new TrackingService(movement, new JdbcEmergencyVehicleDAO(jdbc),
+                    new JdbcVehicleLocationDAO(jdbc), dispatchService(), jdbc);
+            simulationEngine = new SimulationEngine(graph,
+                    new SimulatedTrafficProvider(graph, new Random(TRAFFIC_SEED), clock),
+                    new RoadConditionService(graph, new JdbcRoadIncidentDAO(jdbc), clock),
+                    new TrafficRecorder(graph, new JdbcTrafficReadingDAO(jdbc), jdbc, clock),
+                    monitor, movement, tracking, dispatchService(), clock,
+                    SimulationEngine.DEFAULT_TICK, SimulationEngine.DEFAULT_TRAFFIC_EVERY);
+        }
+        return simulationEngine;
+    }
+
+    /** Control of the simulation and its traffic layer (docs/api.md 8.2 and 10). */
+    public synchronized SimulationController simulationController() {
+        if (simulationController == null) {
+            simulationController = new SimulationController(simulationEngine(),
+                    new TrafficMapService(new JdbcTrafficMapDAO(jdbc), new JdbcRoadMapDAO(jdbc), clock),
+                    authService, session);
+        }
+        return simulationController;
+    }
+
+    /** Stops the simulation if it runs; the web server calls it when it stops. */
+    public void stopSimulation() {
+        SimulationEngine engine;
+        synchronized (this) {
+            engine = simulationEngine;
+        }
+        if (engine != null) {
+            engine.stop();
+        }
     }
 
     /**

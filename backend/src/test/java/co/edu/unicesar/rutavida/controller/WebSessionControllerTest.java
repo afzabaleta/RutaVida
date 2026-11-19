@@ -54,7 +54,8 @@ class WebSessionControllerTest {
         assertEquals("ana.perez", response.user().username());
         assertEquals("Ana", response.user().firstNames());
         assertEquals("OPERADOR_CENTRAL", response.role());
-        assertEquals(List.of("EMERGENCIAS:CONSULTAR", "EMERGENCIAS:GESTIONAR"), response.permissions());
+        assertEquals(List.of("EMERGENCIAS:CONSULTAR", "EMERGENCIAS:GESTIONAR", "TRAFICO:CONSULTAR"),
+                response.permissions());
         assertArrayEquals(new char[password.length], password);
         assertEquals(2, sessions.openSessions());
     }

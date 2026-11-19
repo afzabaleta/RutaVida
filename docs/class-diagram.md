@@ -882,6 +882,11 @@ classDiagram
         +segmentViews(segmentIds: Collection~Long~) List~SegmentView~
     }
 
+    class TrafficMapDAO {
+        <<interface>>
+        +congestedSince(since: LocalDateTime) List~TrafficSegmentView~
+    }
+
     class Route
     class VehicleLocation
     class Alert
@@ -889,6 +894,7 @@ classDiagram
     class DashboardSummary
     class OperationsReport
     class SegmentView
+    class TrafficSegmentView
 
 
     RouteDAO ..> Route
@@ -898,8 +904,9 @@ classDiagram
     DashboardDAO ..> DashboardSummary : solo lectura
     ReportDAO ..> OperationsReport : solo lectura
     RoadMapDAO ..> SegmentView : solo lectura
+    TrafficMapDAO ..> TrafficSegmentView : solo lectura
 ```
-`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es una de las tres interfaces DAO que dependen de `dto`, y solo para leer. Las otras son `RoadMapDAO` (A12c): un tramo con las coordenadas de sus dos nodos, para dibujarlo en el mapa; y `ReportDAO` (A23): el reporte de operación de un periodo (`OperationsReport`), con una consulta para los totales y una por cada agrupación.
+`DashboardDAO` cuenta los indicadores del panel en una sola consulta, con las vistas y `fn_tiempo_respuesta` de `04_plsql.sql` (DT-05). Devuelve directamente el DTO `DashboardSummary` porque ninguna entidad guarda esos números: es una de las cuatro interfaces DAO que dependen de `dto`, y solo para leer. Las otras son `RoadMapDAO` (A12c): un tramo con las coordenadas de sus dos nodos, para dibujarlo en el mapa; `ReportDAO` (A23): el reporte de operación de un periodo (`OperationsReport`), con una consulta para los totales y una por cada agrupación; y `TrafficMapDAO` (A12e): la última lectura de `TRAFICO` de cada tramo, si es `MODERADO` o `CONGESTIONADO`, con su calle y sus dos extremos, para la capa de tráfico del mapa. `TrafficMapDAO` está separada de `TrafficReadingDAO`, que solo escribe, porque la simulación y el mapa usan `TRAFICO` de formas distintas.
 
 ---
 
@@ -1001,6 +1008,7 @@ classDiagram
     class JdbcDashboardDAO
     class JdbcReportDAO
     class JdbcRoadMapDAO
+    class JdbcTrafficMapDAO
     class JdbcPanicReportDAO
     class JdbcCitizenSessionDAO
 
@@ -1027,11 +1035,12 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcDashboardDAO
     AbstractJdbcDAO <|-- JdbcReportDAO
     AbstractJdbcDAO <|-- JdbcRoadMapDAO
+    AbstractJdbcDAO <|-- JdbcTrafficMapDAO
     AbstractJdbcDAO <|-- JdbcPanicReportDAO
     AbstractJdbcDAO <|-- JdbcCitizenSessionDAO
 ```
 
-Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 22 flechas de realización no se dibujan para que el diagrama se pueda leer.
+Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 25 flechas de realización no se dibujan para que el diagrama se pueda leer.
 
 ---
 
@@ -1507,6 +1516,17 @@ classDiagram
         +from : GeoPoint
         +to : GeoPoint
     }
+    class TrafficSegmentView {
+        <<record>>
+        +segmentId : long
+        +streetName : String
+        +level : TrafficLevel
+        +congestionFactor : double
+        +measuredAt : LocalDateTime
+        +source : TrafficSource
+        +from : GeoPoint
+        +to : GeoPoint
+    }
     class SimulationStatus {
         <<record>>
         +running : boolean
@@ -1853,6 +1873,14 @@ classDiagram
         +congestionOf(level: TrafficLevel) double$
         +record(updates: List~EdgeUpdate~, source: TrafficSource) int
     }
+    class TrafficMapService {
+        ~WINDOW : Duration$
+        -trafficDao : TrafficMapDAO
+        -mapDao : RoadMapDAO
+        -clock : Clock
+        +current(only: TrafficLevel) List~TrafficSegmentView~
+        +forced(segmentId: long, level: TrafficLevel, source: TrafficSource) TrafficSegmentView
+    }
     class TrafficProvider {
         <<interface>>
         +poll() List~EdgeUpdate~
@@ -1941,6 +1969,8 @@ IncidentService ..> IncidentRequest
 RouteMonitor --> RouteService
 RouteMonitor ..> AlertService : avisa (S8)
     TrafficRecorder ..> TrafficReadingDAO : solo cambios de nivel
+    TrafficMapService ..> TrafficMapDAO : capa de tráfico (8.2)
+    TrafficMapService ..> RoadMapDAO : tramo forzado (10.3)
 ```
 
 **Cómo se detecta que una ruta se afectó (sin eventos).** Las llamadas son directas y se pueden seguir con el depurador:
@@ -2303,12 +2333,14 @@ class IncidentController {
     }
     class SimulationController {
         -engine : SimulationEngine
+        -trafficMap : TrafficMapService
         -authService : AuthService
         -session : SessionContext
         +status() OperationResult~SimulationStatus~
         +start() OperationResult~SimulationStatus~
         +stop() OperationResult~SimulationStatus~
-        +forceTraffic(segmentId: long, level: TrafficLevel) OperationResult~Void~
+        +forceTraffic(segmentId: long, level: TrafficLevel) OperationResult~TrafficSegmentView~
+        +trafficSegments(only: TrafficLevel) OperationResult~List~TrafficSegmentView~~
     }
 
 class UserController {
@@ -2393,7 +2425,10 @@ classDiagram
         -adminBootstrap : AdminBootstrapService
         -loginController : LoginController
         -graphLoader : GraphLoader
+        -roadGraph : RoadGraph
         -routeService : RouteService
+        -simulationEngine : SimulationEngine
+        -simulationController : SimulationController
         -dispatchService : DispatchService
         -dispatchController : DispatchController
         -panicController : PanicController
@@ -2433,7 +2468,11 @@ classDiagram
         +auditController() AuditController
         +isSimulationRunning() boolean
         +graphLoader() GraphLoader
+        +roadGraph() RoadGraph
         +routeService() RouteService
+        +simulationEngine() SimulationEngine
+        +simulationController() SimulationController
+        +stopSimulation() void
         +dispatchService() DispatchService
         +dispatchController() DispatchController
         +panicController() PanicController
@@ -2537,10 +2576,12 @@ classDiagram
         -tracking : TrackingController
         -panic : PanicController
         -citizens : CitizenController
+        -simulation : SimulationController
         -registrationLimiter : RequestRateLimiter
         -panicLimiter : RequestRateLimiter
         -frontendDirectory : Path
         -json : ObjectMapper
+        +withSimulation(simulation: SimulationController) ApiServer
         +start(port: int) ApiServer
         +stop() void
         ~secured(module: String, action: String, countsAsUse: boolean, handler: Handler) Handler
@@ -2577,6 +2618,11 @@ classDiagram
     class AssignmentStatusRequest {
         <<record>>
         +status : AssignmentStatus
+    }
+    class TrafficRequest {
+        <<record>>
+        +segmentId : Long
+        +level : TrafficLevel
     }
     class AdminControllers {
         <<record>>
@@ -2696,6 +2742,7 @@ classDiagram
     ApiServer ..> IncidentStatusRequest
     ApiServer ..> DispatchRequest
     ApiServer ..> AssignmentStatusRequest
+    ApiServer ..> TrafficRequest
     ApiServer ..> RecordStatusRequest
     ApiServer ..> VehicleStatusRequest
     ApiServer ..> PasswordChangeRequest
@@ -2773,7 +2820,8 @@ classDiagram
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. `SimulationEngine` lo llama en cada ciclo (K9) |
 | `LiveMapService`, `TrackingController`, `TrackingSnapshot`, `TrackedUnit`, `TrackedMission`, `SimulationState` | `service`, `controller`, `dto` | **Programado y probado** (A12e) sin Oracle: `GET /api/tracking` lee lo que guardó `TrackingService`. `running` es falso hasta que K9 cambie `AppContext.isSimulationRunning()` |
-| Motor de la simulación: `SimulationEngine`, `TrafficRecorder`, `DispatchService.activeMissions`, `VehicleMovementSimulator.resume`, `SimulationController`, `SimulationStatus` | `simulation`, `service`, `controller`, `dto` | **Programado y probado** (K9) con DAO falsos y una red de prueba, sin Oracle. Falta conectarlo en `AppContext` y en la API (A12e) |
+| Motor de la simulación: `SimulationEngine`, `TrafficRecorder`, `DispatchService.activeMissions`, `VehicleMovementSimulator.resume`, `SimulationController`, `SimulationStatus` | `simulation`, `service`, `controller`, `dto` | **Programado y probado** (K9) con DAO falsos y una red de prueba, sin Oracle. Conectado en `AppContext` y en la API en A12e |
+| Simulación en la aplicación (A12e): `AppContext.roadGraph()`/`simulationEngine()`/`simulationController()`/`stopSimulation()`, `ApiServer.withSimulation`, `TrafficRequest`, `TrafficSegmentView`, `TrafficMapDAO`, `JdbcTrafficMapDAO`, `TrafficMapService` y las rutas `/api/simulation` y `/api/traffic/segments` | `app`, `api`, `dto`, `dao`, `dao.jdbc`, `service`, `controller` | **Programado y probado** sin Oracle (`ApiServerTest`, `SimulationControllerTest`, `TrafficMapServiceTest`). `JdbcTrafficMapDAOIntegrationTest` corre solo con Oracle: pendiente de ejecutar en Oracle XE y Oracle Cloud. Las rutas y la simulación comparten un solo grafo |
 | Escenarios de la demostración (`DemoScenario`, `RoadClosureScenario`, `RushHourScenario`) | `simulation` | Diseñado (opcional): la demostración usa `POST /api/simulation/traffic` y los incidentes |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
 | `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos. `find` y el uso de `OperationResult.failure` se agregaron en A12b |
