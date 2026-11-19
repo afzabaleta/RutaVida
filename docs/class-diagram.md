@@ -2579,6 +2579,8 @@ classDiagram
         -simulation : SimulationController
         -registrationLimiter : RequestRateLimiter
         -panicLimiter : RequestRateLimiter
+        -accountLoginFailures : RequestRateLimiter
+        -addressLoginFailures : RequestRateLimiter
         -frontendDirectory : Path
         -json : ObjectMapper
         +withSimulation(simulation: SimulationController) ApiServer
@@ -2654,6 +2656,9 @@ classDiagram
         -clock : Clock
         -requests : Map~String, Deque~Instant~~
         +tryAcquire(key: String) boolean
+        +isLimited(key: String) boolean
+        +record(key: String) void
+        +reset(key: String) void
     }
     class JsonMapperFactory {
         +create() ObjectMapper$

@@ -104,9 +104,21 @@ public final class ApiServer {
     private static final String TOO_MANY_REGISTRATIONS =
             "Se crearon demasiadas cuentas desde esta conexión. Intente más tarde.";
 
+    static final String TOO_MANY_LOGINS =
+            "Demasiados intentos fallidos de inicio de sesión. Espere 10 minutos antes de intentarlo de nuevo.";
+
     /** Panic button: reports per network address in 10 minutes (RN-13 limits each person to 3). */
     static final int PANIC_PER_ADDRESS = 20;
     static final Duration PANIC_WINDOW = Duration.ofMinutes(10);
+
+    /**
+     * Failed logins (wrong user or password) allowed in {@link #LOGIN_WINDOW}: per account and
+     * network address, and per network address for any account. Only failures count, so a person
+     * who types the password well is never stopped; a successful login clears its account.
+     */
+    static final int LOGIN_FAILURES_PER_ACCOUNT = 5;
+    static final int LOGIN_FAILURES_PER_ADDRESS = 30;
+    static final Duration LOGIN_WINDOW = Duration.ofMinutes(10);
 
     /** Citizen accounts per network address in an hour (CU-23): stops scripts that create accounts. */
     static final int REGISTRATIONS_PER_ADDRESS = 10;
@@ -135,6 +147,8 @@ public final class ApiServer {
     private final CitizenController citizens;
     private final RequestRateLimiter panicLimiter;
     private final RequestRateLimiter registrationLimiter;
+    private final RequestRateLimiter accountLoginFailures;
+    private final RequestRateLimiter addressLoginFailures;
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private SimulationController simulation;
@@ -164,6 +178,10 @@ public final class ApiServer {
         this.panicLimiter = new RequestRateLimiter(PANIC_PER_ADDRESS, PANIC_WINDOW, Clock.systemUTC());
         this.registrationLimiter = new RequestRateLimiter(
                 REGISTRATIONS_PER_ADDRESS, REGISTRATION_WINDOW, Clock.systemUTC());
+        this.accountLoginFailures = new RequestRateLimiter(
+                LOGIN_FAILURES_PER_ACCOUNT, LOGIN_WINDOW, Clock.systemUTC());
+        this.addressLoginFailures = new RequestRateLimiter(
+                LOGIN_FAILURES_PER_ADDRESS, LOGIN_WINDOW, Clock.systemUTC());
         this.frontendDirectory = frontendDirectory;
     }
 
@@ -364,10 +382,29 @@ public final class ApiServer {
         config.routes.exception(Exception.class, this::onError);
     }
 
+    /**
+     * POST /api/auth/login, against password guessing: after {@link #LOGIN_FAILURES_PER_ACCOUNT}
+     * failures of one account from one address (or {@link #LOGIN_FAILURES_PER_ADDRESS} of any
+     * account) in {@link #LOGIN_WINDOW}, it answers 409 without checking the password.
+     */
     private void login(Context ctx) {
         LoginRequest request = readBody(ctx, LoginRequest.class);
+        String address = ctx.ip();
+        String account = address + "|" + (request.username() == null
+                ? "" : request.username().trim().toLowerCase(Locale.ROOT));
+        if (accountLoginFailures.isLimited(account) || addressLoginFailures.isLimited(address)) {
+            send(ctx, OperationResult.error(ErrorKind.BUSINESS_RULE, TOO_MANY_LOGINS), ApiStatus.OK);
+            return;
+        }
         char[] password = request.password() == null ? null : request.password().toCharArray();
-        send(ctx, sessions.login(request.username(), password), ApiStatus.OK);
+        OperationResult<?> result = sessions.login(request.username(), password);
+        if (result.success()) {
+            accountLoginFailures.reset(account);
+        } else if (result.error() == ErrorKind.AUTHENTICATION) {
+            accountLoginFailures.record(account);
+            addressLoginFailures.record(address);
+        }
+        send(ctx, result, ApiStatus.OK);
     }
 
     /**
@@ -660,6 +697,9 @@ public final class ApiServer {
         }
         ctx.status(ApiStatus.of(result, successStatus));
         ctx.contentType(JSON);
+        // The answers carry tokens and personal data: never cached, never read as another type.
+        ctx.header("Cache-Control", "no-store");
+        ctx.header("X-Content-Type-Options", "nosniff");
         ctx.result(body);
     }
 
