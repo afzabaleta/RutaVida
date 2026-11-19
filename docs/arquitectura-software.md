@@ -226,7 +226,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | Traslado al hospital (K7b) y servicios de cada hospital (`SERVICIO_HOSPITAL`) | **Pendiente** |
 | DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones (A7c, S9, S10) | Programado y probado |
 | Movimiento simulado de las unidades y seguimiento (`VehicleMovementSimulator`, `TrackingService`, A13) | Programado y probado |
-| Motor de la simulación y escenarios (`SimulationEngine`, K9) | **Pendiente** |
+| Motor de la simulación (`SimulationEngine`, K9): tráfico, incidentes, recálculo, movimiento y llegada de las unidades | Programado y probado (sin Oracle); falta la API (A12e) |
 | Servidor web y API REST: sesión con token, permisos, errores en JSON y `GET /api/emergency-types` (A12a) | Programado y probado |
 | Indicadores del panel: consulta con las vistas y `fn_tiempo_respuesta` en Oracle y `GET /api/dashboard/summary` (A14) | Programado y probado |
 | API de incidentes viales: reportar, validar y listar con el tramo para el mapa (`/api/incidents`, A12c) | Programado y probado |

@@ -59,6 +59,17 @@ public class VehicleMovementSimulator implements VehiclePositionSource {
         trips.remove(vehicleId);
     }
 
+    /**
+     * After a pause of the simulation: the time it was stopped does not count, so no unit
+     * jumps ahead when it starts again (K9).
+     */
+    public synchronized void resume() {
+        Instant now = clock.instant();
+        for (Trip trip : trips.values()) {
+            trip.lastMove = now;
+        }
+    }
+
     /** True while the unit has not reached the end of its route. */
     public synchronized boolean isFollowing(long vehicleId) {
         return trips.containsKey(vehicleId);
