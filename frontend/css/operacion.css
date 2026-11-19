@@ -346,6 +346,58 @@
   min-height: 44px;
 }
 
+/* Transfer to a hospital (CU-11) */
+.transfer-area {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.transfer-area > .primary-button {
+  width: 100%;
+  min-height: 44px;
+}
+
+.hospital-options {
+  display: grid;
+  gap: 8px;
+}
+
+.hospital-option {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hospital-option-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.hospital-option h3 {
+  margin: 0;
+  font-size: .9375rem;
+}
+
+.hospital-option button {
+  min-height: 40px;
+  margin-top: 4px;
+}
+
+.hospital-unconfirmed {
+  font-size: .8125rem;
+  color: var(--amber);
+}
+
 .close-area {
   margin-top: 14px;
   padding-top: 12px;
