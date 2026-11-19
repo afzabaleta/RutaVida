@@ -223,7 +223,7 @@ Ejemplo: *consultar los hospitales operativos*.
 | `LoginController`, `SessionContext` | Programado y probado |
 | Casos de uso con DAO de emergencias (`register`, S6) y de despacho (`candidates`, `preview`, `dispatch`, `advance`, K7), y `RouteService` (K6) | Programado y probado (sin Oracle) |
 | Recálculo de rutas con tráfico e incidentes (`RoadConditionService`, `RouteMonitor`, K8) | Programado y probado (sin Oracle) |
-| Traslado al hospital (K7b) y servicios de cada hospital (`SERVICIO_HOSPITAL`) | **Pendiente** |
+| Traslado al hospital (CU-11, K10): hospitales por servicio y tiempo de llegada, rutas al hospital y misión `TRASLADANDO`; lectura de `SERVICIO_HOSPITAL` (A24) | Programado y probado (sin Oracle); falta la API (6.5 y 6.6) y la web |
 | DAO y servicios de catálogos (hospitales, estaciones, vehículos), con sus validaciones (A7c, S9, S10) | Programado y probado |
 | Movimiento simulado de las unidades y seguimiento (`VehicleMovementSimulator`, `TrackingService`, A13) | Programado y probado |
 | Motor de la simulación y escenarios (`SimulationEngine`, K9) | **Pendiente** |
