@@ -22,7 +22,7 @@ DECLARE
         DBMS_OUTPUT.PUT_LINE(RPAD(p_tabla, 20) || SQL%ROWCOUNT || ' filas borradas');
     END;
 BEGIN
-    IF '&&rv_confirmar' <> 'BORRAR RED' THEN
+    IF UPPER(REPLACE(TRIM('&&rv_confirmar'), '_', ' ')) <> 'BORRAR RED' THEN
         RAISE_APPLICATION_ERROR(-20911, 'Cancelado: no se escribio BORRAR RED. No se borro nada.');
     END IF;
     IF USER <> 'RUTAVIDA' THEN

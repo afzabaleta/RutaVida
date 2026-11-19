@@ -97,6 +97,7 @@ class RoadNetworkSqlWriterTest {
             }
         }
         assertTrue(write(network).contains("Consulta: " + RoadNetworkSqlWriter.QUERY_FILE));
+        assertTrue(lines.contains("PROMPT Esperado: 450 nodos y 1 tramos"), "the script says what it should load");
     }
 
     private static String write(RoadNetwork network) throws IOException {

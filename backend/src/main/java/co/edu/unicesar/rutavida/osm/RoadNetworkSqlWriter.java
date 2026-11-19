@@ -102,6 +102,11 @@ public final class RoadNetworkSqlWriter {
         line(out, "");
         line(out, "SET FEEDBACK ON");
         line(out, "SET DEFINE ON");
+        line(out, "");
+        line(out, "-- 3. COMPROBACION: con la red anterior borrada (database/osm/borrar_red_vial.sql)");
+        line(out, "-- deben salir exactamente estos numeros.");
+        line(out, "PROMPT Esperado: " + network.junctions().size() + " nodos y " + network.links().size() + " tramos");
+        line(out, "SELECT (SELECT COUNT(*) FROM nodo_vial) AS nodos, (SELECT COUNT(*) FROM tramo_vial) AS tramos FROM dual;");
     }
 
     // ------------------------------------------------------------------ helpers

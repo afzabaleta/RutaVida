@@ -30195,3 +30195,8 @@ COMMIT;
 
 SET FEEDBACK ON
 SET DEFINE ON
+
+-- 3. COMPROBACION: con la red anterior borrada (database/osm/borrar_red_vial.sql)
+-- deben salir exactamente estos numeros.
+PROMPT Esperado: 7569 nodos y 22145 tramos
+SELECT (SELECT COUNT(*) FROM nodo_vial) AS nodos, (SELECT COUNT(*) FROM tramo_vial) AS tramos FROM dual;
