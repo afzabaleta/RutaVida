@@ -5,76 +5,154 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'">
-  <meta name="theme-color" content="#101923">
+  <meta name="theme-color" content="#071a36">
   <title>RutaVida | Crear cuenta para el botón de pánico</title>
   <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./css/panico.css">
+  <link rel="stylesheet" href="./css/registro.css">
   <script type="module" src="./js/registro.js"></script>
 </head>
-<body class="panic-page">
-  <main class="panic-shell">
-    <header class="panic-header">
-      <a href="./index.html" class="panic-brand">RutaVida</a>
-      <a class="panic-call" href="tel:123">Llamar al 123</a>
-    </header>
+<body class="register-page">
+  <header class="register-topbar">
+    <a href="./index.html" class="register-brand" aria-label="RutaVida, ir al inicio">
+      <img src="./img/logo.svg" alt="" width="58" height="58">
+      <span class="register-brand-name">Ruta<span>Vida</span></span>
+      <span class="register-brand-divider" aria-hidden="true"></span>
+      <span class="register-brand-tagline">Sistema inteligente de rutas<br>de emergencia</span>
+    </a>
 
-    <section class="panic-intro">
-      <span class="panic-eyebrow">BOTÓN DE PÁNICO</span>
-      <h1>Crea tu cuenta</h1>
-      <p>
-        El botón de pánico solo funciona con una cuenta, para que cada alerta tenga un responsable.
-        Te registras una vez y tu celular queda conectado 30 días.
-      </p>
-      <p class="panic-warning">
-        Si estás en peligro ahora, no te registres: llama al 123. Este sistema es un proyecto
-        académico y no sustituye los servicios oficiales.
-      </p>
-    </section>
+    <nav class="register-nav" aria-label="Navegación principal">
+      <a href="./index.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
+        <span>Inicio</span>
+      </a>
+      <a class="register-call" href="tel:123">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2 1.5a15 15 0 0 0 5.5 5.5L15 14l5 2v3a2 2 0 0 1-2 2C9 21 3 15 3 6a2 2 0 0 1 2-2z"/></svg>
+        Llamar al 123
+      </a>
+    </nav>
+  </header>
 
-    <form id="register-form" class="panic-panel register-form" novalidate>
-      <h2>Tus datos</h2>
+  <main class="register-main">
+    <div class="register-layout">
+      <section class="register-intro" aria-labelledby="register-title">
+        <p class="register-kicker">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M2 20v-1.5A5.5 5.5 0 0 1 7.5 13h3A5.5 5.5 0 0 1 16 18.5V20M19 7v6M16 10h6"/></svg>
+          BOTÓN DE PÁNICO
+        </p>
+        <h1 id="register-title">Crea tu cuenta</h1>
+        <span class="register-title-rule" aria-hidden="true"></span>
+        <p class="register-lead">
+          Regístrate para usar el botón de pánico y reportar emergencias de forma rápida y segura en Valledupar.
+        </p>
 
-      <p id="register-message" class="register-message" role="alert" aria-live="polite" hidden></p>
+        <ul class="register-benefits">
+          <li class="register-benefit">
+            <span class="register-benefit-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-9 12h6l-1 8 11-13h-7z"/></svg>
+            </span>
+            <span><strong>Reporta emergencias</strong><small>Alerta a los organismos de atención.</small></span>
+          </li>
+          <li class="register-benefit">
+            <span class="register-benefit-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="2.5"/></svg>
+            </span>
+            <span><strong>Comparte tu ubicación</strong><small>Facilita la identificación del lugar del reporte.</small></span>
+          </li>
+          <li class="register-benefit">
+            <span class="register-benefit-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5.5c0 4.7-3.2 8-8 9.5-4.8-1.5-8-4.8-8-9.5V6z"/><path d="m8.5 12 2.3 2.3 4.8-5"/></svg>
+            </span>
+            <span><strong>Seguridad y privacidad</strong><small>Tu información se utiliza para el botón de pánico.</small></span>
+          </li>
+        </ul>
+      </section>
 
-      <label for="first-names">Nombres</label>
-      <input id="first-names" name="firstNames" type="text" autocomplete="given-name" maxlength="80" required>
+      <section class="register-card" aria-labelledby="register-form-title">
+        <div class="register-card-heading">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M2 20v-1.5A5.5 5.5 0 0 1 7.5 13h3A5.5 5.5 0 0 1 16 18.5V20M19 7v6M16 10h6"/></svg>
+          <h2 id="register-form-title">Tus datos</h2>
+        </div>
 
-      <label for="last-names">Apellidos</label>
-      <input id="last-names" name="lastNames" type="text" autocomplete="family-name" maxlength="80" required>
+        <form id="register-form" class="register-form" novalidate>
+          <p id="register-message" class="register-message" role="alert" aria-live="polite" hidden></p>
 
-      <label for="document">Número de documento</label>
-      <input id="document" name="document" type="text" inputmode="numeric" maxlength="20" required>
+          <div class="register-fields">
+            <div class="register-field">
+              <label for="first-names">Nombres</label>
+              <div class="register-input-wrap">
+                <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.6-4 3.3-6.5 7.5-6.5s6.9 2.5 7.5 6.5"/></svg>
+                <input id="first-names" name="firstNames" type="text" placeholder="Nombres" autocomplete="given-name" maxlength="80" required>
+              </div>
+            </div>
 
-      <label for="email">Correo electrónico</label>
-      <input id="email" name="email" type="email" autocomplete="email" maxlength="120" required>
+            <div class="register-field">
+              <label for="last-names">Apellidos</label>
+              <div class="register-input-wrap">
+                <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.6-4 3.3-6.5 7.5-6.5s6.9 2.5 7.5 6.5"/></svg>
+                <input id="last-names" name="lastNames" type="text" placeholder="Apellidos" autocomplete="family-name" maxlength="80" required>
+              </div>
+            </div>
 
-      <label for="username">Usuario</label>
-      <input id="username" name="username" type="text" autocomplete="username" maxlength="40"
-             pattern="[a-z0-9._]{4,40}" required>
-      <p class="panic-hint">Entre 4 y 40 letras minúsculas, números, punto o guion bajo.</p>
+            <div class="register-field register-field-wide">
+              <label for="document">Número de documento</label>
+              <div class="register-input-wrap">
+                <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5.5 16c.5-1.5 1.3-2 2.5-2s2 .5 2.5 2M13 9h5M13 13h5"/></svg>
+                <input id="document" name="document" type="text" inputmode="numeric" placeholder="Número de documento" maxlength="20" required>
+              </div>
+            </div>
 
-      <label for="password">Contraseña</label>
-      <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
-      <p class="panic-hint">Mínimo 10 caracteres, con letras y números.</p>
+            <div class="register-field register-field-wide">
+              <label for="email">Correo electrónico</label>
+              <div class="register-input-wrap">
+                <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>
+                <input id="email" name="email" type="email" placeholder="Correo electrónico" autocomplete="email" maxlength="120" required>
+              </div>
+            </div>
 
-      <label for="password-again">Repite la contraseña</label>
-      <input id="password-again" name="passwordAgain" type="password" autocomplete="new-password" required>
+            <div class="register-field register-field-wide">
+              <label for="username">Usuario</label>
+              <div class="register-input-wrap">
+                <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.6-4 3.3-6.5 7.5-6.5s6.9 2.5 7.5 6.5"/></svg>
+                <input id="username" name="username" type="text" placeholder="Usuario" autocomplete="username" maxlength="40" pattern="[a-z0-9._]{4,40}" required>
+              </div>
+              <p class="register-hint">Entre 4 y 40 letras minúsculas, números, punto o guion bajo.</p>
+            </div>
 
-      <label class="register-consent">
-        <input id="data-consent" name="dataConsent" type="checkbox" required>
-        <span>
-          Autorizo a RutaVida a tratar mis datos personales solo para el botón de pánico
-          (Ley 1581 de 2012). Las alertas que envíe quedarán a mi nombre, y dos alertas falsas
-          bloquean la cuenta.
-        </span>
-      </label>
+            <div class="register-field">
+              <label for="password">Contraseña</label>
+              <div class="register-input-wrap">
+                <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg>
+                <input id="password" name="password" type="password" placeholder="Contraseña" autocomplete="new-password" minlength="10" required>
+              </div>
+              <p class="register-hint">Mínimo 10 caracteres, con letras y números.</p>
+            </div>
 
-      <button id="register-button" class="panic-sos register-submit" type="submit">Crear cuenta</button>
+            <div class="register-field">
+              <label for="password-again">Repite la contraseña</label>
+              <div class="register-input-wrap">
+                <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg>
+                <input id="password-again" name="passwordAgain" type="password" placeholder="Repite la contraseña" autocomplete="new-password" required>
+              </div>
+            </div>
+          </div>
 
-      <p class="panic-hint">¿Ya tienes cuenta? <a href="./index.html">Inicia sesión</a></p>
-    </form>
+          <label class="register-consent" for="data-consent">
+            <input id="data-consent" name="dataConsent" type="checkbox" required>
+            <span>
+              Autorizo a RutaVida a tratar mis datos personales solo para el botón de pánico (Ley 1581 de 2012).
+              Las alertas que envíe quedarán a mi nombre, y dos alertas falsas bloquean la cuenta.
+            </span>
+          </label>
 
-    <footer class="panic-footer">RutaVida · Demostración académica</footer>
+          <button id="register-button" class="register-submit" type="submit">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M2 20v-1.5A5.5 5.5 0 0 1 7.5 13h3A5.5 5.5 0 0 1 16 18.5V20M19 7v6M16 10h6"/></svg>
+            Crear cuenta
+          </button>
+
+          <p class="register-login">¿Ya tienes cuenta? <a href="./index.html">Inicia sesión</a></p>
+        </form>
+      </section>
+    </div>
   </main>
 </body>
 </html>

@@ -26,8 +26,8 @@ class BoundingBoxTest {
     }
 
     @Test
-    void demoZoneContainsThePlacesOfTheDemonstration() {
-        BoundingBox demo = BoundingBox.VALLEDUPAR_DEMO;
+    void theCityZoneContainsThePlacesOfTheDemonstration() {
+        BoundingBox demo = BoundingBox.VALLEDUPAR;
 
         // Fire station and hospitals: coordinates of 03_datos_valledupar.sql.
         assertTrue(demo.contains(10.468580, -73.257590));
@@ -35,5 +35,13 @@ class BoundingBoxTest {
         assertTrue(demo.contains(10.446380, -73.247410));
         // Parque La Popa (Google Maps, 21/10/2026): place of the demo emergency.
         assertTrue(demo.contains(10.467172, -73.265100));
+    }
+
+    @Test
+    void theCityZoneCoversTheOldDemoZone() {
+        BoundingBox city = BoundingBox.VALLEDUPAR;
+
+        assertTrue(city.contains(10.435, -73.280) && city.contains(10.480, -73.235),
+                "every street of the old zone is still in the network");
     }
 }
