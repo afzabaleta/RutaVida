@@ -45,7 +45,8 @@ public final class WebTestSupport {
 
         roleDao.add(new Role(2L, "OPERADOR_CENTRAL", "Operador", RecordStatus.ACTIVE, Set.of(
                 new Permission(3L, "EMERGENCIAS", "CONSULTAR", "Ver emergencias"),
-                new Permission(4L, "EMERGENCIAS", "GESTIONAR", "Registrar emergencias"))));
+                new Permission(4L, "EMERGENCIAS", "GESTIONAR", "Registrar emergencias"),
+                new Permission(9L, "TRAFICO", "CONSULTAR", "Ver estado del trafico"))));
         roleDao.add(new Role(4L, "BOMBERO_PARAMEDICO", "Bombero", RecordStatus.ACTIVE, Set.of()));
         roleDao.add(new Role(3L, "COORDINADOR", "Coordinador", RecordStatus.ACTIVE, Set.of(
                 new Permission(3L, "EMERGENCIAS", "CONSULTAR", "Ver emergencias"),
@@ -58,7 +59,9 @@ public final class WebTestSupport {
                 new Permission(11L, "RUTAS", "CONSULTAR", "Ver rutas calculadas"),
                 new Permission(12L, "RUTAS", "GESTIONAR", "Calcular y recalcular rutas"),
                 new Permission(17L, "DESPACHO", "CONSULTAR", "Ver asignaciones"),
-                new Permission(18L, "DESPACHO", "GESTIONAR", "Asignar unidades y actualizar el estado de la mision"))));
+                new Permission(18L, "DESPACHO", "GESTIONAR", "Asignar unidades y actualizar el estado de la mision"),
+                new Permission(9L, "TRAFICO", "CONSULTAR", "Ver estado del trafico"),
+                new Permission(10L, "TRAFICO", "GESTIONAR", "Registrar trafico y controlar el simulador"))));
         String hash = hasher.hash(PASSWORD.toCharArray());
         LocalDateTime registered = LocalDateTime.now(clock);
         userDao.insert(new User(0L, 2L, "1000000001", "Ana", "Pérez", "ana.perez@ejemplo.com",
