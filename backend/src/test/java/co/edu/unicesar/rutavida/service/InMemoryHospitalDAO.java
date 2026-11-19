@@ -4,8 +4,10 @@ package co.edu.unicesar.rutavida.service;
 import co.edu.unicesar.rutavida.dao.HospitalDAO;
 import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.model.Hospital;
+import co.edu.unicesar.rutavida.model.HospitalServiceOffering;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.Optional;
 public class InMemoryHospitalDAO implements HospitalDAO {
 
     private final Map<Long, Hospital> hospitals = new LinkedHashMap<>();
+    private final List<HospitalServiceOffering> services = new ArrayList<>();
     private long nextId = 1;
 
     @Override
@@ -55,5 +58,19 @@ public class InMemoryHospitalDAO implements HospitalDAO {
             throw new NotFoundException("Hospital", hospital.getId());
         }
         hospitals.put(hospital.getId(), hospital);
+    }
+
+    @Override
+    public List<HospitalServiceOffering> findServices(long hospitalId) {
+        return services.stream()
+                .filter(offering -> offering.getHospitalId() == hospitalId)
+                .sorted(Comparator.comparing(HospitalServiceOffering::getServiceName))
+                .toList();
+    }
+
+    /** Test helper: the hospital offers this service (available = confirmed now). */
+    public void addService(long hospitalId, String serviceName, boolean available) {
+        services.add(new HospitalServiceOffering(services.size() + 1, hospitalId, serviceName, available,
+                null, null));
     }
 }

@@ -1,4 +1,5 @@
 import { currentSession, hasToken, logout } from "./api-client.js";
+import { renderAppShell } from "./app-shell.js";
 
 function goToLogin(reason) {
   window.location.replace(
@@ -39,6 +40,8 @@ export async function startPage() {
     return null;
   }
 
+  renderAppShell(session);
+
   const name = document.getElementById("user-name");
   const role = document.getElementById("user-role");
 
@@ -47,7 +50,7 @@ export async function startPage() {
   }
 
   if (role) {
-    role.textContent = session.role;
+    role.textContent = String(session.role ?? "").replaceAll("_", " ");
   }
 
   for (const link of document.querySelectorAll(".logout-link")) {

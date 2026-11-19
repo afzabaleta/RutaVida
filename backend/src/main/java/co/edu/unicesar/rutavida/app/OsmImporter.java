@@ -23,7 +23,7 @@ import java.time.format.DateTimeParseException;
  *
  * <p>Arguments: {@code <archivo.osm> <salida.sql> <fecha-descarga AAAA-MM-DD>
  * [sur oeste norte este]}. Without the last four, it uses
- * {@link BoundingBox#VALLEDUPAR_DEMO}. Exit code 0 = OK, 1 = problem found.
+ * {@link BoundingBox#VALLEDUPAR}. Exit code 0 = OK, 1 = problem found.
  */
 public final class OsmImporter {
 
@@ -44,7 +44,7 @@ public final class OsmImporter {
             BoundingBox area = args.length == 7
                     ? new BoundingBox(Double.parseDouble(args[3]), Double.parseDouble(args[4]),
                     Double.parseDouble(args[5]), Double.parseDouble(args[6]))
-                    : BoundingBox.VALLEDUPAR_DEMO;
+                    : BoundingBox.VALLEDUPAR;
 
             OsmExtract extract;
             try (InputStream in = Files.newInputStream(input)) {

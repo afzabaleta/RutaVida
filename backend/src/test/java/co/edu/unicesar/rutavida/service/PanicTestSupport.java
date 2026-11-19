@@ -12,6 +12,7 @@ import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.enums.PanicReportStatus;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.util.PasswordHasher;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -28,6 +29,11 @@ public final class PanicTestSupport {
             new Permission(3, "PANICO", "CONSULTAR", null);
     public static final Permission MANAGE =
             new Permission(4, "PANICO", "GESTIONAR", null);
+    public static final Permission REPORT =
+            new Permission(5, "PANICO", "REPORTAR", null);
+
+    /** Password of the citizens and of the users that log in through the API tests. */
+    public static final String PASSWORD = "Clave-Segura1";
 
     public static final long SYSTEM = 1;
     public static final long COORDINATOR = 2;
@@ -40,12 +46,17 @@ public final class PanicTestSupport {
     public final InMemoryUserDAO users = new InMemoryUserDAO();
     public final InMemoryRoleDAO roles = new InMemoryRoleDAO();
     public final InMemoryAlertDAO alerts = new InMemoryAlertDAO();
+    public final InMemoryCitizenSessionDAO phoneSessions = new InMemoryCitizenSessionDAO();
+    public final PasswordHasher hasher = new PasswordHasher(1_000);
+    private CitizenService citizenService;
 
     public PanicTestSupport() {
         roles.add(new Role(3, "COORDINADOR", "Prueba",
                 RecordStatus.ACTIVE, Set.of(DISPATCH, VIEW, MANAGE)));
         roles.add(new Role(6, "POLICIA", "Prueba",
-                RecordStatus.ACTIVE, Set.of(VALIDATE, VIEW)));
+                RecordStatus.ACTIVE, Set.of(VALIDATE, VIEW, REPORT)));
+        roles.add(new Role(7, CitizenService.CITIZEN_ROLE, "Prueba",
+                RecordStatus.ACTIVE, Set.of(REPORT)));
 
         user(3, "sistema.rutavida", RecordStatus.INACTIVE);
         user(3, "coordinador", RecordStatus.ACTIVE);
@@ -68,7 +79,33 @@ public final class PanicTestSupport {
         return new PanicService(
                 reports, city.emergencyTypes, users, roles,
                 emergencies, city.service(), routes,
-                alertService, audit, city.transactions, CLOCK);
+                alertService, audit, citizenService(), city.transactions, CLOCK);
+    }
+
+    /** The citizens of the button on the same users, alerts and phone sessions (DT-13). */
+    public synchronized CitizenService citizenService() {
+        if (citizenService == null) {
+            citizenService = new CitizenService(users, roles, phoneSessions, hasher,
+                    new AuditService(city.audit, CLOCK),
+                    new AlertService(alerts, users, roles, city.transactions, CLOCK),
+                    city.transactions, CLOCK);
+        }
+        return citizenService;
+    }
+
+    /**
+     * The session of citizen number {@code n} ("ciudadano1", "ciudadano2"...), created the first
+     * time it is asked. Each number is a different person.
+     */
+    public UserSession citizen(int n) {
+        String username = "ciudadano" + n;
+        User user = users.findByUsername(username).orElseGet(() -> {
+            users.insert(new User(0, 7, "CIUDADANO" + n, "Ciudadano", "Prueba " + n,
+                    username + "@ejemplo.com", username, hasher.hash(PASSWORD.toCharArray()),
+                    RecordStatus.ACTIVE, LocalDateTime.now(CLOCK)));
+            return users.findByUsername(username).orElseThrow();
+        });
+        return sessionOf(user.getId());
     }
 
     public static PanicAlertRequest press(String device, double metersNorth) {
@@ -81,12 +118,13 @@ public final class PanicTestSupport {
                 SCENE.longitude());
     }
 
-    public long oldReport(String device, int minutesAgo) {
+    /** A PENDIENTE report of citizen {@code n} saved {@code minutesAgo} minutes ago. */
+    public long oldReport(int n, int minutesAgo) {
         return reports.insert(new PanicReport(
                 0, SCENE,
                 LocalDateTime.now(CLOCK).minusMinutes(minutesAgo),
-                PanicService.hashDevice(device),
-                null, null, null,
+                PanicService.hashDevice("celular-" + n),
+                citizen(n).user().getId(), null, null,
                 PanicReportStatus.PENDING, null));
     }
 
@@ -105,6 +143,11 @@ public final class PanicTestSupport {
                 0, roleId, "PRUEBA" + next, "Prueba", "Panico",
                 username + "@ejemplo.com", username, "NO_ES_UN_HASH",
                 status, LocalDateTime.now(CLOCK)));
+    }
+
+    /** Citizen registration with this support, for the tests of the API (CU-23). */
+    public co.edu.unicesar.rutavida.controller.CitizenController citizenController() {
+        return new co.edu.unicesar.rutavida.controller.CitizenController(citizenService());
     }
 
     /** The controller of the panic button with this support, for the tests of the API (A20b). */

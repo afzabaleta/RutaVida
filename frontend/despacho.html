@@ -8,10 +8,14 @@
     <meta name="theme-color" content="#101923">
     <title>RutaVida | Despacho</title>
 
+    <!-- Sets data-theme before paint (no flash). -->
+    <script src="./js/theme-boot.js"></script>
     <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./css/rutavida.css">
     <link rel="stylesheet" href="./css/dashboard.css">
+    <link rel="stylesheet" href="./css/app-shell.css">
     <link rel="stylesheet" href="./css/operacion.css">
+    <link rel="stylesheet" href="./css/theme.css">
 
     <link rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -27,30 +31,30 @@
 </head>
 
 <body class="dashboard-body">
-<header class="dashboard-header">
-    <a class="dashboard-brand" href="./dashboard.html"
-       aria-label="RutaVida, volver al panel">
-        <img src="./img/logo.svg" alt="" width="42" height="42">
-        <span>
-            <strong>RutaVida</strong>
-            <small>Centro de operaciones</small>
-        </span>
-    </a>
+<!-- Moved into the page header by app-shell.js -->
+<div class="bell-container" data-shell-slot="header-actions">
+    <button
+            id="alert-bell"
+            class="bell-button"
+            type="button"
+            aria-label="Alertas"
+            aria-expanded="false"
+            aria-controls="alert-panel">
+        <span class="shell-icon shell-icon-bell" aria-hidden="true"></span>
+        <span id="alert-count" class="bell-count" hidden>0</span>
+    </button>
 
-    <div class="header-user">
-        <div>
-            <strong id="user-name">Cargando…</strong>
-            <small id="user-role">Cargando…</small>
-        </div>
-        <a class="logout-link" href="./index.html">Salir</a>
-    </div>
-</header>
+    <section id="alert-panel" class="bell-panel" hidden>
+        <h2>Alertas</h2>
+        <div id="alert-list" class="bell-list"></div>
+    </section>
+</div>
+
 
 <main class="dashboard-main">
     <section class="welcome-row">
         <div>
-            <p class="eyebrow">CU-08, CU-09, CU-10 Y CU-12 · DESPACHO</p>
-            <h1>Despachar unidad</h1>
+            <h1 class="page-title">Despachar <span>unidad</span></h1>
             <p class="muted">
                 Elige la emergencia, compara las unidades por su tiempo de llegada
                 y sus 3 rutas, despacha y sigue la misión hasta el cierre.
@@ -68,7 +72,6 @@
         <aside class="side-panel">
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">EMERGENCIA</p>
                     <h2>A atender</h2>
                 </div>
             </div>
@@ -82,7 +85,6 @@
 
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">RECURSOS</p>
                     <h2>Unidades disponibles</h2>
                 </div>
                 <span class="count-pill" id="unit-pill">0</span>
@@ -100,7 +102,6 @@
         <section class="map-panel">
             <div class="map-heading">
                 <div>
-                    <p class="eyebrow">UBICACIÓN</p>
                     <h2>Emergencia, unidades y rutas</h2>
                 </div>
                 <span class="map-status">
@@ -118,8 +119,7 @@
             <section class="route-panel" aria-labelledby="route-title">
                 <div class="map-heading">
                     <div>
-                        <p class="eyebrow">MOTOR DE RUTAS</p>
-                        <h2 id="route-title">Rutas</h2>
+                            <h2 id="route-title">Rutas</h2>
                     </div>
                     <span id="route-tag" class="data-tag">SIN CALCULAR</span>
                 </div>
@@ -132,7 +132,6 @@
         <aside class="side-panel">
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">CONFIRMACIÓN</p>
                     <h2>Despacho</h2>
                 </div>
             </div>
@@ -174,7 +173,7 @@
     </section>
 
     <footer class="dashboard-footer">
-        <span>RutaVida · Despacho (D6b)</span>
+        <span>RutaVida · Despacho (CU-08, CU-09, CU-10 y CU-12, D6b)</span>
         <span>Datos de Oracle y datos EJEMPLO identificados</span>
     </footer>
 </main>

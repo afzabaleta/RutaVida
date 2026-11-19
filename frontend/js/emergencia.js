@@ -9,6 +9,7 @@ import {
 } from "./api-client.js";
 
 import { startPage } from "./page-session.js";
+import { startAlertBell } from "./alert-bell.js";
 import { iconMarker, paintLegend, placeIcon } from "./map-icons.js";
 
 import {
@@ -135,6 +136,14 @@ async function initialize() {
   paintLegend();
   const session = await startPage();
   if (!session) return;
+
+  // Alert bell in the header (same alert-bell.js as the dashboard).
+  startAlertBell({
+    button: byId("alert-bell"),
+    count: byId("alert-count"),
+    panel: byId("alert-panel"),
+    list: byId("alert-list"),
+  });
 
   const form = byId("emergency-form");
   const button = form.querySelector('button[type="submit"]');

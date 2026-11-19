@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -71,6 +72,32 @@ class RoadNetworkSqlWriterTest {
         assertTrue(sql.contains("Descarga: Overpass API, 2026-10-22"));
         assertTrue(sql.contains("Supuestos (NO son datos de OpenStreetMap)"));
         assertTrue(sql.contains("Resumen: 8 nodos, 9 tramos, a partir de 4 de 6 vias del archivo."));
+    }
+
+    @Test
+    void theRowsGoInPlSqlBlocksOfAtMostBlockSize() throws IOException {
+        List<RoadNetwork.Junction> junctions = new ArrayList<>();
+        for (int i = 1; i <= 450; i++) {
+            junctions.add(new RoadNetwork.Junction(i, 10.0 + i / 100_000.0, -73.0, NodeType.INTERSECTION, "Nodo " + i));
+        }
+        RoadNetwork network = new RoadNetwork(junctions,
+                List.of(new RoadNetwork.Link(1, 2, 77, "Calle 1", 10, 30)), new RoadNetwork.Summary(1, 1, 0, 0, 0));
+        List<String> lines = write(network).lines().toList();
+
+        assertEquals(4, lines.stream().filter("BEGIN"::equals).count(), "200 + 200 + 50 nodes, then 1 segment");
+        assertEquals(4, lines.stream().filter("END;"::equals).count());
+        assertEquals(4, lines.stream().filter("/"::equals).count());
+        int inBlock = 0;
+        for (String line : lines) {
+            if (line.equals("BEGIN")) {
+                inBlock = 0;
+            } else if (line.startsWith("INSERT INTO")) {
+                inBlock++;
+                assertTrue(inBlock <= RoadNetworkSqlWriter.BLOCK_SIZE);
+            }
+        }
+        assertTrue(write(network).contains("Consulta: " + RoadNetworkSqlWriter.QUERY_FILE));
+        assertTrue(lines.contains("PROMPT Esperado: 450 nodos y 1 tramos"), "the script says what it should load");
     }
 
     private static String write(RoadNetwork network) throws IOException {

@@ -6,10 +6,11 @@
 
 .operation-notice {
   padding: 14px 18px;
-  border: 1px solid rgba(246, 185, 75, 0.4);
+  border: 1px solid var(--notice-border);
   border-radius: 12px;
-  background: rgba(246, 185, 75, 0.08);
-  color: #f6d69b;
+  background: var(--notice-bg);
+  color: var(--notice-text);
+  font-size: .9375rem;
   line-height: 1.5;
 }
 
@@ -22,7 +23,7 @@
 
 .form-panel,
 .operation-map-panel {
-  padding: 22px;
+  padding: 24px;
   min-width: 0;
 }
 
@@ -41,27 +42,40 @@
 .form-field label,
 .form-field legend,
 .field-label {
-  color: #e8edf2;
+  color: var(--text);
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: .9375rem;
 }
 
 .form-field input,
 .form-field select,
 .form-field textarea {
   width: 100%;
+  min-height: 46px;
   padding: 12px 14px;
-  border: 1px solid #344454;
-  border-radius: 9px;
-  background: #172431;
-  color: #f4f7fa;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--field-bg);
+  color: var(--text);
   font: inherit;
+  transition: border-color 150ms ease;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder {
+  color: var(--placeholder);
+}
+
+.form-field input:hover,
+.form-field select:hover,
+.form-field textarea:hover {
+  border-color: var(--border-hover);
 }
 
 .form-field input:focus,
 .form-field select:focus,
 .form-field textarea:focus {
-  outline: 2px solid #79adff;
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 
@@ -88,31 +102,45 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 10px 13px;
-  border: 1px solid #344454;
-  border-radius: 9px;
-  background: #172431;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--field-bg);
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.severity-chip:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 
 .severity-chip input {
-  accent-color: #79adff;
+  accent-color: var(--blue);
 }
 
 .severity-critica {
-  border-color: #ff6674;
+  border-color: var(--red);
 }
 
 .severity-alta {
-  border-color: #f6b94b;
+  border-color: var(--amber);
 }
 
 .severity-media {
-  border-color: #79adff;
+  border-color: var(--blue);
 }
 
 .severity-baja {
-  border-color: #4bd6a0;
+  border-color: var(--green);
+}
+
+.severity-chip:has(input:checked) {
+  background: var(--selected-bg);
+  border-width: 2px;
+  padding: 9px 13px;
 }
 
 .secondary-button,
@@ -120,24 +148,43 @@
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  padding: 11px 16px;
-  border-radius: 9px;
+  min-height: 46px;
+  padding: 11px 18px;
+  border-radius: 12px;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 
+/* Same pair as the dashboard: red primary, white outline secondary. */
 .secondary-button {
-  border: 1px solid #526477;
-  background: #1b2a38;
-  color: #e8edf2;
+  border: 1.5px solid var(--outline);
+  background: transparent;
+  color: var(--text);
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--outline-hover);
+  background: var(--outline-hover-bg);
 }
 
 .primary-button {
-  border: 1px solid #3e82ce;
-  background: #2868a8;
+  border: 1px solid #d42335;
+  background: #d42335;
   color: white;
+}
+
+.primary-button:hover:not(:disabled) {
+  border-color: #b81c2c;
+  background: #b81c2c;
+}
+
+.secondary-button:focus-visible,
+.primary-button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
 }
 
 .primary-button:disabled {
@@ -146,8 +193,8 @@
 }
 
 .point-text {
-  color: #79adff;
-  font-size: 0.88rem;
+  color: var(--blue);
+  font-size: .9375rem;
   overflow-wrap: anywhere;
 }
 
@@ -166,20 +213,21 @@
 
 .form-message.error {
   background: rgba(255, 102, 116, 0.12);
-  border: 1px solid #ff6674;
-  color: #ffb2b9;
+  border: 1px solid var(--red);
+  color: var(--error-text);
 }
 
 .form-message.ok {
   background: rgba(75, 214, 160, 0.12);
-  border: 1px solid #4bd6a0;
-  color: #9aebcb;
+  border: 1px solid var(--green);
+  color: var(--ok-text);
 }
 
 .operation-map-panel #map {
   width: 100%;
   height: 560px;
   margin-top: 18px;
+  border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -217,11 +265,12 @@
 .side-panel select {
   width: 100%;
   margin-top: 6px;
+  min-height: 46px;
   padding: 10px 12px;
-  border: 1px solid var(--border, #293746);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: rgba(255, 255, 255, .03);
-  color: var(--text, #edf3fa);
+  background: var(--field-bg);
+  color: var(--text);
   font: inherit;
 }
 
@@ -231,7 +280,7 @@
 }
 
 .side-panel select option {
-  background: #172330;
+  background: var(--surface);
 }
 
 .unit-choice {
@@ -260,7 +309,7 @@
   display: grid;
   gap: 4px;
   margin: 14px 0;
-  font-size: .9rem;
+  font-size: .9375rem;
 }
 
 .dispatch-summary p {
@@ -269,11 +318,14 @@
 
 .dispatch-button {
   width: 100%;
-  background: var(--red);
+  min-height: 48px;
+  border-radius: 12px;
+  background: #d42335;
+  font-size: 1rem;
 }
 
 .dispatch-button:hover:not(:disabled) {
-  background: #e5484d;
+  background: #b81c2c;
 }
 
 .dispatch-button:disabled {
@@ -297,7 +349,7 @@
 .close-area {
   margin-top: 14px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, .08);
+  border-top: 1px solid var(--border);
 }
 
 .close-area > .secondary-button {
@@ -313,8 +365,8 @@
 
 .route-difference {
   margin: 0;
-  font-size: .8rem;
-  color: #f6b94b;
+  font-size: .875rem;
+  color: var(--amber);
 }
 
 .secondary-button:disabled {
@@ -354,6 +406,10 @@
 @media (max-width: 600px) {
   .mission-actions {
     flex-direction: column;
+  }
+
+  .mission-actions button {
+    flex: 0 0 auto;
   }
 
   .mission-actions button,

@@ -4,6 +4,7 @@ import co.edu.unicesar.rutavida.dao.HospitalDAO;
 import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.Hospital;
+import co.edu.unicesar.rutavida.model.HospitalServiceOffering;
 import co.edu.unicesar.rutavida.model.enums.HospitalLevel;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 
@@ -11,7 +12,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** HospitalDAO on Oracle (table HOSPITAL). */
+/** HospitalDAO on Oracle (tables HOSPITAL and SERVICIO_HOSPITAL). */
 public class JdbcHospitalDAO extends AbstractJdbcDAO implements HospitalDAO {
 
     private static final String SELECT =
@@ -35,6 +36,18 @@ public class JdbcHospitalDAO extends AbstractJdbcDAO implements HospitalDAO {
             new GeoPoint(row.getDouble("latitud"), row.getDouble("longitud")),
             getNullableInt(row, "capacidad_urgencias"),
             RecordStatus.fromCode(row.getString("estado")));
+
+    private static final String SELECT_SERVICES =
+            "SELECT id_servicio, id_hospital, nombre_servicio, disponible, capacidad, fecha_actualizacion"
+                    + " FROM servicio_hospital WHERE id_hospital = ? ORDER BY nombre_servicio";
+
+    private static final RowMapper<HospitalServiceOffering> SERVICE_MAPPER = row -> new HospitalServiceOffering(
+            row.getLong("id_servicio"),
+            row.getLong("id_hospital"),
+            row.getString("nombre_servicio"),
+            getFlag(row, "disponible"),
+            getNullableInt(row, "capacidad"),
+            getLocalDateTime(row, "fecha_actualizacion"));
 
     public JdbcHospitalDAO(JdbcTransactionManager connections) {
         super(connections);
@@ -83,5 +96,10 @@ public class JdbcHospitalDAO extends AbstractJdbcDAO implements HospitalDAO {
         if (rows == 0) {
             throw new NotFoundException("Hospital", hospital.getId());
         }
+    }
+
+    @Override
+    public List<HospitalServiceOffering> findServices(long hospitalId) {
+        return queryList(SELECT_SERVICES, SERVICE_MAPPER, hospitalId);
     }
 }
