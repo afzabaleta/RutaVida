@@ -175,3 +175,78 @@
   .panic-map { height: 280px; }
   .panic-secondary { flex: 1; }
 }
+
+/* DT-13: the account of the button */
+.panic-account p {
+  margin: 0 0 10px;
+}
+
+.panic-account a.panic-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* CU-23: citizen registration (registro.html) */
+.register-form input[type="text"],
+.register-form input[type="email"],
+.register-form input[type="password"] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  background: #101923;
+  color: #fff;
+  border: 1px solid #587087;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.register-form input:focus-visible {
+  outline: 3px solid #80b5ff;
+  outline-offset: 1px;
+}
+
+.register-form .panic-hint {
+  margin: 6px 0 0;
+}
+
+.register-form a {
+  color: #9cc6ff;
+}
+
+.panic-panel label.register-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 20px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.register-consent input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.register-submit {
+  min-height: 64px;
+  font-size: 22px;
+}
+
+.register-message {
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  border: 1px solid #3b82f6;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, .12);
+  font-weight: 700;
+}
+
+.register-message.is-error {
+  border-color: #ff6674;
+  background: rgba(229, 72, 77, .14);
+  color: #ffb3b9;
+}

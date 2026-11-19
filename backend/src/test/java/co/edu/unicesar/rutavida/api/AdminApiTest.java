@@ -157,7 +157,7 @@ class AdminApiTest {
         server = new ApiServer(new WebSessionController(auth, session, CLOCK),
                 new CatalogController(new CatalogTestSupport().service()), emergencies, dashboard, reports, incidents,
                 roadMap, alerts, dispatch, admin, new TrackingTestSupport().controller(auth, session),
-                new PanicTestSupport().controller(auth, session), null);
+                new PanicTestSupport().controller(auth, session), new PanicTestSupport().citizenController(), null);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;

@@ -139,10 +139,10 @@ UNION ALL
 SELECT 'Rol POLICIA', CASE WHEN COUNT(*) = 1 THEN 'SI' ELSE 'NO' END
   FROM rol WHERE nombre_rol = 'POLICIA'
 UNION ALL
-SELECT 'Permisos PANICO', CASE WHEN COUNT(*) = 3 THEN 'SI' ELSE 'NO' END
+SELECT 'Permisos PANICO (08 agrega REPORTAR)', CASE WHEN COUNT(*) >= 3 THEN 'SI' ELSE 'NO' END
   FROM permiso WHERE modulo = 'PANICO'
 UNION ALL
-SELECT 'Permisos asignados de PANICO y POLICIA', CASE WHEN COUNT(*) = 9 THEN 'SI' ELSE 'NO' END
+SELECT 'Permisos asignados de PANICO y POLICIA (08 agrega mas)', CASE WHEN COUNT(*) >= 9 THEN 'SI' ELSE 'NO' END
   FROM rol_permiso rp JOIN rol r ON r.id_rol = rp.id_rol JOIN permiso p ON p.id_permiso = rp.id_permiso
  WHERE p.modulo = 'PANICO' OR r.nombre_rol = 'POLICIA'
 UNION ALL

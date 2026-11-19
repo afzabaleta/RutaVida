@@ -305,6 +305,14 @@ classDiagram
         -status : PanicReportStatus
         -emergencyId : Long
     }
+    class CitizenSession {
+        -id : long
+        -userId : long
+        -tokenHash : String
+        -createdAt : LocalDateTime
+        -expiresAt : LocalDateTime
+        -revoked : boolean
+    }
     class User
     class RoadSegment
 
@@ -322,7 +330,8 @@ classDiagram
     Route "1" *-- "1..*" RouteSegment : ordered path
     RouteSegment "0..*" --> "1" RoadSegment : crosses
     VehicleLocation "0..*" --> "1" EmergencyVehicle : position of
-    PanicReport "0..*" --> "0..1" User : sent by (police)
+    PanicReport "0..*" --> "0..1" User : sent by
+    CitizenSession "0..*" --> "1" User : phone of
     PanicReport "0..*" --> "0..1" EmergencyType : classified as
     PanicReport "1..*" --> "0..1" Emergency : validated into
 ```
@@ -682,9 +691,18 @@ classDiagram
         +findPendingSince(since: LocalDateTime) List~PanicReport~
         +findSince(since: LocalDateTime) List~PanicReport~
         +countByDeviceSince(deviceId: String, since: LocalDateTime) int
+        +countByUserSince(userId: long, since: LocalDateTime) int
+        +countByUserAndStatusSince(userId: long, status: PanicReportStatus, since: LocalDateTime) int
         +markValidated(ids: Collection~Long~, emergencyId: long) void
         +updateStatus(id: long, status: PanicReportStatus) void
         +expirePendingBefore(before: LocalDateTime) int
+    }
+    class CitizenSessionDAO {
+        <<interface>>
+        +insert(session: CitizenSession) long
+        +findValid(tokenHash: String, now: LocalDateTime) Optional~CitizenSession~
+        +revoke(tokenHash: String) int
+        +revokeAllOf(userId: long) int
     }
     class User
     class Role
@@ -693,6 +711,7 @@ classDiagram
     class Emergency
     class EmergencyAssignment
     class PanicReport
+    class CitizenSession
 
     UserDAO ..> User
     RoleDAO ..> Role
@@ -701,6 +720,7 @@ classDiagram
     EmergencyDAO ..> Emergency
     EmergencyAssignmentDAO ..> EmergencyAssignment
     PanicReportDAO ..> PanicReport
+    CitizenSessionDAO ..> CitizenSession
 ```
 
 ### 3.2 Flota y hospitales
@@ -757,7 +777,7 @@ classDiagram
     HospitalDAO ..> HospitalServiceOffering
 ```
 
-`HospitalDAO.findServices` y `updateService` todavía no están programados: se agregan cuando exista la entidad `HospitalServiceOffering`. `EmergencyVehicleDAO.update` cambia solo los datos de registro (tipo, estación, código y placa); el estado y la posición tienen sus propios métodos para que el simulador y el despacho no se sobrescriban.
+`HospitalDAO.findServices` y la entidad `HospitalServiceOffering` están programados (lectura de `SERVICIO_HOSPITAL` para el traslado, K10); `updateService` sigue diseñado. `EmergencyVehicleDAO.update` cambia solo los datos de registro (tipo, estación, código y placa); el estado y la posición tienen sus propios métodos para que el simulador y el despacho no se sobrescriban.
 
 ### 3.3 Red vial, tráfico e incidentes
 
@@ -982,6 +1002,7 @@ classDiagram
     class JdbcReportDAO
     class JdbcRoadMapDAO
     class JdbcPanicReportDAO
+    class JdbcCitizenSessionDAO
 
     AbstractJdbcDAO <|-- JdbcUserDAO
     AbstractJdbcDAO <|-- JdbcRoleDAO
@@ -1007,6 +1028,7 @@ classDiagram
     AbstractJdbcDAO <|-- JdbcReportDAO
     AbstractJdbcDAO <|-- JdbcRoadMapDAO
     AbstractJdbcDAO <|-- JdbcPanicReportDAO
+    AbstractJdbcDAO <|-- JdbcCitizenSessionDAO
 ```
 
 Cada `JdbcXxxDAO` implementa la interfaz `XxxDAO` del mismo nombre de la sección 3 (por ejemplo, `JdbcEmergencyDAO` implementa `EmergencyDAO`). Esas 22 flechas de realización no se dibujan para que el diagrama se pueda leer.
@@ -1097,6 +1119,7 @@ class UserService {
         +isActive(emergency: Emergency) boolean
         +register(request: EmergencyRequest, session: UserSession) Emergency
         +listActive() List~Emergency~
+        +listByPeriod(from: LocalDate, to: LocalDate) List~Emergency~
         +findById(id: long) Emergency
         +getHistory(id: long) EmergencyHistory
     }
@@ -1118,6 +1141,7 @@ class UserService {
         +advance(assignmentId: long, next: AssignmentStatus) EmergencyAssignment
         +findAssignment(assignmentId: long) EmergencyAssignment
         +missionRoutes(assignmentId: long) List~Route~
+        +activeMissions() List~ActiveMission~
         +suits(emergencyType: String, vehicleType: String) boolean
         +isDispatchable(vehicle: EmergencyVehicle) boolean
         +validateNew(assignment: EmergencyAssignment) void
@@ -1220,6 +1244,7 @@ class HospitalService {
     -routeService : RouteService
     -alertService : AlertService
     -auditService : AuditService
+    -citizenService : CitizenService
     -transactions : TransactionManager
     -clock : Clock
     +report(request: PanicAlertRequest, reporter: UserSession) PanicResult
@@ -1228,6 +1253,26 @@ class HospitalService {
     +canValidateAlone(session: UserSession) boolean
     +hashDevice(deviceId: String) String
 }
+    class CitizenService {
+        +CITIZEN_ROLE : String$
+        +SESSION_LENGTH : Duration$
+        +FALSE_ALARMS_TO_BLOCK : int$
+        +FALSE_ALARM_WINDOW : Duration$
+        -userDao : UserDAO
+        -roleDao : RoleDAO
+        -sessionDao : CitizenSessionDAO
+        -passwordHasher : PasswordHasher
+        -auditService : AuditService
+        -alertService : AlertService
+        -transactions : TransactionManager
+        -clock : Clock
+        +register(request: CitizenRequest) User
+        +isCitizen(session: UserSession) boolean$
+        +startSession(session: UserSession) CitizenLogin
+        +findSession(token: String) Optional~CitizenLogin~
+        +endSession(token: String) boolean
+        +blockForFalseAlarms(userId: long, falseAlarms: int, by: UserSession) boolean
+    }
     
     class PasswordHasher {
         -iterations : int
@@ -1257,6 +1302,10 @@ class HospitalService {
     PanicService ..> RouteService : zona de la red
     PanicService ..> AlertService : avisa
     PanicService ..> AuditService
+    PanicService ..> CitizenService : bloquea por alertas falsas (RN-16)
+    CitizenService ..> PasswordHasher
+    CitizenService ..> AuditService
+    CitizenService ..> AlertService : avisa del bloqueo
     AuditQueryService ..> AuditService : lee lo que escribe
 ```
 
@@ -1296,6 +1345,23 @@ classDiagram
         <<record>>
         +assignment : EmergencyAssignment
         +routes : List~Route~
+    }
+        class CitizenRequest {
+        <<record>>
+        +document : String
+        +firstNames : String
+        +lastNames : String
+        +email : String
+        +username : String
+        +password : char[]
+        +dataConsent : Boolean
+    }
+    class CitizenLogin {
+        <<record>>
+        +token : String
+        +session : UserSession
+        +startedAt : LocalDateTime
+        +expiresAt : LocalDateTime
     }
         class PanicAlertRequest {
         <<record>>
@@ -1440,6 +1506,13 @@ classDiagram
         +streetName : String
         +from : GeoPoint
         +to : GeoPoint
+    }
+    class SimulationStatus {
+        <<record>>
+        +running : boolean
+        +startedAt : LocalDateTime
+        +tickSeconds : long
+        +source : TrafficSource
     }
     class IncidentView {
         <<record>>
@@ -1586,6 +1659,8 @@ class Messages {
     FleetService ..> StationRequest
     PanicService ..> PanicAlertRequest
     PanicService ..> PanicResult
+    CitizenService ..> CitizenRequest
+    CitizenService ..> CitizenLogin
     PanicService ..> PanicReportView
     AuditQueryService ..> AuditQuery
     AuditQueryService ..> AuditEntry
@@ -1768,6 +1843,16 @@ classDiagram
         +applyTraffic(updates: List~EdgeUpdate~) Set~Long~
         ~penaltyFor(severity: Severity) double$
     }
+    class TrafficRecorder {
+        -graph : RoadGraph
+        -readingDao : TrafficReadingDAO
+        -transactions : TransactionManager
+        -clock : Clock
+        -last : Map~Integer, Saved~
+        +levelOf(congestion: double) TrafficLevel$
+        +congestionOf(level: TrafficLevel) double$
+        +record(updates: List~EdgeUpdate~, source: TrafficSource) int
+    }
     class TrafficProvider {
         <<interface>>
         +poll() List~EdgeUpdate~
@@ -1855,6 +1940,7 @@ RoadConditionService ..> RoadIncidentDAO : lee los ACTIVO
 IncidentService ..> IncidentRequest
 RouteMonitor --> RouteService
 RouteMonitor ..> AlertService : avisa (S8)
+    TrafficRecorder ..> TrafficReadingDAO : solo cambios de nivel
 ```
 
 **Cómo se detecta que una ruta se afectó (sin eventos).** Las llamadas son directas y se pueden seguir con el depurador:
@@ -1879,15 +1965,25 @@ classDiagram
     direction LR
 
     class SimulationEngine {
-        -scheduler : ScheduledExecutorService
-        -tickMillis : long
+        +DEFAULT_TICK : Duration$
+        +DEFAULT_TRAFFIC_EVERY : Duration$
+        -graph : RoadGraph
+        -traffic : SimulatedTrafficProvider
         -roadConditions : RoadConditionService
-        -tracking : TrackingService
+        -trafficRecorder : TrafficRecorder
         -routeMonitor : RouteMonitor
-        -running : boolean
+        -movement : VehicleMovementSimulator
+        -tracking : TrackingService
+        -dispatch : DispatchService
+        -following : Map~Long, Long~
+        -scheduler : ScheduledExecutorService
         +start() void
         +stop() void
         +isRunning() boolean
+        +startedAt() LocalDateTime
+        +tickSeconds() long
+        +source() TrafficSource
+        +forceCongestion(segmentId: long, level: TrafficLevel) void
         +tick() void
     }
     class TrackingService {
@@ -1913,6 +2009,7 @@ classDiagram
         +follow(vehicleId: long, route: Route, vehicle: VehicleProfile) void
         +stopFollowing(vehicleId: long) void
         +isFollowing(vehicleId: long) boolean
+        +resume() void
     }
     class GpsPositionSource {
         <<fase 2>>
@@ -1940,16 +2037,20 @@ classDiagram
     class SimulatedTrafficProvider
     class RouteMonitor
     class DispatchService
+    class TrafficRecorder
 
     VehiclePositionSource <|.. VehicleMovementSimulator
     VehiclePositionSource <|.. GpsPositionSource
     DemoScenario <|.. RoadClosureScenario
     DemoScenario <|.. RushHourScenario
-    IncidentService ..> RoadConditionService : K7
     TrackingService --> VehiclePositionSource
     SimulationEngine --> RoadConditionService
     SimulationEngine --> TrackingService
     SimulationEngine --> RouteMonitor
+    SimulationEngine --> TrafficRecorder
+    SimulationEngine --> SimulatedTrafficProvider
+    SimulationEngine --> VehicleMovementSimulator : follow
+    SimulationEngine ..> DispatchService : activeMissions, advance
     TrackingService ..> DispatchService : moveVehicle
     VehicleMovementSimulator --> RoadGraph : lee tramos y tráfico
     RoadClosureScenario --> IncidentService
@@ -2121,6 +2222,7 @@ classDiagram
         -session : SessionContext
         +register(request: EmergencyRequest) OperationResult~Emergency~
         +listActive() OperationResult~List~Emergency~~
+        +listByPeriod(from: LocalDate, to: LocalDate) OperationResult~List~Emergency~~
         +find(emergencyId: long) OperationResult~Emergency~
         +history(emergencyId: long) OperationResult~EmergencyHistory~
     }
@@ -2183,6 +2285,10 @@ class IncidentController {
         +listRecent(status: PanicReportStatus) OperationResult~List~PanicReportView~~
         +discard(reportId: long) OperationResult~PanicReportView~
     }
+    class CitizenController {
+        -citizenService : CitizenService
+        +register(request: CitizenRequest) OperationResult~UserView~
+    }
     class AuditController {
         -auditQueryService : AuditQueryService
         -authService : AuthService
@@ -2197,12 +2303,12 @@ class IncidentController {
     }
     class SimulationController {
         -engine : SimulationEngine
-        -scenarios : List~DemoScenario~
+        -authService : AuthService
         -session : SessionContext
-        +start() OperationResult~Void~
-        +stop() OperationResult~Void~
-        +scenarioNames() List~String~
-        +run(scenarioName: String) OperationResult~Void~
+        +status() OperationResult~SimulationStatus~
+        +start() OperationResult~SimulationStatus~
+        +stop() OperationResult~SimulationStatus~
+        +forceTraffic(segmentId: long, level: TrafficLevel) OperationResult~Void~
     }
 
 class UserController {
@@ -2331,6 +2437,7 @@ classDiagram
         +dispatchService() DispatchService
         +dispatchController() DispatchController
         +panicController() PanicController
+        +citizenController() CitizenController
         +adminBootstrap() AdminBootstrapService
     }
     class Main {
@@ -2394,6 +2501,7 @@ classDiagram
     AppContext ..> TrackingController : crea e inyecta
     AppContext ..> AuditController : crea e inyecta
     AppContext ..> ReportController : crea e inyecta
+    AppContext ..> CitizenController : crea e inyecta
     WebServer ..> AppContext : crea
     WebServer ..> ApiServer : inicia en el puerto 8080
 ```
@@ -2428,6 +2536,8 @@ classDiagram
         -admin : AdminControllers
         -tracking : TrackingController
         -panic : PanicController
+        -citizens : CitizenController
+        -registrationLimiter : RequestRateLimiter
         -panicLimiter : RequestRateLimiter
         -frontendDirectory : Path
         -json : ObjectMapper
@@ -2506,6 +2616,7 @@ classDiagram
         +DEFAULT_IDLE : Duration$
         +DEFAULT_MAX_AGE : Duration$
         -sessions : Map~String, Entry~
+        -citizens : CitizenService
         +login(username: String, password: char[]) OperationResult~LoginResponse~
         +authenticate(authorization: String, countsAsUse: boolean) OperationResult~UserSession~
         +authorize(session: UserSession, module: String, action: String) OperationResult~Void~
@@ -2573,6 +2684,7 @@ classDiagram
     ApiServer --> AdminControllers
     ApiServer --> TrackingController
     ApiServer --> PanicController
+    ApiServer --> CitizenController
     ApiServer --> RequestRateLimiter : botón de pánico
     AdminControllers --> UserController
     AdminControllers --> FleetController
@@ -2633,10 +2745,11 @@ classDiagram
 | `TrafficReadingDAO`, `RoadIncidentDAO`, `JdbcTrafficReadingDAO`, `JdbcRoadIncidentDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A5) |
 | `EmergencyAssignmentDAO`, `RouteDAO`, `VehicleLocationDAO`, `JdbcEmergencyAssignmentDAO`, `JdbcRouteDAO`, `JdbcVehicleLocationDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A6) |
 | `EmergencyDAO`, `EmergencyTypeDAO`, `JdbcEmergencyDAO`, `JdbcEmergencyTypeDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7a y A7b) |
-| `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y `updateService` siguen diseñados |
+| `VehicleTypeDAO`, `EmergencyStationDAO`, `EmergencyVehicleDAO`, `HospitalDAO`, `JdbcVehicleTypeDAO`, `JdbcEmergencyStationDAO`, `JdbcEmergencyVehicleDAO`, `JdbcHospitalDAO` | `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A7c). `HospitalDAO.findServices` y la entidad `HospitalServiceOffering`: programados (A24, para el traslado K10); la prueba con Oracle está escrita y pendiente de correr. `updateService` sigue diseñado |
 | `PanicReport`, `PanicReportStatus`, `PanicReportDAO`, `JdbcPanicReportDAO` | `model`, `dao`, `dao.jdbc` | **Programado y probado** contra Oracle XE 18c (A20, botón de pánico, DT-12). `PanicService` (S11) y sus rutas (A20b) pendientes |
 | `PanicService`, `PanicController`, `PanicAlertRequest`, `PanicResult`, `PanicReportView` y `AlertService.panicAlert` | `service`, `controller`, `dto` | **Programado y probado** sin Oracle (S11, botón de pánico, CU-22) |
 | `PanicStatusRequest`, `RequestRateLimiter` y las rutas `/api/panic` de `ApiServer` | `api` | **Programado y probado** sin Oracle (A20b): `POST /api/panic` sin sesión obligatoria y limitado por dirección de red, `GET /api/panic/reports` y `PATCH /api/panic/reports/{id}/status`. `GET /api/panic/emergency-types` pública (A20c) |
+| `CitizenSession`, `CitizenSessionDAO`, `JdbcCitizenSessionDAO`, `CitizenService`, `CitizenController`, `CitizenRequest`, `CitizenLogin`, sesiones de ciudadano en `WebSessionController` y `POST /api/citizens` | `model`, `dao`, `dao.jdbc`, `service`, `controller`, `dto`, `api` | **Programado y probado** sin Oracle (DT-13, CU-23, RN-16): registro con autorización de datos, sesión de 30 días en el celular guardada en `SESION_CIUDADANO` (`08_ciudadanos.sql`), `POST /api/panic` con cuenta y bloqueo con 2 alertas descartadas. `JdbcCitizenSessionDAO` tiene prueba de integración contra Oracle |
 | `AuditQueryService`, `AuditController`, `AuditQuery`, `AuditEntry`, `AuditDAO.search` y la ruta `GET /api/audit` | `service`, `controller`, `dto`, `dao`, `api` | **Programado y probado** sin Oracle (A18, CU-21); `JdbcAuditDAO.search` tiene su prueba de integración contra Oracle |
 | `ReportDAO`, `JdbcReportDAO`, `ReportService`, `ReportController`, `OperationsReport`, `ReportCount`, `AppContext.reportController()` y `GET /api/reports/operations` | `dao`, `dao.jdbc`, `service`, `controller`, `dto`, `app`, `api` | **Programado y probado** sin Oracle (A23, RF-11): servicio y ruta; `JdbcReportDAO` tiene 2 pruebas de integración contra Oracle |
 | Demás interfaces DAO y `JdbcXxxDAO` | `dao`, `dao.jdbc` | Diseñado |
@@ -2660,7 +2773,8 @@ classDiagram
 | Importador de OpenStreetMap: `OsmImporter`, `BoundingBox`, `OsmParser`, `OsmExtract`, `RoadNetworkBuilder`, `RoadNetwork`, `RoadNetworkSqlWriter` | `osm`, `app` | **Programado y probado** (K4) |
 | `VehiclePositionSource`, `TrackingService`, `VehicleMovementSimulator` | `service`, `simulation` | **Programado y probado** (A13) sin Oracle. `SimulationEngine` lo llama en cada ciclo (K9) |
 | `LiveMapService`, `TrackingController`, `TrackingSnapshot`, `TrackedUnit`, `TrackedMission`, `SimulationState` | `service`, `controller`, `dto` | **Programado y probado** (A12e) sin Oracle: `GET /api/tracking` lee lo que guardó `TrackingService`. `running` es falso hasta que K9 cambie `AppContext.isSimulationRunning()` |
-| Demás clases de simulación (`SimulationEngine`, escenarios) | `simulation` | Diseñado |
+| Motor de la simulación: `SimulationEngine`, `TrafficRecorder`, `DispatchService.activeMissions`, `VehicleMovementSimulator.resume`, `SimulationController`, `SimulationStatus` | `simulation`, `service`, `controller`, `dto` | **Programado y probado** (K9) con DAO falsos y una red de prueba, sin Oracle. Falta conectarlo en `AppContext` y en la API (A12e) |
+| Escenarios de la demostración (`DemoScenario`, `RoadClosureScenario`, `RushHourScenario`) | `simulation` | Diseñado (opcional): la demostración usa `POST /api/simulation/traffic` y los incidentes |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
 | `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos. `find` y el uso de `OperationResult.failure` se agregaron en A12b |
 | Demás controladores | `controller` | Diseñado |

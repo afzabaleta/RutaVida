@@ -173,7 +173,8 @@ class ApiServerTest {
 
         server = new ApiServer(support.sessions(), new CatalogController(catalogs.service()), emergencies,
                 dashboard, reports, incidents, roadMap, alerts, dispatch, admin, tracking,
-                new PanicTestSupport().controller(support.authService, support.sessionContext), frontend);
+                new PanicTestSupport().controller(support.authService, support.sessionContext),
+                new PanicTestSupport().citizenController(), frontend);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -344,6 +345,14 @@ class ApiServerTest {
         HttpResponse<String> active = send("GET", "/api/emergencies", token, null);
         assertEquals(200, active.statusCode());
         assertEquals(id, value(active).get(0).get("id").asLong());
+
+        HttpResponse<String> period = send("GET", "/api/emergencies?from=2026-11-05&to=2026-11-05", token, null);
+        assertEquals(200, period.statusCode(), period.body());
+        assertEquals(id, value(period).get(0).get("id").asLong(), "the history list of D10");
+        HttpResponse<String> otherDay = send("GET", "/api/emergencies?from=2026-11-04&to=2026-11-04", token, null);
+        assertEquals(0, value(otherDay).size());
+        assertEquals(400, send("GET", "/api/emergencies?from=5-11-2026", token, null).statusCode());
+        assertEquals(400, send("GET", "/api/emergencies?from=2026-11-06&to=2026-11-05", token, null).statusCode());
 
         HttpResponse<String> one = send("GET", "/api/emergencies/" + id, token, null);
         assertEquals(200, one.statusCode());

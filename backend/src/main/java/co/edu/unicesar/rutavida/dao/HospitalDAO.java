@@ -1,14 +1,12 @@
 package co.edu.unicesar.rutavida.dao;
 
 import co.edu.unicesar.rutavida.model.Hospital;
+import co.edu.unicesar.rutavida.model.HospitalServiceOffering;
 
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Persistence of hospitals (table HOSPITAL). The services of each hospital (SERVICIO_HOSPITAL)
- * are added when the entity HospitalServiceOffering exists.
- */
+/** Persistence of hospitals (table HOSPITAL) and the services each one offers (SERVICIO_HOSPITAL). */
 public interface HospitalDAO {
 
     Optional<Hospital> findById(long id);
@@ -24,4 +22,7 @@ public interface HospitalDAO {
 
     /** Rewrites every column of a saved hospital. Throws NotFoundException if it does not exist. */
     void update(Hospital hospital);
+
+    /** The services that one hospital offers, by name; empty if it has none or does not exist. */
+    List<HospitalServiceOffering> findServices(long hospitalId);
 }

@@ -47,16 +47,19 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
- * Panic button (CU-22, rules RN-13 to RN-15, DT-12).
+ * Panic button (CU-22, rules RN-13 to RN-16, DT-12 and DT-13).
  *
- * <p>Anyone can press it without an account. A report starts PENDIENTE; the alert is
- * validated when 3 distinct devices report within 300 m in 10 minutes, or at once when the
- * reporter has PANICO/VALIDAR (police). A validated alert becomes a REPORTADA emergency in
- * the name of the system user, and the fastest available unit is sent on its own with the
- * same DispatchService of CU-09.
+ * <p>Only a registered person presses it (DT-13): every report has its user, so every alert
+ * has someone responsible. A report starts PENDIENTE; the alert is validated when 3 distinct
+ * people report within 300 m in 10 minutes, or at once when the reporter has PANICO/VALIDAR
+ * (police). A validated alert becomes a REPORTADA emergency in the name of the system user,
+ * and the fastest available unit is sent on its own with the same DispatchService of CU-09.
  *
- * <p>The values (3 devices, 300 m, 10 minutes) are initial parameters to calibrate (DT-11).
- * The controller checks the permissions of listing and discarding; reporting needs none.
+ * <p>When a coordinator discards a pending alert as false, every citizen with 2 discarded
+ * reports in 30 days is blocked (RN-16, CitizenService).
+ *
+ * <p>The values (3 people, 300 m, 10 minutes, 2 false alarms) are initial parameters to
+ * calibrate (DT-11). The controller checks the permissions.
  */
 public class PanicService {
 
@@ -68,13 +71,13 @@ public class PanicService {
     /** Created by 07_boton_panico.sql: inactive, nobody can log in with it. */
     static final String SYSTEM_USERNAME = "sistema.rutavida";
 
-    /** RN-14: distinct devices that validate an alert, how close and how recent. */
+    /** RN-14: distinct people that validate an alert, how close and how recent. */
     public static final int REPORTS_NEEDED = 3;
     static final double RADIUS_METERS = 300;
     static final Duration WINDOW = Duration.ofMinutes(10);
 
-    /** RN-13: reports one device can send in the window. */
-    static final int MAX_REPORTS_PER_DEVICE = 3;
+    /** RN-13: reports one person can send in the window. */
+    static final int MAX_REPORTS_PER_PERSON = 3;
 
     /** What the panel shows (docs/api.md 16.2). */
     static final Duration RECENT = Duration.ofHours(2);
@@ -94,6 +97,7 @@ public class PanicService {
     private final RouteService routeService;
     private final AlertService alertService;
     private final AuditService auditService;
+    private final CitizenService citizenService;
     private final TransactionManager transactions;
     private final Clock clock;
 
@@ -101,7 +105,8 @@ public class PanicService {
                         UserDAO userDao, RoleDAO roleDao,
                         EmergencyService emergencyService, DispatchService dispatchService,
                         RouteService routeService, AlertService alertService,
-                        AuditService auditService, TransactionManager transactions, Clock clock) {
+                        AuditService auditService, CitizenService citizenService,
+                        TransactionManager transactions, Clock clock) {
         this.reportDao = Objects.requireNonNull(reportDao, "reportDao");
         this.emergencyTypeDao = Objects.requireNonNull(emergencyTypeDao, "emergencyTypeDao");
         this.userDao = Objects.requireNonNull(userDao, "userDao");
@@ -111,6 +116,7 @@ public class PanicService {
         this.routeService = Objects.requireNonNull(routeService, "routeService");
         this.alertService = Objects.requireNonNull(alertService, "alertService");
         this.auditService = Objects.requireNonNull(auditService, "auditService");
+        this.citizenService = Objects.requireNonNull(citizenService, "citizenService");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -120,10 +126,12 @@ public class PanicService {
     /**
      * Saves the report and validates the alert when the rules say so (RN-13 to RN-15).
      *
-     * @param reporter the session of who pressed it; null for an anonymous citizen
+     * @param reporter the session of who pressed it: a citizen, a police officer or an
+     *                 administrator (PANICO/REPORTAR, checked by the controller)
      */
     public PanicResult report(PanicAlertRequest request, UserSession reporter) {
         ValidationUtil.requireNonNull(request, "reporte");
+        ValidationUtil.requireNonNull(reporter, "sesión");
         String deviceId = ValidationUtil.requireText(
                 request.deviceId(), "identificador del dispositivo", 100);
         GeoPoint location = ValidationUtil.requireLocation(request.location());
@@ -148,12 +156,12 @@ public class PanicService {
         LocalDateTime since = now.minus(WINDOW);
         String device = hashDevice(deviceId);
         boolean trusted = canValidateAlone(reporter);
-        Long userId = reporter == null ? null : reporter.user().getId();
+        long userId = reporter.user().getId();
 
         Validation validation = transactions.callInTransaction(() -> {
             reportDao.expirePendingBefore(since);
 
-            if (reportDao.countByDeviceSince(device, since) >= MAX_REPORTS_PER_DEVICE) {
+            if (reportDao.countByUserSince(userId, since) >= MAX_REPORTS_PER_PERSON) {
                 throw new BusinessRuleException(
                         "Ya envió varios reportes. Si la emergencia sigue, llame al 123.");
             }
@@ -171,15 +179,15 @@ public class PanicService {
             }
 
             List<PanicReport> cluster = near(location, reportDao.findPendingSince(since));
-            int devices = distinctDevices(cluster);
+            int people = distinctPeople(cluster);
 
-            if (!trusted && devices < REPORTS_NEEDED) {
-                return new Validation(report.getId(), null, false, devices);
+            if (!trusted && people < REPORTS_NEEDED) {
+                return new Validation(report.getId(), null, false, people);
             }
 
             UserSession system = systemSession(now);
             Emergency emergency = emergencyService.register(
-                    toEmergency(cluster, devices, trusted), system);
+                    toEmergency(cluster, people, trusted), system);
 
             List<Long> ids = cluster.stream().map(PanicReport::getId).toList();
             reportDao.markValidated(ids, emergency.getId());
@@ -188,9 +196,9 @@ public class PanicService {
                     system.user().getId(), AUDIT_MODULE, VALIDATE, emergency.getId(),
                     AuditResult.SUCCESS,
                     (trusted ? "Validada por un policía. " : "")
-                            + devices + " dispositivos, reportes " + ids);
+                            + people + " personas, reportes " + ids);
 
-            return new Validation(report.getId(), emergency.getId(), true, devices);
+            return new Validation(report.getId(), emergency.getId(), true, people);
         });
 
         String unit = validation.created()
@@ -201,7 +209,7 @@ public class PanicService {
 
         return new PanicResult(
                 validation.reportId(), status, validation.emergencyId(), unit,
-                validation.devices(), REPORTS_NEEDED);
+                validation.people(), REPORTS_NEEDED);
     }
 
     // ------------------------------------------------------------------ panel
@@ -226,7 +234,7 @@ public class PanicService {
     public PanicReportView discard(long reportId, UserSession session) {
         ValidationUtil.requireNonNull(session, "sesión");
 
-        return transactions.callInTransaction(() -> {
+        Discarded discarded = transactions.callInTransaction(() -> {
             PanicReport report = reportDao.findById(reportId)
                     .orElseThrow(() -> new NotFoundException("Reporte de pánico", reportId));
 
@@ -251,8 +259,36 @@ public class PanicService {
                     AuditResult.SUCCESS, alert.size() + " reportes descartados");
 
             report.setStatus(PanicReportStatus.DISCARDED);
-            return PanicReportView.of(report);
+            List<Long> people = alert.stream()
+                    .map(PanicReport::getUserId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            return new Discarded(PanicReportView.of(report), people);
         });
+
+        blockRepeatedFalseAlarms(discarded.people(), session);
+        return discarded.view();
+    }
+
+    /**
+     * RN-16: a citizen with 2 reports discarded as false in 30 days is blocked. Done after the
+     * discard is saved, so a problem blocking an account never undoes the discard.
+     */
+    private void blockRepeatedFalseAlarms(List<Long> people, UserSession by) {
+        LocalDateTime since = LocalDateTime.now(clock).minus(CitizenService.FALSE_ALARM_WINDOW);
+
+        for (long userId : people) {
+            int falseAlarms = reportDao.countByUserAndStatusSince(userId, PanicReportStatus.DISCARDED, since);
+
+            if (falseAlarms >= CitizenService.FALSE_ALARMS_TO_BLOCK) {
+                try {
+                    citizenService.blockForFalseAlarms(userId, falseAlarms, by);
+                } catch (RuntimeException e) {
+                    LOG.log(Level.WARNING, "Could not block user " + userId + " for false alarms", e);
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ rules
@@ -287,10 +323,15 @@ public class PanicService {
                 .toList();
     }
 
-    /** How many different devices sent these reports. */
-    static int distinctDevices(List<PanicReport> reports) {
+    /**
+     * How many different people sent these reports. Reports saved before DT-13 have no user
+     * and count by their device.
+     */
+    static int distinctPeople(List<PanicReport> reports) {
         return (int) reports.stream()
-                .map(PanicReport::getDeviceId)
+                .map(report -> report.getUserId() != null
+                        ? "usuario:" + report.getUserId()
+                        : "dispositivo:" + report.getDeviceId())
                 .distinct()
                 .count();
     }
@@ -320,7 +361,7 @@ public class PanicService {
     }
 
     /** RN-15: the emergency of a validated alert. */
-    private EmergencyRequest toEmergency(List<PanicReport> cluster, int devices, boolean trusted) {
+    private EmergencyRequest toEmergency(List<PanicReport> cluster, int people, boolean trusted) {
         GeoPoint where = center(cluster);
 
         String address = String.format(
@@ -335,7 +376,7 @@ public class PanicService {
 
         String description = (trusted
                 ? "Alerta de pánico validada por un policía."
-                : "Alerta de pánico validada por " + devices + " personas cercanas.")
+                : "Alerta de pánico validada por " + people + " personas cercanas.")
                 + (said.isEmpty() ? "" : " Dicen: " + said);
 
         if (description.length() > MAX_EMERGENCY_DESCRIPTION) {
@@ -435,7 +476,11 @@ public class PanicService {
                 a.latitude(), a.longitude(), b.latitude(), b.longitude());
     }
 
+    /** What the transaction of a discard leaves: the report and the people whose reports were discarded. */
+    private record Discarded(PanicReportView view, List<Long> people) {
+    }
+
     /** What happened inside the transaction of a report. */
-    private record Validation(long reportId, Long emergencyId, boolean created, int devices) {
+    private record Validation(long reportId, Long emergencyId, boolean created, int people) {
     }
 }

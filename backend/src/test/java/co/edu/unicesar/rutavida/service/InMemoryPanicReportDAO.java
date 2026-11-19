@@ -64,6 +64,21 @@ public class InMemoryPanicReportDAO implements PanicReportDAO {
     }
 
     @Override
+    public int countByUserSince(long userId, LocalDateTime since) {
+        return (int) saved.values().stream()
+                .filter(r -> r.getUserId() != null && r.getUserId() == userId && !r.getReportedAt().isBefore(since))
+                .count();
+    }
+
+    @Override
+    public int countByUserAndStatusSince(long userId, PanicReportStatus status, LocalDateTime since) {
+        return (int) saved.values().stream()
+                .filter(r -> r.getUserId() != null && r.getUserId() == userId && r.getStatus() == status
+                        && !r.getReportedAt().isBefore(since))
+                .count();
+    }
+
+    @Override
     public void markValidated(Collection<Long> ids, long emergencyId) {
         for (Long id : ids) {
             PanicReport report = saved.get(id);

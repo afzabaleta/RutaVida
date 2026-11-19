@@ -165,6 +165,27 @@ public class AlertService {
         });
     }
 
+    /**
+     * Panic button (RN-16): tells every user who can dispatch that a citizen account was
+     * blocked for false alarms, so an administrator can review it and unblock it if it was
+     * a mistake.
+     */
+    public List<Alert> citizenBlocked(String username, int falseAlarms) {
+        String who = ValidationUtil.requireText(username, "usuario", 40);
+        String text = "Botón de pánico: se bloqueó la cuenta de " + who + " por " + falseAlarms
+                + " alertas descartadas como falsas. Un administrador puede reactivarla.";
+
+        return transactions.callInTransaction(() -> {
+            List<Alert> saved = new ArrayList<>();
+
+            for (User dispatcher : dispatchers()) {
+                saved.add(save(dispatcher.getId(), null, AlertType.OTHER, text));
+            }
+
+            return saved;
+        });
+    }
+
     public List<Alert> list(UserSession session, boolean onlyUnread) {
         long userId = userOf(session);
 

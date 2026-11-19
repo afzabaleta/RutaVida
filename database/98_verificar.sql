@@ -1,29 +1,30 @@
 -- =====================================================================
 -- RutaVida · 98_verificar.sql
 -- Comprueba que el esquema quedó completo. Ejecutar como RUTAVIDA,
--- después de 01, 02, 04 y 07 (03, 05 y 06 son opcionales).
+-- después de 01, 02, 04, 07 y 08 (03, 05 y 06 son opcionales).
 -- Resultado esperado en cada consulta: columna "ok" = 'SI'.
 -- =====================================================================
 
--- 1. Las 24 tablas existen (REPORTE_PANICO la crea 07_boton_panico.sql)
+-- 1. Las 25 tablas existen (REPORTE_PANICO la crea 07 y SESION_CIUDADANO la crea 08)
 SELECT COUNT(*) AS tablas,
-       CASE WHEN COUNT(*) = 24 THEN 'SI' ELSE 'NO' END AS ok
+       CASE WHEN COUNT(*) = 25 THEN 'SI' ELSE 'NO' END AS ok
   FROM user_tables
  WHERE table_name IN ('ROL', 'PERMISO', 'ROL_PERMISO', 'USUARIO', 'ESTACION_EMERGENCIA',
                       'TIPO_VEHICULO', 'VEHICULO_EMERGENCIA', 'HOSPITAL', 'SERVICIO_HOSPITAL',
                       'TIPO_EMERGENCIA', 'EMERGENCIA', 'NODO_VIAL', 'TRAMO_VIAL', 'SEMAFORO',
                       'TRAFICO', 'INCIDENTE_VIAL', 'RUTA', 'RUTA_TRAMO', 'ASIGNACION_EMERGENCIA',
-                      'UBICACION_VEHICULO', 'ALERTA', 'NOTIFICACION', 'AUDITORIA', 'REPORTE_PANICO');
+                      'UBICACION_VEHICULO', 'ALERTA', 'NOTIFICACION', 'AUDITORIA', 'REPORTE_PANICO',
+                      'SESION_CIUDADANO');
 
--- 2. Las 22 secuencias existen
+-- 2. Las 23 secuencias existen
 SELECT COUNT(*) AS secuencias,
-       CASE WHEN COUNT(*) = 22 THEN 'SI' ELSE 'NO' END AS ok
+       CASE WHEN COUNT(*) = 23 THEN 'SI' ELSE 'NO' END AS ok
   FROM user_sequences
  WHERE sequence_name LIKE 'SEQ\_%' ESCAPE '\';
 
--- 2b. Los 27 índices propios existen (25 ix_ + 2 ux_; 3 de ellos los crea 07)
+-- 2b. Los 29 índices propios existen (27 ix_ + 2 ux_; 3 los crea 07 y 2 los crea 08)
 SELECT COUNT(*) AS indices,
-       CASE WHEN COUNT(*) = 27 THEN 'SI' ELSE 'NO' END AS ok
+       CASE WHEN COUNT(*) = 29 THEN 'SI' ELSE 'NO' END AS ok
   FROM user_indexes
  WHERE index_name LIKE 'IX\_%' ESCAPE '\'
     OR index_name LIKE 'UX\_%' ESCAPE '\';
@@ -41,12 +42,13 @@ SELECT constraint_type, COUNT(*) AS cantidad
  GROUP BY constraint_type
  ORDER BY constraint_type;
 
--- 5. Datos iniciales (02 y 07: el rol POLICIA, 3 permisos PANICO, 8 asignaciones y el tipo POLICIA)
-SELECT 'ROL' AS tabla, COUNT(*) AS filas, CASE WHEN COUNT(*) = 5  THEN 'SI' ELSE 'NO' END AS ok FROM rol
+-- 5. Datos iniciales (02, 07: rol POLICIA, 3 permisos PANICO, 8 asignaciones y tipo POLICIA;
+--    08: rol CIUDADANO, permiso PANICO/REPORTAR y 3 asignaciones)
+SELECT 'ROL' AS tabla, COUNT(*) AS filas, CASE WHEN COUNT(*) = 6  THEN 'SI' ELSE 'NO' END AS ok FROM rol
 UNION ALL
-SELECT 'PERMISO',         COUNT(*), CASE WHEN COUNT(*) = 23 THEN 'SI' ELSE 'NO' END FROM permiso
+SELECT 'PERMISO',         COUNT(*), CASE WHEN COUNT(*) = 24 THEN 'SI' ELSE 'NO' END FROM permiso
 UNION ALL
-SELECT 'ROL_PERMISO',     COUNT(*), CASE WHEN COUNT(*) = 62 THEN 'SI' ELSE 'NO' END FROM rol_permiso
+SELECT 'ROL_PERMISO',     COUNT(*), CASE WHEN COUNT(*) = 65 THEN 'SI' ELSE 'NO' END FROM rol_permiso
 UNION ALL
 SELECT 'TIPO_VEHICULO',   COUNT(*), CASE WHEN COUNT(*) = 3  THEN 'SI' ELSE 'NO' END FROM tipo_vehiculo
 UNION ALL

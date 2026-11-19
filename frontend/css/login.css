@@ -775,3 +775,16 @@
     margin-bottom: 16px;
   }
 }
+
+/* Link to the citizen registration of the panic button (DT-13) */
+.auth-register {
+  margin: 14px 0 0;
+  color: #4b5563;
+  font-size: .92rem;
+  text-align: center;
+}
+
+.auth-register a {
+  color: #c81e2c;
+  font-weight: 700;
+}

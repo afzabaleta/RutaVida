@@ -38,6 +38,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -57,6 +58,10 @@ public class DispatchService {
 
     /** The closing is audited with the emergency, so its history (CU-07) shows who closed it. */
     static final String EMERGENCY_AUDIT_MODULE = "EMERGENCIAS";
+
+    /** Missions whose unit is moving: on its way to the scene or to a hospital (K9). */
+    private static final Set<AssignmentStatus> MOVING =
+            EnumSet.of(AssignmentStatus.ASSIGNED, AssignmentStatus.EN_ROUTE, AssignmentStatus.TRANSPORTING);
 
     /** An emergency is closed as a false alarm (REPORTADA) or after a unit arrived. */
     private static final Set<EmergencyStatus> CLOSABLE =
@@ -256,6 +261,32 @@ public class DispatchService {
                 .filter(route -> route.getStatus() == RouteStatus.ACTIVE
                         || route.getStatus() == RouteStatus.PROPOSED)
                 .toList();
+    }
+
+    // ------------------------------------------------------------------ K9: units on their way
+
+    /** A mission whose unit is moving: its assignment, its ACTIVA route and how the unit drives. */
+    public record ActiveMission(EmergencyAssignment assignment, Route route, VehicleProfile vehicle) {
+    }
+
+    /**
+     * The missions that the simulation must move (K9): every ACTIVA route whose unit has an open
+     * assignment ASIGNADA, EN_RUTA or TRASLADANDO for the same emergency.
+     */
+    public List<ActiveMission> activeMissions() {
+        List<VehicleType> types = vehicleTypeDao.findAll();
+        List<ActiveMission> missions = new ArrayList<>();
+        for (Route route : routeDao.findActive()) {
+            Optional<EmergencyAssignment> open = assignmentDao.findOpenByVehicle(route.getVehicleId())
+                    .filter(assignment -> assignment.getEmergencyId() == route.getEmergencyId())
+                    .filter(assignment -> MOVING.contains(assignment.getStatus()));
+            Optional<EmergencyVehicle> vehicle = vehicleDao.findById(route.getVehicleId());
+            if (open.isPresent() && vehicle.isPresent()) {
+                missions.add(new ActiveMission(open.get(), route,
+                        VehicleProfile.forType(typeName(types, vehicle.get()))));
+            }
+        }
+        return missions;
     }
 
     // ------------------------------------------------------------------ CU-12: close

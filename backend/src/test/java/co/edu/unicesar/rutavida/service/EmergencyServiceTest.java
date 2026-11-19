@@ -16,6 +16,7 @@ import co.edu.unicesar.rutavida.model.enums.Severity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -87,6 +88,33 @@ class EmergencyServiceTest {
                 status,
                 null
         );
+    }
+
+    private long reportedAt(LocalDateTime at, EmergencyStatus status) {
+        return emergencyDao.insert(new Emergency(0, 1, 1, "Parque La Popa", POPA, at, Severity.HIGH, "Prueba",
+                status, status == EmergencyStatus.CLOSED ? at.plusHours(1) : null));
+    }
+
+    @Test
+    void theEmergenciesOfAPeriodIncludeTheClosedOnesNewestFirst() {
+        long before = reportedAt(LocalDateTime.of(2026, 10, 27, 23, 59), EmergencyStatus.CLOSED);
+        long firstDay = reportedAt(LocalDateTime.of(2026, 10, 28, 0, 0), EmergencyStatus.REPORTED);
+        long closed = reportedAt(LocalDateTime.of(2026, 11, 2, 12, 0), EmergencyStatus.CLOSED);
+        long today = reportedAt(LocalDateTime.of(2026, 11, 3, 9, 0), EmergencyStatus.ASSIGNED);
+
+        assertEquals(List.of(today, closed, firstDay),
+                service.listByPeriod(null, null).stream().map(Emergency::getId).toList(),
+                "without dates: the last 7 days, today included");
+        assertEquals(List.of(before),
+                service.listByPeriod(LocalDate.of(2026, 10, 27), LocalDate.of(2026, 10, 27)).stream()
+                        .map(Emergency::getId).toList(), "one whole day, until 23:59");
+        assertEquals(List.of(today), service.listByPeriod(LocalDate.of(2026, 11, 3), null).stream()
+                .map(Emergency::getId).toList(), "from without to ends today");
+
+        assertThrows(ValidationException.class,
+                () -> service.listByPeriod(LocalDate.of(2026, 11, 3), LocalDate.of(2026, 11, 2)));
+        assertThrows(ValidationException.class,
+                () -> service.listByPeriod(LocalDate.of(2025, 11, 1), LocalDate.of(2026, 11, 2)), "more than 366 days");
     }
 
     @Test

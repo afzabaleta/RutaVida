@@ -278,7 +278,8 @@ del Parque La Popa.
 
 El navegador genera un identificador de dispositivo
 persistido en `localStorage`. No sustituye la
-autenticación ni garantiza por sí solo una identidad única.
+autenticación ni garantiza por sí solo una identidad única:
+por eso, desde DT-13, el botón exige una cuenta (sección 12).
 
 El número 123 se presenta como alternativa de contacto
 con los servicios de emergencia.
@@ -290,7 +291,7 @@ si un reporte es válido ni crea emergencias directamente.
 
 La lógica de validación corresponde a `PanicService`.
 El servidor puede validar un reporte mediante la
-confirmación de tres dispositivos independientes,
+confirmación de tres personas (cuentas) distintas,
 próximos entre sí, dentro de la ventana temporal
 definida, o mediante un reporte policial autorizado.
 
@@ -314,7 +315,8 @@ las transiciones de estado se verifican en el servidor.
 | Operación | Endpoint |
 |---|---|
 | Tipos disponibles | `GET /api/panic/emergency-types` |
-| Enviar SOS | `POST /api/panic` |
+| Enviar SOS (con sesión, DT-13) | `POST /api/panic` |
+| Crear la cuenta de ciudadano | `POST /api/citizens` |
 | Consultar reportes | `GET /api/panic/reports` |
 | Cambiar estado | `PATCH /api/panic/reports/{id}/status` |
 
@@ -329,7 +331,34 @@ Pendiente de verificación específica: respuestas reales
 de la API, estados recibidos, permisos de descarte y
 flujo completo de validación automática.
 
-## 12. Rediseño visual con menú lateral
+## 12. Cuenta del ciudadano para el botón de pánico (DT-13)
+
+El profesor pidió que cada alerta tenga un responsable. Desde DT-13 el botón solo funciona con una cuenta.
+
+### Archivos
+
+- `registro.html` y `js/registro.js`: formulario para crear la cuenta (nombres, apellidos, documento, correo, usuario, contraseña y autorización de datos, Ley 1581 de 2012). Al crearla inicia sesión sola y lleva a `panico.html`.
+- `panico.html` y `js/panico.js`: la sección `#panic-account` dice quién está conectado y permite cerrar sesión. Sin cuenta, el botón ENVIAR SOS queda apagado y aparecen "Iniciar sesión" y "Crear cuenta".
+- `js/api-client.js`: `registerCitizen()`; el token del ciudadano se guarda en `localStorage` (el del personal sigue en `sessionStorage`); `homeOf()` decide a qué página va cada rol después del login.
+- `index.html`, `js/login.js` y `css/login.css`: enlace "Crea tu cuenta de ciudadano"; un ciudadano que inicia sesión llega a `panico.html`, no al panel.
+
+### Comportamiento
+
+- La sesión del celular dura **30 días** y no vence por inactividad: la persona inicia sesión una vez.
+- Las alertas quedan a nombre de la persona. **Dos alertas descartadas** por un coordinador en 30 días bloquean la cuenta (RN-16); el login responde "El usuario está inactivo".
+- El policía inicia sesión con su cuenta y llega también a `panico.html`: su reporte valida la alerta solo.
+
+### Cómo probarlo
+
+1. Ejecutar `database/08_ciudadanos.sql` (una vez) y arrancar el servidor.
+2. Abrir `http://localhost:8080/panico.html`: el botón está apagado y pide la cuenta.
+3. "Crear cuenta", llenar los datos y marcar la autorización: la página vuelve al botón con "Conectado como …".
+4. Cerrar el navegador y abrir de nuevo `panico.html`: sigue conectado.
+5. Enviar una alerta con "Ubicación de prueba"; desde el panel, como coordinador, descartarla. Repetir: a la segunda, la cuenta queda bloqueada y el panel muestra la alerta del bloqueo.
+
+Probado con un servidor falso de la API en Chromium (registro, sesión persistente, envío, cierre de sesión, login del ciudadano). Falta la prueba con el servidor real y Oracle.
+
+## 13. Rediseño visual con menú lateral
 
 Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
 
@@ -340,5 +369,5 @@ Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
 - La campana de alertas (`alert-bell.js`, sin cambios en su lógica) está en el encabezado del panel, de `emergencia.html` y de `despacho.html`. Fuera del panel, el contador se actualiza al abrir la campana.
 - El mapa oscuro es un filtro CSS sobre `.leaflet-tile-pane`: solo cambian las teselas de OpenStreetMap; los íconos, las rutas y la atribución conservan sus colores.
 - Los íconos son SVG propios en `img/icons/`. No se agregaron librerías, fuentes ni CDN.
-- **Modo claro y oscuro:** el botón ☀/☾ del encabezado cambia el tema. La primera vez se usa el tema del sistema; la elección se guarda en `localStorage` (`rutavida.theme`), y si el navegador lo bloquea, el botón igual funciona. `js/theme-boot.js` pone el tema en el `<head>` antes de pintar, para que no parpadee, y `css/theme.css` redefine las variables de color del modo claro. En modo claro el mapa va sin filtro. Solo aplica a las páginas internas; el login y el botón de pánico conservan su diseño.
+- **Modo claro y oscuro:** el botón ☀/☾ del encabezado cambia el tema. La primera vez se usa el tema del sistema; la elección se guarda en `localStorage` (`rutavida.theme`), y si el navegador lo bloquea, el botón igual funciona. `js/theme-boot.js` pone el tema en el `<head>` antes de pintar, para que no parpadee, y `css/theme.css` redefine las variables de color del modo claro. En modo claro el mapa va sin filtro. Solo aplica a las páginas internas; el login, el botón de pánico y el registro del ciudadano (`registro.html`, que usa `css/panico.css`) conservan su diseño.
 - Ningún texto funcional mide menos de 12 px, para que el panel se lea proyectado.

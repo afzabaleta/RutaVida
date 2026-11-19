@@ -25,6 +25,12 @@ public interface PanicReportDAO {
     /** How many reports a device sent from {@code since} on: the limit per device. */
     int countByDeviceSince(String deviceId, LocalDateTime since);
 
+    /** Reports of one person since a moment: at most 3 every 10 minutes (RN-13, DT-13). */
+    int countByUserSince(long userId, LocalDateTime since);
+
+    /** Reports of one person with a status since a moment: the false alarms that block (RN-16). */
+    int countByUserAndStatusSince(long userId, PanicReportStatus status, LocalDateTime since);
+
     /**
      * Marks the reports VALIDADO and links them to the emergency they created.
      * Throws NotFoundException if one of them does not exist.
