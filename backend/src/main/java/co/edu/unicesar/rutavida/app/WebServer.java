@@ -3,7 +3,9 @@ package co.edu.unicesar.rutavida.app;
 import co.edu.unicesar.rutavida.api.AdminControllers;
 import co.edu.unicesar.rutavida.api.ApiServer;
 import co.edu.unicesar.rutavida.controller.DispatchController;
+import co.edu.unicesar.rutavida.util.ErrorLog;
 
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -14,14 +16,27 @@ import java.nio.file.Path;
  *
  * <p>The road graph is loaded from Oracle when the server starts (dispatch and routes, A12d),
  * so without Oracle or without the road network it stops with a message.
+ *
+ * <p>Warnings and errors also go to {@code backend/logs/rutavida-errores.0.log} (ErrorLog), so
+ * they can be read after the console is closed.
  */
 public final class WebServer {
+
+    /** Relative to the working folder, backend/ (IntelliJ and iniciar-servidor.bat / .sh). */
+    static final String LOG_FOLDER = "logs";
 
     private WebServer() {
     }
 
     public static void main(String[] args) {
         int port = args.length > 0 ? Integer.parseInt(args[0]) : ApiServer.DEFAULT_PORT;
+        try {
+            Path errors = ErrorLog.install(Path.of(LOG_FOLDER));
+            System.out.println("[OK] Los errores también se guardan en " + errors);
+        } catch (UncheckedIOException e) {
+            // Without the file the server still works: the errors stay in the console
+            System.out.println("[AVISO] " + e.getMessage() + ". Los errores solo se verán en la consola.");
+        }
         Path frontend = Path.of("..", "frontend").toAbsolutePath().normalize();
         if (!Files.isRegularFile(frontend.resolve("index.html"))) {
             System.out.println("[AVISO] No se encontró " + frontend.resolve("index.html")

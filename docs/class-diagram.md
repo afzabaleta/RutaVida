@@ -1659,6 +1659,13 @@ class Messages {
     +userMessage(error: RuntimeException) String$
 }
 
+class ErrorLog {
+    +FILE_PATTERN : String$
+    +MAX_BYTES : int$
+    +FILES : int$
+    +install(folder: Path) Path$
+}
+
 
     class AuthService
     class UserService
@@ -2869,6 +2876,7 @@ classDiagram
 | Simulación en la aplicación (A12e): `AppContext.roadGraph()`/`simulationEngine()`/`simulationController()`/`stopSimulation()`, `ApiServer.withSimulation`, `TrafficRequest`, `TrafficSegmentView`, `TrafficMapDAO`, `JdbcTrafficMapDAO`, `TrafficMapService` y las rutas `/api/simulation` y `/api/traffic/segments` | `app`, `api`, `dto`, `dao`, `dao.jdbc`, `service`, `controller` | **Programado y probado** sin Oracle (`ApiServerTest`, `SimulationControllerTest`, `TrafficMapServiceTest`). `JdbcTrafficMapDAOIntegrationTest` corre solo con Oracle: pendiente de ejecutar en Oracle XE y Oracle Cloud. Las rutas y la simulación comparten un solo grafo |
 | Escenarios de la demostración (`DemoScenario`, `RoadClosureScenario`, `RushHourScenario`) | `simulation` | Diseñado (opcional): la demostración usa `POST /api/simulation/traffic` y los incidentes |
 | `LoginController`, `SessionContext`, `OperationResult`, `Messages` | `controller`, `dto`, `util` | **Programado y probado** (S3) |
+| `ErrorLog` | `util` | **Programado y probado**: advertencias y errores del servidor en `backend/logs/rutavida-errores.0.log` (5 archivos de 1 MB que rotan) |
 | `EmergencyController` | `controller` | **Programado y probado** (S6) con servicios sobre DAO falsos. `find` y el uso de `OperationResult.failure` se agregaron en A12b |
 | Demás controladores | `controller` | Diseñado |
 | `ApiServer`, `ApiStatus`, `ApiResponse`, `LoginRequest`, `JsonMapperFactory`, `WebServer`, `WebSessionController`, `CatalogController`, `CatalogService`, `LoginResponse`, `SessionUser`, `ErrorKind`, `SessionRequiredException` y los cambios de `SessionContext` y `OperationResult` | `api`, `app`, `controller`, `service`, `dto`, `exception` | **Programado y probado** (A12a): sesión con token, permisos por ruta, errores en JSON y `GET /api/emergency-types` |
