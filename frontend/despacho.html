@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
     <meta name="theme-color" content="#101923">
     <title>RutaVida | Despacho</title>
 
@@ -18,14 +18,10 @@
     <link rel="stylesheet" href="./css/theme.css">
 
     <link rel="stylesheet"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossorigin="">
+          href="vendor/leaflet-1.9.4/leaflet.css">
 
     <script defer
-            src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-            crossorigin=""></script>
+            src="vendor/leaflet-1.9.4/leaflet.js"></script>
 
     <script type="module" src="./js/despacho.js"></script>
 </head>
@@ -104,7 +100,7 @@
                 <div>
                     <h2>Emergencia, unidades y rutas</h2>
                 </div>
-                <span class="map-status">
+                <span class="map-status" id="map-live" role="status">
                     <span></span> Mapa de referencia
                 </span>
             </div>
@@ -164,8 +160,15 @@
                     todo en una sola transacción de Oracle.
                 </p>
                 <p>
-                    La página no se actualiza sola: usa «Actualizar estado». El
-                    seguimiento en vivo llega con la API de seguimiento (A12e).
+                    En el traslado (CU-11) ordena los hospitales activos con URGENCIAS por
+                    el tiempo de llegada con el tráfico actual, y al elegir uno guarda las
+                    rutas al hospital y pone la misión en TRASLADANDO, también en una sola
+                    transacción.
+                </p>
+                <p>
+                    Con una misión abierta, la página pregunta cada 5 s dónde va la unidad
+                    (posición SIMULACION) y se actualiza sola cuando llega, cuando el
+                    sistema recalcula la ruta o cuando la misión termina.
                 </p>
             </div>
         </aside>
@@ -173,7 +176,7 @@
     </section>
 
     <footer class="dashboard-footer">
-        <span>RutaVida · Despacho (CU-08, CU-09, CU-10 y CU-12, D6b)</span>
+        <span>RutaVida · Despacho (CU-08 a CU-12, D6b)</span>
         <span>Datos de Oracle y datos EJEMPLO identificados</span>
     </footer>
 </main>

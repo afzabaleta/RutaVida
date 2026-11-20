@@ -153,7 +153,7 @@ class ApiServerTest {
         // Incidents on in-memory DAOs (S7); the map knows CALLE_16 and the streets of the city.
         IncidentController incidents = new IncidentController(new IncidentTestSupport().service(),
                 support.authService, support.sessionContext);
-        RoadMapController roadMap = new RoadMapController(new RoadMapService(this::segmentViews));
+        RoadMapController roadMap = new RoadMapController(new RoadMapService(this::segmentViews, () -> city.graph));
 
         // EXAMPLE alerts: two for marta.ruiz (user 3) and one for ana.perez (user 1).
         InMemoryAlertDAO alertDao = new InMemoryAlertDAO();
@@ -655,6 +655,68 @@ class ApiServerTest {
     }
 
     @Test
+    void theAmbulanceOnSceneIsTransferredToTheHospitalTheCoordinatorChose() throws Exception {
+        String token = login("marta.ruiz");
+        long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
+        HttpResponse<String> dispatched = send("POST", "/api/dispatches", token, "{\"emergencyId\": " + emergency
+                + ", \"vehicleId\": " + DispatchTestSupport.AMBULANCE + "}");
+        long mission = value(dispatched).get("assignment").get("id").asLong();
+        String status = "/api/dispatches/" + mission + "/status";
+        send("PATCH", status, token, "{\"status\": \"EN_RUTA\"}");
+        send("PATCH", status, token, "{\"status\": \"EN_SITIO\"}");
+
+        HttpResponse<String> listed = send("GET", "/api/dispatches/" + mission + "/hospitals", token, null);
+        assertEquals(200, listed.statusCode(), listed.body());
+        JsonNode first = value(listed).get(0);
+        assertEquals(DispatchTestSupport.CONFIRMED_HOSPITAL, first.get("hospitalId").asLong(), "RN-10 order");
+        assertEquals("II", first.get("level").asText());
+        assertTrue(first.get("location").has("latitude"));
+        assertTrue(first.get("etaMinutes").asDouble() > 0);
+        assertTrue(first.get("serviceConfirmed").asBoolean());
+        assertEquals(2, value(listed).size(), "only the active ones with URGENCIAS that the road network reaches");
+
+        HttpResponse<String> transfer = send("PATCH", status, token, "{\"status\": \"TRASLADANDO\", \"hospitalId\": "
+                + DispatchTestSupport.CONFIRMED_HOSPITAL + "}");
+        assertEquals(200, transfer.statusCode(), transfer.body());
+        assertEquals("TRASLADANDO", value(transfer).get("status").asText());
+        assertEquals(mission, value(transfer).get("id").asLong(), "the answer is the assignment, as in 6.6");
+
+        JsonNode routes = value(send("GET", "/api/dispatches/" + mission + "/routes", token, null));
+        assertEquals("ACTIVA", routes.get(0).get("status").asText(), "the route to the hospital, for the map (6.4)");
+        assertEquals(DispatchTestSupport.CONFIRMED_HOSPITAL, routes.get(0).get("destinationHospitalId").asLong());
+
+        HttpResponse<String> finished = send("PATCH", status, token, "{\"status\": \"FINALIZADA\"}");
+        assertEquals(200, finished.statusCode(), finished.body());
+        assertEquals("FINALIZADA", value(finished).get("status").asText());
+
+        assertEquals(403, send("GET", "/api/dispatches/" + mission + "/hospitals", login("ana.perez"), null)
+                .statusCode(), "the test operator has no DESPACHO permission");
+        assertEquals(404, send("GET", "/api/dispatches/999/hospitals", token, null).statusCode());
+    }
+
+    @Test
+    void aClickOnTheMapFindsTheNearestStreetToReportAnIncident() throws Exception {
+        String token = login("marta.ruiz");
+
+        HttpResponse<String> found = send("GET", "/api/road/segments/nearest?lat=10.46205&lon=-73.257", token, null);
+        assertEquals(200, found.statusCode(), found.body());
+        JsonNode nearest = value(found);
+        assertEquals("Calle de prueba", nearest.get("streetName").asText());
+        assertTrue(nearest.get("distanceMeters").asDouble() < 10);
+        assertTrue(nearest.get("reverseSegmentId").isNumber(), "the test streets are two-way");
+        assertEquals(10.462, nearest.get("from").get("latitude").asDouble(), 1e-9);
+
+        assertEquals(409, send("GET", "/api/road/segments/nearest?lat=10.50&lon=-73.20", token, null).statusCode(),
+                "no street within 150 m");
+        assertEquals(400, send("GET", "/api/road/segments/nearest?lat=abc&lon=-73.2", token, null).statusCode());
+        assertEquals(400, send("GET", "/api/road/segments/nearest?lat=10.46", token, null).statusCode());
+        assertEquals(400, send("GET", "/api/road/segments/nearest?lat=95&lon=-73.2", token, null).statusCode());
+        assertEquals(403, send("GET", "/api/road/segments/nearest?lat=10.46&lon=-73.26", login("ana.perez"), null)
+                .statusCode(), "the test operator has no RED_VIAL permission");
+        assertEquals(401, send("GET", "/api/road/segments/nearest?lat=10.46&lon=-73.26", null, null).statusCode());
+    }
+
+    @Test
     void theLiveMapShowsTheUnitsTheOpenMissionAndTheUnreadAlerts() throws Exception {
         String token = login("marta.ruiz");
         long emergency = city.report(DispatchTestSupport.MEDICAL, 1, 2);
@@ -711,7 +773,13 @@ class ApiServerTest {
         assertEquals(409, send("PATCH", path, token, "{\"status\": \"FINALIZADA\"}").statusCode(),
                 "ASIGNADA cannot jump to FINALIZADA");
         assertEquals(400, send("PATCH", path, token, "{\"status\": \"TRASLADANDO\"}").statusCode(),
-                "the transfer needs CU-11 (K7b)");
+                "the transfer needs the hospital");
+        assertEquals(400, send("PATCH", path, token, "{\"status\": \"EN_RUTA\", \"hospitalId\": "
+                + DispatchTestSupport.CONFIRMED_HOSPITAL + "}").statusCode(), "a hospital only with TRASLADANDO");
+        assertEquals(409, send("PATCH", path, token, "{\"status\": \"TRASLADANDO\", \"hospitalId\": "
+                + DispatchTestSupport.CONFIRMED_HOSPITAL + "}").statusCode(), "the unit is not EN_SITIO yet");
+        assertEquals(409, send("GET", "/api/dispatches/" + mission + "/hospitals", token, null).statusCode(),
+                "the hospitals are chosen EN_SITIO");
         assertEquals(400, send("PATCH", path, token, "{\"status\": \"VOLANDO\"}").statusCode());
         assertEquals(400, send("PATCH", path, token, "{}").statusCode(), "no status");
         assertEquals(404, send("GET", "/api/dispatches/999/routes", token, null).statusCode());

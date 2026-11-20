@@ -291,6 +291,48 @@ export async function listHospitals() {
   }));
 }
 
+// ------------------------------------------------------------------ D10: history and reports
+
+/** Build query parameters for a period. */
+function periodQuery(from, to) {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return params.toString();
+}
+
+/** Operations report calculated in Oracle. */
+export function getOperationsReport(from, to) {
+  return request("GET", `/api/reports/operations?${periodQuery(from, to)}`);
+}
+
+/** All emergencies in the period, including closed ones. */
+export async function listEmergenciesByPeriod(from, to) {
+  const query = periodQuery(from, to) || `to=${encodeURIComponent(todayIso())}`;
+  const [types, emergencies] = await Promise.all([
+    listEmergencyTypes(),
+    request("GET", `/api/emergencies?${query}`),
+  ]);
+
+  return emergencies.map((emergency) => ({
+    ...toEmergency(emergency, types),
+    closedAt: emergency.closedAt,
+  }));
+}
+
+/** Complete history of an emergency. */
+export function getEmergencyHistory(id) {
+  return request("GET", `/api/emergencies/${encodeURIComponent(id)}/history`);
+}
+
+/** Local date in YYYY-MM-DD format. */
+export function todayIso(offsetDays = 0) {
+  const day = new Date();
+  day.setDate(day.getDate() + offsetDays);
+  const month = String(day.getMonth() + 1).padStart(2, "0");
+  const date = String(day.getDate()).padStart(2, "0");
+  return `${day.getFullYear()}-${month}-${date}`;
+}
 /** Indicators of the main panel, counted in Oracle (docs/api.md, 11.1). */
 export function getDashboardSummary() {
   return request("GET", "/api/dashboard/summary");
@@ -405,6 +447,27 @@ export function changeMissionStatus(assignmentId, status) {
     "PATCH",
     `/api/dispatches/${encodeURIComponent(assignmentId)}/status`,
     { status }
+  );
+}
+
+/**
+ * Hospitals for the transfer of a mission EN_SITIO (docs/api.md 6.5), the most convenient
+ * first (RN-10), with location as [lat, lng].
+ */
+export async function listTransferHospitals(assignmentId) {
+  const hospitals = await request(
+    "GET",
+    `/api/dispatches/${encodeURIComponent(assignmentId)}/hospitals`
+  );
+  return hospitals.map((hospital) => ({ ...hospital, location: toPoint(hospital.location) }));
+}
+
+/** Starts the transfer to the chosen hospital (6.6): the mission goes TRASLADANDO. */
+export function startTransfer(assignmentId, hospitalId) {
+  return request(
+    "PATCH",
+    `/api/dispatches/${encodeURIComponent(assignmentId)}/status`,
+    { status: "TRASLADANDO", hospitalId }
   );
 }
 
@@ -529,4 +592,125 @@ export function homeOf(session) {
   return hasPermission(session, "PANICO:REPORTAR") && !hasPermission(session, "DESPACHO:GESTIONAR")
     ? "./panico.html"
     : "./dashboard.html";
+}
+
+
+// ------------------------------------------------------------------ D12: simulation and traffic
+
+/** State of the simulation: { running, startedAt, tickSeconds, source } (docs/api.md, 10.1). */
+export function getSimulation() {
+  return request("GET", "/api/simulation");
+}
+
+/** Starts the simulation; starting one that runs is not an error (docs/api.md, 10.2). */
+export function startSimulation() {
+  return request("POST", "/api/simulation/start");
+}
+
+/** Stops the simulation; the units stay where they are (docs/api.md, 10.2). */
+export function stopSimulation() {
+  return request("POST", "/api/simulation/stop");
+}
+
+/** Forces the traffic of one segment for the demo: FLUIDO, MODERADO or CONGESTIONADO (10.3). */
+export function forceTraffic(segmentId, level) {
+  return request("POST", "/api/simulation/traffic", { segmentId, level });
+}
+
+/** Segments with MODERADO or CONGESTIONADO traffic now, with both ends (docs/api.md, 8.2). */
+export async function listTrafficSegments() {
+  const segments = await request("GET", "/api/traffic/segments");
+  return segments.map((segment) => ({
+    ...segment,
+    from: toPoint(segment.from),
+    to: toPoint(segment.to),
+  }));
+}
+
+// ------------------------------------------------------------------ Administration (docs/api.md 15)
+
+/** Users, active or not, without password (15.1). */
+export function listUsers() {
+  return request("GET", "/api/users");
+}
+
+/** Active roles with their permissions (15.4). */
+export function listRoles() {
+  return request("GET", "/api/roles");
+}
+
+export function createUser(user) {
+  return request("POST", "/api/users", user);
+}
+
+export function listVehicleTypes() {
+  return request("GET", "/api/vehicle-types");
+}
+
+/** Units as the API sends them (7.2): ids of type and station, plate and status. */
+export function listUnitRecords() {
+  return request("GET", "/api/units");
+}
+
+/** Every station, active or not (7.3). */
+export function listAllStations() {
+  return request("GET", "/api/stations");
+}
+
+/** Every hospital, active or not (7.4 with ?all=true). */
+export function listAllHospitals() {
+  return request("GET", "/api/hospitals?all=true");
+}
+
+const ADMIN_COLLECTIONS = ["users", "units", "stations", "hospitals"];
+
+function adminPath(collection, id) {
+  if (!ADMIN_COLLECTIONS.includes(collection)) {
+    throw new Error(`Colección desconocida: ${collection}`);
+  }
+  return id ? `/api/${collection}/${encodeURIComponent(id)}` : `/api/${collection}`;
+}
+
+/** Creates (POST, without id) or edits (PUT, with id) a unit, station or hospital (15.6 to 15.11). */
+export function saveRecord(collection, id, body) {
+  return request(id ? "PUT" : "POST", adminPath(collection, id), body);
+}
+
+/** PATCH .../{id}/status: A or I for users, stations and hospitals; the operational status for units. */
+export function changeRecordStatus(collection, id, status) {
+  return request("PATCH", `${adminPath(collection, id)}/status`, { status });
+}
+
+
+ // ------------------------------------------------------------------ Report a road incident (CU-13)
+
+/**
+ * The street segment closest to a point of the map (docs/api.md 9.4), with its two ends as
+ * [lat, lng]. reverseSegmentId is the same street in the other direction (null if one-way).
+ */
+export async function findNearestSegment(latitude, longitude) {
+    const query = `lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`;
+    const segment = await request("GET", `/api/road/segments/nearest?${query}`);
+    return { ...segment, path: [toPoint(segment.from), toPoint(segment.to)] };
+}
+
+/** Registers a road incident (9.2): it enters PENDIENTE and does not change any route yet. */
+export function reportIncident({ segmentId, type, severity, blocksSegment, description }) {
+    return request("POST", "/api/incidents", { segmentId, type, severity, blocksSegment, description });
+}
+
+// ------------------------------------------------------------------ Audit (CU-21)
+
+/**
+ * Entries of AUDITORIA (docs/api.md 15.13), the newest first.
+ */
+export function listAudit(filters = {}) {
+    const query = new URLSearchParams();
+    for (const [name, value] of Object.entries(filters)) {
+        if (value !== null && value !== undefined && String(value).trim() !== "") {
+            query.set(name, String(value).trim());
+        }
+    }
+    const text = query.toString();
+    return request("GET", `/api/audit${text ? `?${text}` : ""}`);
 }

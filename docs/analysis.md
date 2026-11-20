@@ -286,9 +286,10 @@ flowchart LR
 4. El mapa y los paneles muestran el nuevo estado.
 
 **Extensión CU-11 · Seleccionar hospital** (al pasar a `TRASLADANDO`)
-1. El sistema lista los hospitales operativos que tienen el servicio requerido.
-2. Los ordena por costo = ETA del traslado + penalización por baja disponibilidad (RN-10).
-3. El coordinador confirma uno; el sistema calcula las rutas de traslado (CU-08) y las guarda con `id_hospital_destino`.
+1. Con la misión `EN_SITIO` y una **ambulancia**, el sistema lista los hospitales operativos que ofrecen `URGENCIAS` y a los que se llega por la red vial cargada.
+2. Los ordena por costo = ETA del traslado desde donde está la ambulancia + 10 minutos si el hospital no ha confirmado `URGENCIAS` como disponible (RN-10).
+3. El coordinador confirma uno; en una transacción, el sistema calcula las rutas de traslado (CU-08) y las guarda con `id_hospital_destino` (la recomendada `ACTIVA`), pasa la misión y la emergencia a `TRASLADANDO` y lo audita (`TRASLADAR`).
+4. La simulación (K9) lleva la ambulancia por la ruta al hospital. Al llegar, el coordinador finaliza la misión (`FINALIZADA`): la ruta queda `FINALIZADA` y la ambulancia `DISPONIBLE`.
 
 **Flujos alternos**
 - 2a. Transición no permitida (por ejemplo, de `ASIGNADA` a `TRASLADANDO`) → mensaje y no se cambia nada.
@@ -446,7 +447,7 @@ flowchart LR
 | RN-07 | El costo de un tramo se mide en segundos e incluye congestión, semáforos e incidentes, ajustado al tipo de vehículo | `EmergencyCost` |
 | RN-08 | Las alternativas se descartan si comparten más del 80 % de los tramos con otra ruta o tardan más de 1,5 veces la mejor | `AlternativeRouteFinder` |
 | RN-09 | Una ruta activa se reemplaza solo si la nueva mejora el tiempo restante en más del 15 % o en más de 30 s, o si la actual quedó bloqueada | `RouteMonitor` |
-| RN-10 | El hospital de traslado debe estar operativo y tener el servicio requerido; se elige por menor ETA con penalización por baja disponibilidad | `HospitalService` |
+| RN-10 | Solo una ambulancia `EN_SITIO` traslada. El hospital debe estar operativo, ofrecer `URGENCIAS` y alcanzarse por la red vial; se ordenan por ETA, con 10 minutos de penalización si `URGENCIAS` no está confirmado como disponible (`disponible = 'N'`, como en los datos de D2) | `DispatchService.hospitalsFor` (K10) |
 | RN-11 | Los datos simulados se marcan `SIMULACION` y nunca se presentan como reales; el historial se guarda por lotes | Enums `TrafficSource`, `PositionSource` |
 | RN-12 | Toda operación que modifica datos y todo inicio de sesión se audita | `AuditService` |
 | RN-13 | Un reporte de pánico necesita una sesión con `PANICO/REPORTAR` (DT-13) y entra `PENDIENTE`, a nombre de esa persona. Cada persona puede enviar como máximo 3 reportes cada 10 minutos. Del dispositivo solo se guarda el hash SHA-256 de su identificador | `PanicService` + `REPORTE_PANICO` |

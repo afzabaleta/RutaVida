@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
   <meta name="theme-color" content="#101923">
   <title>RutaVida | Centro de operaciones</title>
   <!-- Sets data-theme before paint (no flash). -->
@@ -12,15 +12,12 @@
   <link rel="stylesheet" href="./css/rutavida.css">
   <link rel="stylesheet" href="./css/dashboard.css">
   <link rel="stylesheet" href="./css/app-shell.css">
+  <link rel="stylesheet" href="./css/simulacion.css">
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin="">
+    href="vendor/leaflet-1.9.4/leaflet.css">
   <script defer
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""></script>
+    src="vendor/leaflet-1.9.4/leaflet.js"></script>
 
   <script type="module" src="./js/dashboard.js"></script>
 </head>
@@ -141,6 +138,27 @@
           <span class="map-status" id="live-status"><span></span> Conectando seguimiento…</span>
         </div>
 
+        <section class="sim-panel" id="sim-panel" aria-labelledby="sim-title" hidden>
+          <div class="sim-state">
+            <span class="sim-dot" aria-hidden="true"></span>
+            <div>
+              <h2 id="sim-title">Simulación</h2>
+              <p id="sim-state" role="status">Consultando…</p>
+            </div>
+          </div>
+
+          <div class="sim-actions">
+            <button type="button" class="button" id="sim-start">Iniciar</button>
+            <button type="button" class="button button-secondary" id="sim-stop">Detener</button>
+            <button type="button" class="button button-secondary" id="sim-congest">Congestionar ruta activa</button>
+            <button type="button" class="button button-secondary" id="sim-release">Liberar tráfico</button>
+          </div>
+
+          <p class="sim-message" id="sim-message" role="status"></p>
+        </section>
+
+        <p class="route-toast" id="route-toast" role="status" hidden></p>
+
         <div
           id="map"
           role="application"
@@ -167,6 +185,8 @@
           <span><i class="legend-ring available-ring"></i> Disponible</span>
           <span><i class="legend-ring busy-ring"></i> Ocupada</span>
           <span><i class="legend-zone"></i> Zona vial K4</span>
+          <span><i class="legend-traffic moderate"></i> Tráfico moderado</span>
+          <span><i class="legend-traffic congested"></i> Tráfico congestionado</span>
         </div>
 
         <p class="map-footnote">
@@ -219,6 +239,56 @@
                   Incidentes reportados en Oracle. Los pendientes requieren
                   validación antes de afectar las rutas.
               </p>
+
+              <button type="button" id="incident-report-button"
+                      class="button incident-report-button"
+                      aria-pressed="false" hidden>
+                  Reportar incidente
+              </button>
+
+              <form id="incident-form" class="incident-form" hidden novalidate>
+
+                  <p class="incident-form-street">
+                      <strong>Calle:</strong>
+                      <span id="incident-street"></span>
+                  </p>
+
+                  <label for="incident-type">Tipo
+                      <select id="incident-type" name="type" required></select>
+                  </label>
+
+                  <label for="incident-severity">Severidad
+                      <select id="incident-severity" name="severity" required></select>
+                  </label>
+
+                  <label class="incident-check">
+                      <input type="checkbox" name="blocksSegment">
+                      Cierra la vía: las unidades no pasan por ahí
+                  </label>
+
+                  <label class="incident-check" id="incident-both-field">
+                      <input type="checkbox" id="incident-both" checked>
+                      En los dos sentidos de la calle
+                  </label>
+
+                  <label for="incident-description">Descripción (opcional)
+                      <textarea id="incident-description"
+                                name="description"
+                                rows="2"
+                                maxlength="300"></textarea>
+                  </label>
+
+                  <div class="incident-form-actions">
+                      <button type="button" class="map-action" data-cancel>
+                          Cancelar
+                      </button>
+
+                      <button type="submit" class="button">
+                          Registrar incidente
+                      </button>
+                  </div>
+
+              </form>
 
               <div id="incident-list" class="item-list">
                   <p class="empty-state">Cargando incidentes…</p>

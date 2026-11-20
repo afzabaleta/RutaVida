@@ -61,4 +61,13 @@ class DatabaseConnectionTest {
         DatabaseConnection db = DatabaseConnection.fromSources(Map.of(), file(null, null, "TopSecret123"));
         assertFalse(db.toString().contains("TopSecret123"));
     }
+
+    @Test
+    void theDriverBringsManyRowsPerRoundTrip() {
+        DatabaseConnection db = DatabaseConnection.fromSources(Map.of(), file(null, "rutavida", "secret"));
+        Properties sent = db.connectionProperties();
+        assertEquals("rutavida", sent.getProperty("user"));
+        assertEquals("secret", sent.getProperty("password"));
+        assertEquals("500", sent.getProperty(DatabaseConnection.ROW_PREFETCH_PROPERTY));
+    }
 }

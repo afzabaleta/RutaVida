@@ -234,6 +234,17 @@ a.shell-item:not(.is-active):hover {
   box-shadow: 0 0 0 4px rgb(24 168 101 / 20%);
 }
 
+.shell-sim.is-stopped {
+  border-color: var(--border, #31415c);
+  background: transparent;
+  color: var(--muted, #9aa8bd);
+}
+
+.shell-sim.is-stopped .shell-sim-dot {
+  background: #8a96a8;
+  box-shadow: none;
+}
+
 .shell-user {
   display: flex;
   align-items: center;

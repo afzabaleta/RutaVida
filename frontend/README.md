@@ -44,6 +44,8 @@ frontend/
 │   ├── route-layer.js
 │   ├── valledupar-data.js
 │   └── Otros módulos JavaScript
+├── vendor/
+│   └── leaflet-1.9.4/   Copia local de Leaflet (ver sección 3)
 ├── index.html
 ├── dashboard.html
 ├── emergencia.html
@@ -65,6 +67,14 @@ Antes de ejecutar la aplicación se necesita:
 - IntelliJ IDEA o un entorno compatible para ejecutar el servidor Java.
 
 La configuración de conexión a Oracle debe mantenerse en el backend. No se deben publicar credenciales ni contraseñas.
+
+### Leaflet sin depender de un CDN
+
+Leaflet 1.9.4 va dentro del proyecto, en `vendor/leaflet-1.9.4/` (`leaflet.js`, `leaflet.css`, `images/` y su licencia BSD-2-Clause). Las páginas ya no lo descargan de `unpkg.com`, así que la Política de Seguridad de Contenido solo permite scripts y estilos del propio servidor (`'self'`).
+
+- Los archivos salen del paquete oficial `leaflet@1.9.4` de npm, sin cambios: su SHA-256 es el mismo `integrity` que tenían las etiquetas del CDN (`leaflet.css`: `sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=`, `leaflet.js`: `sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=`).
+- Para comprobarlo en Windows: `certutil -hashfile frontend\vendor\leaflet-1.9.4\leaflet.js SHA256` da el mismo valor en hexadecimal.
+- **El mapa base sigue necesitando internet:** las teselas vienen de `tile.openstreetmap.org`. Sin conexión, la aplicación funciona y dibuja unidades, rutas e incidentes, pero sin el fondo de calles. Para la demostración conviene tener un plan B de conexión (por ejemplo, datos del celular).
 
 ## 4. Ejecución de la aplicación
 
@@ -152,13 +162,25 @@ El tiempo promedio de respuesta muestra «Sin datos» mientras ninguna unidad ha
 | Despachar | `POST /api/dispatches` (6.3) | `DESPACHO:GESTIONAR` |
 | Rutas de una misión ya despachada | `GET /api/dispatches/{id}/routes` (6.4) | `RUTAS:CONSULTAR` |
 | La unidad salió, llegó o se cancela | `PATCH /api/dispatches/{id}/status` (6.6) | `DESPACHO:GESTIONAR` |
+| Hospitales para el traslado, el más conveniente primero | `GET /api/dispatches/{id}/hospitals` (6.5) | `DESPACHO:GESTIONAR` |
+| Trasladar al hospital elegido y finalizar la misión | `PATCH /api/dispatches/{id}/status` (6.6) con `TRASLADANDO` y `hospitalId`, después `FINALIZADA` | `DESPACHO:GESTIONAR` |
 | Cerrar la emergencia | `POST /api/emergencies/{id}/close` (6.7) | `DESPACHO:GESTIONAR` |
 
 - La página no calcula rutas: dibuja las que devuelve el servidor, con la explicación que él escribe.
 - Una emergencia que no está `REPORTADA` muestra su misión abierta, que la página busca en el historial (`GET /api/emergencies/{id}/history`).
 - Cerrar pide un segundo clic de confirmación. Una emergencia `REPORTADA` se puede cerrar como falsa alarma.
-- La página no se actualiza sola, porque esas consultas mantendrían viva la sesión (DT-08): se usa «Actualizar estado». El seguimiento en vivo llega con `/api/tracking` (A12e).
-- El traslado al hospital (`TRASLADANDO`) llega con K7b.
+- **Despacho en vivo (D13):** `dispatch-live.js` consulta `GET /api/tracking` cada 5 segundos mientras existe una misión abierta y la pestaña está visible.
+- La posición de la unidad se actualiza en el mapa y se identifica como `SIMULACION`.
+- La página detecta cambios de estado, recálculos de rutas mediante `routesVersion` y la finalización de la misión.
+- Las consultas automáticas de seguimiento no mantienen viva la sesión (DT-08).
+- El seguimiento requiere `EMERGENCIAS:CONSULTAR`. Sin este permiso se conserva el botón «Actualizar estado».
+- Al llegar una ambulancia a `EN_SITIO`, se actualiza el panel para permitir el traslado al hospital.
+- **Traslado al hospital (CU-11):**
+  - Con la misión `EN_SITIO` y una ambulancia, el botón «Elegir hospital para el traslado» muestra los hospitales con su tiempo, su distancia y si las urgencias están sin confirmar (suman 10 min al orden, RN-10).
+  - Los hospitales se marcan en el mapa. «Trasladar aquí» pone la misión en `TRASLADANDO` y dibuja las rutas al hospital.
+  - Al llegar, «Llegó al hospital: finalizar misión» deja la misión `FINALIZADA` y la ambulancia `DISPONIBLE`. Después se cierra la emergencia.
+  - Una unidad que no es ambulancia no ve el botón.
+
 ## 6. Verificación funcional
 
 Para comprobar la conexión entre el frontend, el backend y Oracle, realiza estas pruebas:
@@ -364,10 +386,156 @@ Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
 
 - `js/app-shell.js` arma el menú lateral y el encabezado de todas las páginas internas. Lo llama `startPage()` (`page-session.js`) después de validar la sesión. Estilos en `css/app-shell.css`.
 - Cada opción del menú aparece solo si el rol tiene su permiso (`hasPermission`); un grupo sin opciones no se muestra. La opción activa lleva `aria-current="page"`.
-- «Historial y reportes» está en la lista con `available: false` hasta que se fusione `reportes.html` (D10). «Administración» se ve gris y no es un enlace hasta D11.
+- «Historial y reportes» y «Administración» están disponibles cuando el rol tiene los permisos correspondientes. Administración lleva a `admin.html` (D11).
 - En pantallas de menos de 900 px el menú es un cajón que se abre con ☰ y se cierra con el fondo, con Escape o al elegir una opción.
 - La campana de alertas (`alert-bell.js`, sin cambios en su lógica) está en el encabezado del panel, de `emergencia.html` y de `despacho.html`. Fuera del panel, el contador se actualiza al abrir la campana.
 - El mapa oscuro es un filtro CSS sobre `.leaflet-tile-pane`: solo cambian las teselas de OpenStreetMap; los íconos, las rutas y la atribución conservan sus colores.
 - Los íconos son SVG propios en `img/icons/`. No se agregaron librerías, fuentes ni CDN.
 - **Modo claro y oscuro:** el botón ☀/☾ del encabezado cambia el tema. La primera vez se usa el tema del sistema; la elección se guarda en `localStorage` (`rutavida.theme`), y si el navegador lo bloquea, el botón igual funciona. `js/theme-boot.js` pone el tema en el `<head>` antes de pintar, para que no parpadee, y `css/theme.css` redefine las variables de color del modo claro. En modo claro el mapa va sin filtro. Solo aplica a las páginas internas; el login, el botón de pánico y el registro del ciudadano (`registro.html`, que usa `css/panico.css`) conservan su diseño.
 - Ningún texto funcional mide menos de 12 px, para que el panel se lea proyectado.
+
+
+## D10. Historial y reportes
+
+La pagina reportes.html permite consultar indicadores historicos desde Oracle.
+
+- Archivos: reportes.html, css/reportes.css y js/reportes.js.
+- API: GET /api/reports/operations?from=&to=
+- API: GET /api/emergencies?from=&to=
+- API: GET /api/emergencies/{id}/history
+- Permisos: REPORTES:CONSULTAR y EMERGENCIAS:CONSULTAR.
+- Periodos: hoy, 7 dias, 30 dias y fechas personalizadas.
+- Indicadores: emergencias, tiempo de respuesta, despachos e incidentes.
+- Graficos por dia, tipo, gravedad y tipo de vehiculo.
+- Historial de emergencias, misiones, rutas y auditoria.
+- Exportacion CSV e impresion en PDF.
+- Interfaz responsive para computadores y celulares.
+- Los indicadores proceden de Oracle; no se inventan resultados.
+
+Pendiente: verificar el funcionamiento real y la visualizacion movil.
+
+
+## D11. Administración
+
+`admin.html` centraliza la gestión operativa del sistema. El enlace del menú solo se muestra a los roles con `USUARIOS:GESTIONAR`; dentro de la página, cada pestaña y formulario respeta los permisos entregados por el servidor.
+
+### Pestañas y permisos
+
+- **Usuarios:** consulta con `USUARIOS:CONSULTAR`, creación y activación/desactivación con `USUARIOS:GESTIONAR`.
+- **Unidades:** consulta con `UNIDADES:CONSULTAR`, registro, edición y cambio de estado con `UNIDADES:GESTIONAR`.
+- **Estaciones:** consulta con `UNIDADES:CONSULTAR`, creación, edición y activación/desactivación con `UNIDADES:GESTIONAR`.
+- **Hospitales:** consulta con `HOSPITALES:CONSULTAR`, creación, edición y activación/desactivación con `HOSPITALES:GESTIONAR`.
+
+La pestaña activa también puede abrirse mediante `#users`, `#units`, `#stations` o `#hospitals`. No existen acciones de borrado, las contraseñas no se muestran ni se conservan en el cliente y una unidad en estado `OCUPADO` solo se informa como «En misión».
+
+### API utilizada
+
+- Usuarios: `GET /api/users`, `GET /api/roles`, `POST /api/users` y `PATCH /api/users/{id}/status`.
+- Unidades: `GET /api/units`, `GET /api/vehicle-types`, `GET /api/stations`, `POST /api/units`, `PUT /api/units/{id}` y `PATCH /api/units/{id}/status`.
+- Estaciones: `GET /api/stations`, `POST /api/stations`, `PUT /api/stations/{id}` y `PATCH /api/stations/{id}/status`.
+- Hospitales: `GET /api/hospitals?all=true`, `POST /api/hospitals`, `PUT /api/hospitals/{id}` y `PATCH /api/hospitals/{id}/status`.
+
+Archivos: `admin.html`, `css/admin.css` y `js/admin.js`. Los estilos de tablas y paneles reutilizan `reportes.css`, y los formularios y botones reutilizan `operacion.css`.
+
+
+## D12. Panel de simulación
+
+El centro de operaciones permite controlar la simulación de unidades y visualizar el tráfico simulado sobre el mapa de Valledupar.
+
+### Funcionalidades
+
+- Consultar el estado de la simulación cada 5 segundos.
+- Iniciar y detener la simulación.
+- Congestionar el tercio central de una ruta activa.
+- Liberar los tramos congestionados desde el panel.
+- Actualizar la capa de tráfico cada 15 segundos.
+- Mostrar avisos de recálculo de rutas durante 10 segundos.
+- Adaptar los controles a computadores, tabletas y celulares.
+
+### Archivos
+
+| Archivo | Responsabilidad |
+|---|---|
+| `dashboard.html` | Estructura del panel y leyenda de tráfico. |
+| `js/simulation-panel.js` | Control de la simulación, tráfico, permisos y avisos. |
+| `js/dashboard.js` | Integración del panel con el centro de operaciones. |
+| `js/live-map.js` | Detección de cambios en las rutas activas. |
+| `js/api-client.js` | Comunicación con la API REST de simulación. |
+| `js/app-shell.js` | Indicador de estado en el menú lateral. |
+| `css/app-shell.css` | Estilos del indicador de simulación. |
+| `css/simulacion.css` | Estilos del panel y adaptación responsive. |
+
+### Endpoints
+
+| Método | Endpoint | Función |
+|---|---|---|
+| GET | `/api/simulation` | Consultar estado. |
+| POST | `/api/simulation/start` | Iniciar simulación. |
+| POST | `/api/simulation/stop` | Detener simulación. |
+| POST | `/api/simulation/traffic` | Modificar tráfico de un tramo. |
+| GET | `/api/traffic/segments` | Consultar tramos con tráfico. |
+
+### Permisos
+
+- `TRAFICO:CONSULTAR`: visualizar el estado y la capa de tráfico.
+- `TRAFICO:GESTIONAR`: iniciar y detener la simulación.
+- `TRAFICO:GESTIONAR` y `RUTAS:CONSULTAR`: congestionar rutas y liberar los tramos modificados.
+
+### Colores del tráfico
+
+- Naranja (`#f59e0b`): tráfico moderado.
+- Rojo (`#e11d48`): tráfico congestionado.
+
+Todos los movimientos y datos de tráfico son simulados. No corresponden a GPS ni a tráfico real.
+
+El cálculo y recálculo de rutas es responsabilidad del backend. El frontend consulta y representa los resultados.
+
+
+
+## Formulario de incidentes (CU-13)
+
+Permite al operador reportar accidentes, cierres de vías, obras,
+manifestaciones y otros incidentes desde el mapa del panel de control.
+
+### Funcionamiento
+
+- Selección del tramo vial mediante un clic en el mapa.
+- Registro del tipo, severidad y descripción del incidente.
+- Posibilidad de reportar incidentes en ambos sentidos de la vía.
+- Actualización inmediata de la lista de incidentes.
+- Los incidentes se registran inicialmente como PENDIENTE.
+- Solo afectan las rutas después de ser validados, según la RN-05.
+
+### Permisos requeridos
+
+- `INCIDENTES:GESTIONAR`
+- `RED_VIAL:CONSULTAR`
+
+### Endpoints de la API
+
+- `GET /api/road/segments/nearest`
+- `POST /api/incidents`
+
+## Auditoría (CU-21)
+
+Permite consultar el registro de operaciones almacenadas en la tabla
+AUDITORIA de Oracle desde la sección Análisis del menú lateral.
+
+### Funcionalidades
+
+- Consulta de operaciones por fecha y hora.
+- Filtros por módulo, usuario y resultado.
+- Diferenciación visual entre operaciones exitosas y fallidas.
+- Consulta rápida de la última hora, 24 horas y 7 días.
+- Descarga de registros en formato CSV compatible con Excel.
+- Máximo de 500 registros por consulta.
+- Periodo máximo de consulta de 31 días.
+- Pantalla de solo lectura.
+
+### Permiso requerido
+
+- `AUDITORIA:CONSULTAR`
+
+### Endpoint de la API
+
+- `GET /api/audit`

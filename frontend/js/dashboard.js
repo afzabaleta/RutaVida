@@ -11,6 +11,7 @@ import {
 } from "./api-client.js";
 
 import { startIncidents } from "./incident-panel.js";
+import { startIncidentForm } from "./incident-form.js";
 import { startPanicLayer } from "./panic-layer.js";
 import { paintLegend, placeIcon, UNIT_Z, unitIcon, unitSlots } from "./map-icons.js";
 
@@ -22,6 +23,7 @@ import {
 } from "./valledupar-data.js";
 
 import { startLiveMap } from "./live-map.js";
+import { startSimulationPanel } from "./simulation-panel.js";
 import { startAlertBell } from "./alert-bell.js";
 import { startPage } from "./page-session.js";
 
@@ -476,11 +478,42 @@ async function initializeDashboard() {
     list: byId("alert-list"),
   });
 
+  // D12: simulation control and traffic layer.
+  const simulation = startSimulationPanel(map, session, {
+    panel: byId("sim-panel"),
+    stateText: byId("sim-state"),
+    startButton: byId("sim-start"),
+    stopButton: byId("sim-stop"),
+    congestButton: byId("sim-congest"),
+    releaseButton: byId("sim-release"),
+    message: byId("sim-message"),
+    liveStatus: byId("live-status"),
+    toast: byId("route-toast"),
+  });
+
+  let unitCodes = new Map();
+
   const live = startLiveMap(map, session, {
+    onRouteChanged(mission, route) {
+      const unit = unitCodes.get(mission.vehicleId)
+        ?? `la unidad ${mission.vehicleId}`;
+
+      simulation?.routeChanged(
+        `Ruta recalculada: ${unit} toma un camino nuevo (${route.distanceKm} km, `
+        + `${route.estimatedMinutes} min). Tráfico SIMULADO.`
+      );
+    },
+
     onSnapshot(snapshot) {
+      unitCodes = new Map(
+        (snapshot.units ?? []).map((unit) => [
+          unit.vehicleId,
+          unit.unitCode,
+        ])
+      );
       const status = byId("live-status");
-      if (status) {
-        status.textContent = "Seguimiento activo · SIMULACIÓN";
+      if (status && !simulation) {
+        status.textContent = "Seguimiento activo · datos SIMULACIÓN";
       }
 
       bell.setCount(snapshot.unreadAlerts ?? 0);
@@ -534,7 +567,7 @@ async function initializeDashboard() {
     pill: byId("panic-pill"),
     message: byId("panic-message"),
   });
-startIncidents(
+const incidents = startIncidents(
   map,
   session,
   {
@@ -548,6 +581,17 @@ startIncidents(
      }
    }
 );
+
+// Report an incident with a click on the street (CU-13); the list shows it at once.
+startIncidentForm(map, session, {
+    openButton: byId("incident-report-button"),
+    form: byId("incident-form"),
+    street: byId("incident-street"),
+    bothWays: byId("incident-both"),
+    bothWaysField: byId("incident-both-field"),
+    message: byId("incident-message"),
+}, () => incidents.refresh());
+
 
 
   byId("response-time").textContent = "Sin datos";

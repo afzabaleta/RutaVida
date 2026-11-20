@@ -1,252 +1,843 @@
 :root {
+  --panic-navy: #06182f;
+  --panic-navy-deep: #030d1d;
+  --panic-surface: rgb(7 28 55 / 92%);
+  --panic-surface-soft: rgb(15 40 72 / 82%);
+  --panic-border: #294867;
+  --panic-text: #f7f9ff;
+  --panic-muted: #c6d3e4;
+  --panic-red: #ed123f;
+  --panic-red-dark: #c9002d;
+  --panic-field: #081a31;
+  --panic-shadow: 0 22px 45px rgb(1 9 24 / 25%);
   color-scheme: dark;
 }
 
+:root[data-theme="light"] {
+  --panic-navy: #f3f6fb;
+  --panic-navy-deep: #e8edf6;
+  --panic-surface: rgb(255 255 255 / 92%);
+  --panic-surface-soft: rgb(250 252 255 / 90%);
+  --panic-border: #d5deeb;
+  --panic-text: #0b1b37;
+  --panic-muted: #33415a;
+  --panic-field: #fff;
+  --panic-shadow: 0 20px 40px rgb(24 48 84 / 12%);
+  color-scheme: light;
+}
+
 .panic-page {
-  margin: 0;
   min-height: 100vh;
-  background: #101923;
-  color: #f5f7fa;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  margin: 0;
+  color: var(--panic-text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background-color: var(--panic-navy);
+  background-image: linear-gradient(rgb(3 14 31 / 74%), rgb(3 14 31 / 88%)), url("../img/panico-background.png");
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
-.panic-shell {
-  width: min(100% - 32px, 780px);
-  margin: 0 auto;
-  padding-bottom: 32px;
+:root[data-theme="light"] .panic-page {
+  background-image: url("../img/panico-background.png");
 }
 
-.panic-header {
+.panic-page *,
+.panic-page *::before,
+.panic-page *::after { box-sizing: border-box; }
+
+.panic-page svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+
+.panic-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 22px 0;
+  gap: 24px;
+  min-height: 82px;
+  padding: 10px clamp(24px, 8vw, 136px);
+  border-bottom: 1px solid rgb(174 199 231 / 28%);
+  background: rgb(3 16 37 / 95%);
 }
 
-.panic-brand {
-  font-size: 24px;
-  font-weight: 800;
-  color: #f5f7fa;
-  text-decoration: none;
+.panic-brand,
+.panic-nav,
+.panic-home,
+.panic-call,
+.panic-theme-switch,
+.panic-panel-heading,
+.panic-actions,
+.panic-secondary,
+.panic-benefit,
+.panic-sos { display: flex; align-items: center; }
+
+.panic-brand { min-width: 0; gap: 10px; color: #fff; text-decoration: none; }
+.panic-brand img { width: 58px; height: 58px; }
+.panic-brand-name { font-size: clamp(1.7rem, 2.45vw, 2.35rem); font-weight: 850; letter-spacing: -.05em; }
+.panic-brand-name span { color: var(--panic-red); }
+.panic-brand-divider { width: 1px; height: 48px; margin: 0 16px; background: rgb(255 255 255 / 70%); }
+.panic-brand-tagline { max-width: 205px; font-size: .83rem; font-weight: 750; letter-spacing: .015em; line-height: 1.25; text-transform: uppercase; }
+.panic-brand-tagline::after { display: block; width: 96px; height: 6px; margin-top: 7px; border-radius: 8px; background: var(--panic-red); content: ""; }
+
+.panic-nav { gap: clamp(14px, 2.2vw, 34px); flex-shrink: 0; }
+.panic-home { gap: 9px; color: #fff; font-size: 1rem; font-weight: 750; text-decoration: none; }
+.panic-home svg { width: 27px; height: 27px; }
+.panic-call { gap: 10px; min-height: 50px; padding: 11px 22px; border-radius: 14px; background: linear-gradient(135deg, #fa1747, #d00033); box-shadow: 0 8px 18px rgb(201 0 45 / 24%); color: #fff; font-weight: 850; text-decoration: none; }
+.panic-call svg { width: 24px; height: 24px; }
+
+.panic-theme-switch { gap: 3px; padding: 3px; border-radius: 12px; background: rgb(255 255 255 / 8%); }
+.panic-theme-switch button { display: grid; width: 39px; height: 39px; place-items: center; border: 0; border-radius: 9px; background: transparent; color: #fff; cursor: pointer; }
+.panic-theme-switch button svg { width: 23px; height: 23px; }
+.panic-theme-switch button[aria-pressed="true"] { background: var(--panic-red); color: #fff; }
+
+.panic-shell { display: grid; grid-template-columns: minmax(310px, .82fr) minmax(560px, 1.3fr); gap: clamp(44px, 6vw, 92px); width: min(100% - 48px, 1420px); margin: 0 auto; padding: clamp(34px, 4vw, 58px) 0 46px; }
+.panic-intro { align-self: center; min-width: 0; padding-left: clamp(0px, 1vw, 14px); }
+.panic-eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 13px; padding: 10px 15px; border-radius: 15px; background: rgb(234 18 63 / 13%); color: var(--panic-red); font-size: .92rem; font-weight: 850; }
+.panic-eyebrow svg { width: 28px; height: 28px; }
+.panic-intro h1 { max-width: 490px; margin: 0; font-size: clamp(2.6rem, 4vw, 4rem); letter-spacing: -.055em; line-height: 1.04; }
+.panic-intro h1 span { color: var(--panic-red); }
+.panic-title-rule { display: block; width: 145px; height: 8px; margin: 18px 0 25px; border-radius: 20px; background: linear-gradient(90deg, var(--panic-red) 67%, rgb(143 165 196 / 45%) 67%); }
+.panic-lead { max-width: 470px; margin: 0; color: var(--panic-text); font-size: clamp(1.03rem, 1.45vw, 1.28rem); line-height: 1.48; }
+
+.panic-benefits { display: grid; gap: 13px; margin: 28px 0 0; padding: 0; list-style: none; }
+.panic-benefit { gap: 16px; min-height: 71px; padding: 10px 18px 10px 10px; border: 1px solid rgb(159 180 211 / 11%); border-radius: 16px; background: rgb(13 28 57 / 76%); }
+:root[data-theme="light"] .panic-benefit { background: rgb(255 255 255 / 63%); }
+.panic-benefit-icon { display: grid; width: 52px; height: 52px; flex: 0 0 52px; place-items: center; border-radius: 15px; background: linear-gradient(145deg, #fa1b4b, #cb002e); box-shadow: 0 8px 16px rgb(201 0 45 / 18%); color: #fff; }
+.panic-benefit-icon svg { width: 29px; height: 29px; }
+.panic-benefit strong, .panic-benefit small { display: block; }
+.panic-benefit strong { font-size: 1.02rem; }
+.panic-benefit small { margin-top: 1px; color: var(--panic-muted); font-size: .88rem; }
+
+.panic-workspace { display: grid; gap: 12px; min-width: 0; padding: 14px; border: 1px solid rgb(155 181 216 / 35%); border-radius: 28px; background: rgb(7 28 55 / 76%); box-shadow: var(--panic-shadow); backdrop-filter: blur(10px); }
+:root[data-theme="light"] .panic-workspace { background: rgb(255 255 255 / 74%); }
+.panic-panel { min-width: 0; padding: 17px clamp(18px, 2vw, 28px); border: 1px solid var(--panic-border); border-radius: 22px; background: var(--panic-surface); }
+.panic-panel h2 { margin: 0; font-size: clamp(1.12rem, 1.55vw, 1.38rem); letter-spacing: -.025em; }
+.panic-panel p { margin: 0; }
+.panic-panel-heading { gap: 13px; }
+.panic-panel-heading > svg { width: 32px; height: 32px; flex: 0 0 32px; color: var(--panic-red); }
+.panic-panel-heading p { margin-top: 2px; color: var(--panic-muted); font-size: .88rem; line-height: 1.35; }
+
+.panic-account { position: relative; padding-left: 85px; }
+.panic-account::before { position: absolute; top: 24px; left: 28px; width: 36px; height: 36px; border: 2px solid var(--panic-red); border-radius: 50% 50% 45% 45%; content: ""; }
+.panic-account h2 { display: inline; }
+.panic-account h2::before { content: "¿"; }
+.panic-account h2::after { content: "?"; }
+.panic-account > p:not(.panic-hint) { margin-top: 3px; color: var(--panic-muted); font-size: .88rem; }
+.panic-account .panic-actions { margin-top: 11px; }
+.panic-account .panic-hint { color: var(--panic-muted); }
+
+.panic-actions { flex-wrap: wrap; gap: 12px; margin: 13px 0 10px 45px; }
+.panic-secondary { justify-content: center; gap: 8px; min-height: 43px; padding: 9px 20px; border: 1px solid #8ca2bf; border-radius: 11px; background: transparent; color: var(--panic-text); font: inherit; font-size: .88rem; font-weight: 800; text-decoration: none; cursor: pointer; }
+.panic-secondary svg { width: 21px; height: 21px; }
+.panic-secondary:hover { border-color: var(--panic-red); color: var(--panic-red); }
+.panic-secondary:disabled { opacity: .55; cursor: wait; }
+.panic-actions .panic-secondary:last-child { min-width: 195px; }
+.panic-account .panic-actions .panic-secondary:last-child { border-color: transparent; background: linear-gradient(135deg, #fa1747, #ca002c); color: #fff; }
+
+.panic-map { width: calc(100% - 45px); height: clamp(195px, 21vw, 275px); margin-left: 45px; overflow: hidden; border: 1px solid rgb(148 174 205 / 58%); border-radius: 10px; background: #c5d0d9; }
+:root[data-theme="dark"] .panic-map .leaflet-tile { filter: brightness(.48) saturate(.9) hue-rotate(165deg); }
+.panic-map .leaflet-control-zoom a { color: #0b1b37; }
+.panic-hint { margin: 8px 0 0 45px !important; color: var(--panic-muted); font-size: .82rem; line-height: 1.35; }
+
+.panic-details-grid { display: grid; grid-template-columns: minmax(190px, .85fr) minmax(250px, 1.15fr); gap: 18px 28px; margin: 10px 0 0 45px; }
+.panic-details-grid label { display: grid; gap: 5px; color: var(--panic-text); font-size: .83rem; font-weight: 800; }
+.panic-details-grid select, .panic-details-grid textarea { width: 100%; border: 1px solid #8296b2; border-radius: 9px; background: var(--panic-field); color: var(--panic-text); font: inherit; font-size: .88rem; }
+.panic-details-grid select { min-height: 40px; padding: 8px 11px; }
+.panic-details-grid textarea { min-height: 58px; padding: 9px 11px; resize: vertical; }
+.panic-details-grid select:focus, .panic-details-grid textarea:focus, .panic-secondary:focus-visible, .panic-theme-switch button:focus-visible, .panic-sos:focus-visible { outline: 3px solid rgb(70 143 251 / 60%); outline-offset: 2px; }
+
+.panic-submit-panel { padding-bottom: 14px; }
+.panic-submit-panel .panic-panel-heading { margin-bottom: 9px; }
+.panic-sos { justify-content: center; gap: 14px; width: min(100% - 90px, 500px); min-height: 61px; margin: 0 0 0 45px; border: 0; border-radius: 15px; background: linear-gradient(135deg, #fb194b, #cb002f); box-shadow: 0 10px 18px rgb(201 0 45 / 26%); color: #fff; font: inherit; font-size: clamp(1.18rem, 1.7vw, 1.55rem); font-weight: 900; letter-spacing: -.02em; cursor: pointer; }
+.panic-sos svg { width: 32px; height: 32px; }
+.panic-sos:not(:disabled):hover { background: linear-gradient(135deg, #ff3160, #da0034); transform: translateY(-1px); }
+.panic-sos:disabled { box-shadow: none; cursor: not-allowed; filter: grayscale(.65); opacity: .52; }
+.panic-result { margin: 8px 0 0 45px !important; color: var(--panic-muted); font-size: .82rem; line-height: 1.35; }
+
+.rv-pulse-amber { animation: panic-pulse 1.6s ease-in-out infinite; }
+@keyframes panic-pulse { 50% { filter: drop-shadow(0 0 10px #f59e0b); } }
+
+@media (max-width: 1080px) {
+  .panic-topbar { padding-inline: 26px; }
+  .panic-shell { grid-template-columns: minmax(280px, .72fr) minmax(520px, 1.28fr); gap: 34px; width: min(100% - 36px, 1120px); }
+  .panic-brand-divider { margin-inline: 8px; }
 }
 
-.panic-call {
-  padding: 12px 16px;
-  background: #dc3545;
-  color: #fff;
-  border-radius: 12px;
-  font-weight: 800;
-  text-decoration: none;
+@media (max-width: 850px) {
+  .panic-topbar { min-height: 72px; }
+  .panic-shell { grid-template-columns: 1fr; width: min(100% - 32px, 700px); }
+  .panic-intro { padding: 0; }
+  .panic-lead { max-width: 630px; }
+  .panic-benefits { grid-template-columns: repeat(3, 1fr); }
+  .panic-benefit { align-items: flex-start; padding-right: 9px; }
+  .panic-benefit-icon { width: 43px; height: 43px; flex-basis: 43px; }
+  .panic-benefit strong { font-size: .9rem; }
+  .panic-benefit small { font-size: .76rem; }
 }
 
-.panic-intro h1 {
-  margin: 10px 0;
-  font-size: clamp(30px, 6vw, 46px);
+@media (max-width: 650px) {
+  .panic-page { background-attachment: scroll; }
+  .panic-topbar { align-items: flex-start; padding: 10px 16px; }
+  .panic-brand img { width: 45px; height: 45px; }
+  .panic-brand-name { font-size: 1.48rem; }
+  .panic-brand-divider, .panic-brand-tagline, .panic-home span { display: none; }
+  .panic-nav { gap: 8px; }
+  .panic-home { padding: 7px; }
+  .panic-home svg { width: 25px; height: 25px; }
+  .panic-call { min-height: 41px; padding: 8px 11px; border-radius: 10px; font-size: .82rem; }
+  .panic-call svg { width: 19px; height: 19px; }
+  .panic-theme-switch button { width: 33px; height: 33px; }
+  .panic-shell { width: min(100% - 20px, 700px); padding-top: 25px; }
+  .panic-benefits { grid-template-columns: 1fr; }
+  .panic-workspace { padding: 8px; border-radius: 20px; }
+  .panic-panel { padding: 16px; border-radius: 16px; }
+  .panic-account { padding-left: 62px; }
+  .panic-account::before { top: 20px; left: 17px; width: 29px; height: 29px; }
+  .panic-actions, .panic-map, .panic-hint, .panic-details-grid, .panic-sos, .panic-result { width: 100%; margin-left: 0; }
+  .panic-actions .panic-secondary { flex: 1 1 170px; min-width: 0; padding-inline: 10px; }
+  .panic-details-grid { grid-template-columns: 1fr; gap: 12px; }
+  .panic-sos { width: 100%; min-height: 57px; }
 }
 
-.panic-intro p,
-.panic-panel p {
-  line-height: 1.55;
-  color: #c9d3df;
+@media (prefers-reduced-motion: reduce) { .rv-pulse-amber { animation: none; } .panic-sos { transform: none !important; } }
+
+
+/* -------------------------------------------------------------------------
+   Final desktop fit, dark-theme contrast and account icon.
+   These rules are intentionally scoped to the panic page only.
+   ------------------------------------------------------------------------- */
+
+/* The background in dark mode must read as deep navy, not grey. */
+:root:not([data-theme="light"]) .panic-page {
+  background-color: #030d1d;
+  background-image:
+    linear-gradient(
+      112deg,
+      rgb(2 9 22 / 94%) 0%,
+      rgb(4 17 36 / 92%) 58%,
+      rgb(2 10 24 / 95%) 100%
+    ),
+    url("../img/panico-background.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
-.panic-eyebrow {
-  color: #ffbf69;
-  font-weight: 800;
-  letter-spacing: .1em;
+:root:not([data-theme="light"]) .panic-workspace {
+  background: rgb(5 21 43 / 94%);
+  border-color: #294766;
 }
 
-.panic-warning {
-  padding: 14px;
-  border-left: 4px solid #f59e0b;
-  background: #27313d;
-  border-radius: 8px;
+:root:not([data-theme="light"]) .panic-panel {
+  background: rgb(8 29 55 / 96%);
+  border-color: #294766;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 2%);
 }
 
-.panic-panel {
-  margin-top: 20px;
-  padding: 22px;
-  background: #1b2734;
-  border: 1px solid #344456;
-  border-radius: 18px;
+:root:not([data-theme="light"]) .panic-account {
+  background: rgb(7 27 52 / 98%);
 }
 
-.panic-panel h2 {
-  margin-top: 0;
-  font-size: 21px;
+:root:not([data-theme="light"]) .panic-benefit {
+  background: rgb(10 28 57 / 94%);
+  border-color: #233d61;
 }
 
-.panic-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 16px 0;
+:root:not([data-theme="light"]) .panic-details-grid select,
+:root:not([data-theme="light"]) .panic-details-grid textarea {
+  background: #06172d;
+  border-color: #7188a7;
+  color: #f7f9ff;
 }
 
-.panic-secondary {
-  padding: 12px 16px;
-  background: #304457;
-  color: #fff;
-  border: 1px solid #587087;
-  border-radius: 10px;
-  cursor: pointer;
+:root:not([data-theme="light"]) .panic-secondary {
+  border-color: #8299b8;
+  background: rgb(6 22 43 / 55%);
+  color: #f7f9ff;
 }
 
-.panic-map {
-  width: 100%;
-  height: 340px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #304457;
+:root:not([data-theme="light"]) .panic-secondary:hover {
+  border-color: #ff4969;
+  background: rgb(237 18 63 / 10%);
+  color: #ffffff;
 }
 
-.panic-panel label {
-  display: block;
-  margin: 14px 0 8px;
-  font-weight: 700;
+/* Match the dashboard: filter only the OSM tile pane, never markers or controls. */
+.panic-map .leaflet-tile-pane {
+  filter: none;
 }
 
-.panic-panel select,
-.panic-panel textarea {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 12px;
-  background: #101923;
-  color: #fff;
-  border: 1px solid #587087;
-  border-radius: 10px;
-  font: inherit;
+:root:not([data-theme="light"]) .panic-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.55);
 }
 
-.panic-submit-panel {
-  text-align: center;
+.panic-map .leaflet-marker-pane,
+.panic-map .leaflet-overlay-pane,
+.panic-map .leaflet-popup-pane,
+.panic-map .leaflet-control-container {
+  filter: none;
 }
 
-.panic-sos {
-  display: block;
-  width: min(100%, 340px);
-  min-height: 96px;
-  margin: 22px auto;
-  border: 4px solid #ff8992;
-  border-radius: 24px;
-  background: #d62839;
-  color: #fff;
-  font-size: 28px;
-  font-weight: 900;
-  cursor: pointer;
+/* Real user outline instead of the empty circular placeholder. */
+.panic-account::before {
+  top: 50%;
+  left: 25px;
+  width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 0;
+  background: url("../img/panic-account-user.svg") center / contain no-repeat;
 }
 
-.panic-sos:disabled {
-  opacity: .45;
-  cursor: not-allowed;
+/* Keep the desktop composition within the viewport, like the citizen
+   registration page. Tablet/mobile layouts below this breakpoint scroll. */
+@media (min-width: 851px) {
+  html {
+    height: 100%;
+  }
+
+  body.panic-page {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .panic-topbar {
+    flex: 0 0 82px;
+    height: 82px;
+    min-height: 82px;
+  }
+
+  .panic-shell {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+    align-items: stretch;
+    padding-top: clamp(10px, 1.8vh, 22px);
+    padding-bottom: clamp(10px, 1.8vh, 22px);
+  }
+
+  .panic-intro {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-self: stretch;
+    min-height: 0;
+  }
+
+  .panic-title-rule {
+    margin-top: 13px;
+    margin-bottom: 18px;
+  }
+
+  .panic-benefits {
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .panic-benefit {
+    min-height: 62px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .panic-benefit-icon {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+  }
+
+  .panic-workspace {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    gap: clamp(7px, 1vh, 11px);
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding: clamp(8px, 1vh, 12px);
+  }
+
+  .panic-panel {
+    padding-top: clamp(10px, 1.2vh, 16px);
+    padding-bottom: clamp(10px, 1.2vh, 16px);
+  }
+
+  .panic-account {
+    min-height: 104px;
+    padding-left: 82px;
+  }
+
+  .panic-account::before {
+    left: 22px;
+    width: 46px;
+    height: 46px;
+  }
+
+  .panic-account .panic-actions {
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .panic-location-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .panic-location-panel > .panic-actions {
+    flex: 0 0 auto;
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+
+  .panic-map {
+    flex: 1 1 auto;
+    width: calc(100% - 45px);
+    height: auto;
+    min-height: 132px;
+    max-height: none;
+  }
+
+  .panic-location-panel > .panic-hint {
+    flex: 0 0 auto;
+    margin-top: 6px !important;
+  }
+
+  .panic-details-grid {
+    margin-top: 7px;
+  }
+
+  .panic-submit-panel {
+    min-height: 94px;
+    padding-bottom: 10px;
+  }
+
+  .panic-submit-panel .panic-panel-heading {
+    margin-bottom: 6px;
+  }
+
+  .panic-sos {
+    min-height: 52px;
+  }
+
+  .panic-result {
+    margin-top: 5px !important;
+  }
 }
 
-.panic-result {
-  font-weight: 700;
+/* Compact desktop/laptop heights: preserve the single-screen layout. */
+@media (min-width: 851px) and (max-height: 800px) {
+  .panic-topbar {
+    flex-basis: 72px;
+    height: 72px;
+    min-height: 72px;
+  }
+
+  .panic-shell {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .panic-intro h1 {
+    font-size: clamp(2.35rem, 3.5vw, 3.25rem);
+  }
+
+  .panic-title-rule {
+    margin-top: 10px;
+    margin-bottom: 13px;
+  }
+
+  .panic-lead {
+    font-size: 1rem;
+    line-height: 1.38;
+  }
+
+  .panic-benefits {
+    gap: 7px;
+    margin-top: 14px;
+  }
+
+  .panic-benefit {
+    min-height: 56px;
+    padding: 6px 12px 6px 8px;
+  }
+
+  .panic-benefit-icon {
+    width: 43px;
+    height: 43px;
+    flex-basis: 43px;
+  }
+
+  .panic-workspace {
+    gap: 7px;
+    padding: 7px;
+  }
+
+  .panic-panel {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .panic-account {
+    min-height: 91px;
+  }
+
+  .panic-map {
+    min-height: 118px;
+  }
+
+  .panic-details-grid {
+    gap: 10px 18px;
+  }
+
+  .panic-submit-panel {
+    min-height: 82px;
+  }
+
+  .panic-sos {
+    min-height: 46px;
+  }
 }
 
-.panic-hint,
-.panic-footer {
-  font-size: 13px;
-  color: #aebdca;
+/* Very short desktop viewports can scroll rather than hide controls. */
+@media (min-width: 851px) and (max-height: 650px) {
+  body.panic-page {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .panic-topbar {
+    position: relative;
+  }
+
+  .panic-shell {
+    height: auto;
+    min-height: calc(100vh - 72px);
+    overflow: visible;
+  }
+
+  .panic-workspace {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .panic-location-panel {
+    display: block;
+    overflow: visible;
+  }
+
+  .panic-map {
+    height: 150px;
+  }
 }
 
-.panic-footer {
-  padding: 24px 0;
-  text-align: center;
+/* On narrow screens the whole form remains naturally scrollable. */
+@media (max-width: 850px) {
+  body.panic-page {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .panic-account::before {
+    top: 50%;
+    left: 15px;
+    width: 34px;
+    height: 34px;
+    transform: translateY(-50%);
+  }
 }
 
-.rv-pulse-amber {
-  animation: panic-pulse 1.6s ease-in-out infinite;
+
+/* -------------------------------------------------------------------------
+   Viewport lock: mirror the no-page-scroll behaviour of registro.html.
+   The map remains interactive; only the outer document is fixed on desktop.
+   ------------------------------------------------------------------------- */
+@media (min-width: 851px) {
+  html,
+  body.panic-page {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  html {
+    position: relative;
+  }
+
+  body.panic-page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .panic-topbar {
+    flex: 0 0 82px;
+    height: 82px;
+    min-height: 82px;
+  }
+
+  .panic-shell {
+    flex: 1 1 0;
+    width: min(100% - 48px, 1420px);
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    margin: 0 auto;
+    padding-top: clamp(8px, 1.3vh, 16px);
+    padding-bottom: clamp(8px, 1.3vh, 16px);
+    overflow: hidden;
+    align-items: stretch;
+  }
+
+  .panic-intro {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .panic-workspace {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    grid-template-rows: minmax(94px, auto) minmax(0, 1fr) minmax(126px, auto) minmax(88px, auto);
+    overflow: hidden;
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .panic-panel {
+    min-height: 0;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .panic-account {
+    min-height: 94px;
+    padding-top: 10px;
+    padding-bottom: 9px;
+  }
+
+  .panic-location-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .panic-location-panel > .panic-panel-heading {
+    flex: 0 0 auto;
+  }
+
+  .panic-location-panel > .panic-actions {
+    flex: 0 0 auto;
+    margin-top: 7px;
+    margin-bottom: 7px;
+  }
+
+  .panic-location-panel > .panic-map {
+    flex: 1 1 0;
+    width: calc(100% - 45px);
+    height: auto;
+    min-height: 90px;
+    max-height: none;
+  }
+
+  .panic-location-panel > .panic-hint {
+    flex: 0 0 auto;
+    margin-top: 5px !important;
+  }
+
+  .panic-details-grid {
+    min-height: 0;
+    margin-top: 6px;
+    gap: 8px 18px;
+  }
+
+  .panic-details-grid textarea {
+    min-height: 48px;
+    max-height: 60px;
+    resize: none;
+  }
+
+  .panic-details-grid select {
+    min-height: 38px;
+  }
+
+  .panic-submit-panel {
+    min-height: 88px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .panic-submit-panel .panic-panel-heading {
+    margin-bottom: 5px;
+  }
+
+  .panic-sos {
+    min-height: 47px;
+  }
+
+  .panic-result {
+    margin-top: 4px !important;
+  }
 }
 
-@keyframes panic-pulse {
-  50% { filter: drop-shadow(0 0 10px #f59e0b); }
+/* Laptop-height screens: compress spacing without shrinking text illegibly. */
+@media (min-width: 851px) and (max-height: 820px) {
+  .panic-topbar {
+    flex-basis: 72px;
+    height: 72px;
+    min-height: 72px;
+  }
+
+  .panic-shell {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .panic-benefits {
+    gap: 7px;
+    margin-top: 14px;
+  }
+
+  .panic-benefit {
+    min-height: 54px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  .panic-benefit-icon {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
+  .panic-title-rule {
+    margin-top: 9px;
+    margin-bottom: 12px;
+  }
+
+  .panic-lead {
+    line-height: 1.35;
+  }
+
+  .panic-workspace {
+    grid-template-rows: minmax(84px, auto) minmax(0, 1fr) minmax(112px, auto) minmax(78px, auto);
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .panic-panel {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .panic-account {
+    min-height: 84px;
+  }
+
+  .panic-map {
+    min-height: 75px;
+  }
+
+  .panic-details-grid textarea {
+    min-height: 42px;
+    max-height: 52px;
+  }
+
+  .panic-details-grid select {
+    min-height: 35px;
+  }
+
+  .panic-submit-panel {
+    min-height: 78px;
+  }
+
+  .panic-sos {
+    min-height: 43px;
+  }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .rv-pulse-amber { animation: none; }
+/* If the available desktop height is genuinely too small, prefer scrolling
+   over clipping important content or hiding the SOS controls. */
+@media (min-width: 851px) and (max-height: 620px) {
+  html,
+  body.panic-page {
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+  }
+
+  body.panic-page {
+    display: block;
+    min-height: 100vh;
+  }
+
+  .panic-topbar {
+    position: relative;
+  }
+
+  .panic-shell {
+    height: auto;
+    min-height: calc(100vh - 72px);
+    overflow: visible;
+  }
+
+  .panic-workspace {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .panic-location-panel {
+    display: block;
+    overflow: visible;
+  }
+
+  .panic-location-panel > .panic-map {
+    height: 180px;
+  }
 }
 
-@media (max-width: 540px) {
-  .panic-shell { width: min(100% - 20px, 780px); }
-  .panic-panel { padding: 15px; }
-  .panic-map { height: 280px; }
-  .panic-secondary { flex: 1; }
-}
+/* Mobile and tablet pages are naturally scrollable. */
+@media (max-width: 850px) {
+  html,
+  body.panic-page {
+    height: auto;
+    min-height: 100%;
+    overflow: auto;
+  }
 
-/* DT-13: the account of the button */
-.panic-account p {
-  margin: 0 0 10px;
-}
+  body.panic-page {
+    display: block;
+    min-height: 100vh;
+  }
 
-.panic-account a.panic-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-}
+  .panic-shell {
+    height: auto;
+    overflow: visible;
+  }
 
-/* CU-23: citizen registration (registro.html) */
-.register-form input[type="text"],
-.register-form input[type="email"],
-.register-form input[type="password"] {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 12px;
-  background: #101923;
-  color: #fff;
-  border: 1px solid #587087;
-  border-radius: 10px;
-  font: inherit;
-}
-
-.register-form input:focus-visible {
-  outline: 3px solid #80b5ff;
-  outline-offset: 1px;
-}
-
-.register-form .panic-hint {
-  margin: 6px 0 0;
-}
-
-.register-form a {
-  color: #9cc6ff;
-}
-
-.panic-panel label.register-consent {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-top: 20px;
-  font-weight: 500;
-  line-height: 1.45;
-}
-
-.register-consent input {
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
-  flex: 0 0 auto;
-}
-
-.register-submit {
-  min-height: 64px;
-  font-size: 22px;
-}
-
-.register-message {
-  margin: 0 0 8px;
-  padding: 10px 14px;
-  border: 1px solid #3b82f6;
-  border-radius: 10px;
-  background: rgba(59, 130, 246, .12);
-  font-weight: 700;
-}
-
-.register-message.is-error {
-  border-color: #ff6674;
-  background: rgba(229, 72, 77, .14);
-  color: #ffb3b9;
+  .panic-workspace {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
 }

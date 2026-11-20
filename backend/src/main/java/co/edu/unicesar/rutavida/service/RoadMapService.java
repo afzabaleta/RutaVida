@@ -5,7 +5,11 @@ import co.edu.unicesar.rutavida.dto.DispatchResult;
 import co.edu.unicesar.rutavida.dto.DispatchedMission;
 import co.edu.unicesar.rutavida.dto.IncidentView;
 import co.edu.unicesar.rutavida.dto.MissionRoute;
+import co.edu.unicesar.rutavida.dto.NearbySegment;
 import co.edu.unicesar.rutavida.dto.SegmentView;
+import co.edu.unicesar.rutavida.exception.BusinessRuleException;
+import co.edu.unicesar.rutavida.graph.Edge;
+import co.edu.unicesar.rutavida.graph.RoadGraph;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.RoadIncident;
 import co.edu.unicesar.rutavida.model.Route;
@@ -21,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -40,10 +45,47 @@ public class RoadMapService {
             .thenComparingDouble(Route::getEstimatedMinutes)
             .thenComparingLong(Route::getId);
 
-    private final RoadMapDAO mapDao;
+    /** A click farther than this from every street does not choose a segment (9.4). */
+    public static final double NEAREST_MAX_METERS = 150;
 
+    private final RoadMapDAO mapDao;
+    private final Supplier<RoadGraph> graph;
+
+    /** Without the road graph: nearestSegment is not available. */
     public RoadMapService(RoadMapDAO mapDao) {
+        this(mapDao, null);
+    }
+
+    /** graph is read when nearestSegment needs it: the server loads it from Oracle at start. */
+    public RoadMapService(RoadMapDAO mapDao, Supplier<RoadGraph> graph) {
         this.mapDao = Objects.requireNonNull(mapDao, "mapDao");
+        this.graph = graph;
+    }
+
+    /**
+     * The street segment closest to a point (docs/api.md 9.4), with the same street in the
+     * other direction when it is two-way, so an incident can be reported on both.
+     */
+    public NearbySegment nearestSegment(GeoPoint point) {
+        ValidationUtil.requireNonNull(point, "punto");
+        RoadGraph roads = graph == null ? null : graph.get();
+        if (roads == null || roads.edgeCount() == 0) {
+            throw new BusinessRuleException("La red vial no está cargada en este servidor.");
+        }
+        int index = roads.nearestEdge(point.latitude(), point.longitude());
+        double meters = roads.distanceToEdgeMeters(index, point.latitude(), point.longitude());
+        if (meters > NEAREST_MAX_METERS) {
+            throw new BusinessRuleException("No hay ninguna calle de la red vial a menos de "
+                    + (int) NEAREST_MAX_METERS + " m de ese punto. Haga clic sobre una calle.");
+        }
+        Edge edge = roads.edge(index);
+        int reverse = roads.reverseEdge(index);
+        Long reverseId = reverse < 0 ? null : roads.edge(reverse).dbId();
+        SegmentView view = mapDao.segmentViews(List.of(edge.dbId())).stream().findFirst()
+                .orElseThrow(() -> new BusinessRuleException("El tramo " + edge.dbId()
+                        + " ya no está en la base: reinicie el servidor para recargar la red vial."));
+        return new NearbySegment(edge.dbId(), reverseId, view.streetName(), view.from(), view.to(),
+                Math.round(meters * 10) / 10.0);
     }
 
     /** The incidents with their segments, in the same order. */

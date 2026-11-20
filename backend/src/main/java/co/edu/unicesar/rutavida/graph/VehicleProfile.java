@@ -4,7 +4,7 @@ package co.edu.unicesar.rutavida.graph;
  * How an emergency vehicle is affected by traffic. The relief values are assumptions to
  * calibrate (consolidated document, section 8.2), not measured data.
  *
- * @param type             vehicle type name (AMBULANCIA, BOMBERO)
+ * @param type             vehicle type name (AMBULANCIA, BOMBERO, POLICIA)
  * @param congestionRelief 0..1: share of the congestion the vehicle avoids
  * @param signalRelief     0..1: share of the traffic light wait the vehicle avoids
  * @param maxKmh           top speed of the vehicle
@@ -13,6 +13,8 @@ public record VehicleProfile(String type, double congestionRelief, double signal
 
     public static final VehicleProfile AMBULANCE = new VehicleProfile("AMBULANCIA", 0.35, 0.60, 90);
     public static final VehicleProfile FIRE_TRUCK = new VehicleProfile("BOMBERO", 0.25, 0.50, 80);
+    /** A patrol on its round (DT-10): no emergency, so it waits in the traffic like any car. */
+    public static final VehicleProfile PATROL = new VehicleProfile("POLICIA", 0.0, 0.0, 50);
 
     public static VehicleProfile forType(String typeName) {
         if (AMBULANCE.type().equals(typeName)) {
@@ -20,6 +22,9 @@ public record VehicleProfile(String type, double congestionRelief, double signal
         }
         if (FIRE_TRUCK.type().equals(typeName)) {
             return FIRE_TRUCK;
+        }
+        if (PATROL.type().equals(typeName)) {
+            return PATROL;
         }
         throw new IllegalArgumentException("No vehicle profile for type " + typeName);
     }

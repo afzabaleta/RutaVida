@@ -1,7 +1,8 @@
 // Dispatch page (CU-08, CU-09, CU-10 and CU-12). The units that can go come ordered by the time
 // the route engine calculates over the streets (6.1); the chosen unit shows its 3 routes without
 // saving anything (6.2); the dispatch is one transaction in the server (6.3); and then the page
-// follows the mission: its routes (6.4), its status (6.6) and the closing of the emergency (6.7).
+// follows the mission: its routes (6.4), its status (6.6), the transfer to a hospital (6.5 and
+// 6.6, CU-11) and the closing of the emergency (6.7).
 
 import {
   changeMissionStatus,
@@ -13,8 +14,10 @@ import {
   listCandidates,
   listEmergencies,
   listMissionRoutes,
+  listTransferHospitals,
   listUnits,
   previewRoutes,
+  startTransfer,
   typeLabel,
 } from "./api-client.js";
 
@@ -31,6 +34,7 @@ import {
 import { iconMarker, placeIcon, UNIT_Z, unitIcon, unitSlots } from "./map-icons.js";
 
 import { drawRoutes } from "./dispatch-routes.js";
+import { startDispatchLive } from "./dispatch-live.js";
 
 const MINUTES = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 const KM = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
@@ -45,7 +49,13 @@ const MISSION_ACTIONS = {
     { status: "EN_SITIO", text: "Llegó al sitio (EN_SITIO)" },
     { status: "CANCELADA", text: "Cancelar asignación" },
   ],
+  TRASLADANDO: [
+    { status: "FINALIZADA", text: "Llegó al hospital: finalizar misión" },
+  ],
 };
+
+/** Only an ambulance transfers a patient (DispatchService.TRANSFER_VEHICLE). */
+const TRANSFER_VEHICLE = "AMBULANCIA";
 
 /** Emergencies that can be closed (DispatchService.CLOSABLE): REPORTADA only as a false alarm. */
 const CLOSABLE = ["REPORTADA", "EN_SITIO", "TRASLADANDO"];
@@ -61,6 +71,13 @@ let mission = null;
 let busy = false;
 let confirmingClose = false;
 const unitCodes = new Map();
+const unitTypes = new Map();
+let hospitalLayer = null;
+
+/** Follow-up of the open mission every 5 s (dispatch-live.js); null without permission. */
+let live = null;
+/** The hospitals offered for the transfer of the mission on screen (6.5); null = not asked yet. */
+let transferOptions = null;
 
 const canDispatch = () => hasPermission(session, "DESPACHO:GESTIONAR");
 const canPreview = () => hasPermission(session, "RUTAS:GESTIONAR");
@@ -103,6 +120,7 @@ async function learnUnitCode(vehicleId) {
   try {
     for (const unit of await listUnits()) {
       unitCodes.set(unit.id, unit.code);
+      unitTypes.set(unit.id, unit.type);
     }
   } catch {
     // Without UNIDADES:CONSULTAR the mission shows "Unidad 7".
@@ -257,6 +275,124 @@ function renderClose(box) {
   box.appendChild(area);
 }
 
+/** True if the unit of the mission can transfer, or if this role cannot read its type. */
+function canTransfer() {
+  const type = unitTypes.get(mission.vehicleId);
+  return type === undefined || type === TRANSFER_VEHICLE;
+}
+
+function drawHospitals(options) {
+  hospitalLayer?.clearLayers();
+  if (!hospitalLayer) {
+    return;
+  }
+  for (const option of options) {
+    if (option.location) {
+      hospitalLayer.addLayer(iconMarker(map, option.location, placeIcon("hospital"),
+        `${option.name} · ${MINUTES.format(option.etaMinutes)} min`));
+    }
+  }
+}
+
+/** CU-11: the coordinator asks for the hospitals (6.5) and chooses one (6.6). */
+function renderTransfer(box) {
+  const area = document.createElement("div");
+  area.className = "transfer-area";
+
+  if (!canTransfer()) {
+    addText(area, "p",
+      `${unitName(mission.vehicleId)} no es una ambulancia: no traslada pacientes. `
+        + "Cuando termine la atención, cierra la emergencia.",
+      "status-text");
+    box.appendChild(area);
+    return;
+  }
+
+  if (transferOptions === null) {
+    addText(area, "p",
+      "¿El paciente va a un hospital? Elige el destino; si no hay traslado, cierra la emergencia.",
+      "status-text");
+    addButton(area, "Elegir hospital para el traslado", "primary-button", loadTransferOptions);
+    box.appendChild(area);
+    return;
+  }
+
+  if (transferOptions.length === 0) {
+    addText(area, "p",
+      "Ningún hospital activo con URGENCIAS se alcanza por la red vial cargada.", "empty-state");
+    box.appendChild(area);
+    return;
+  }
+
+  addText(area, "p", "Hospitales, el más conveniente primero (tiempo con el tráfico actual):",
+    "status-text");
+  const list = document.createElement("div");
+  list.className = "hospital-options";
+  for (const [index, option] of transferOptions.entries()) {
+    const card = document.createElement("article");
+    card.className = "hospital-option";
+    const top = document.createElement("div");
+    top.className = "hospital-option-top";
+    addText(top, "h3", option.name);
+    if (index === 0) {
+      top.appendChild(makeTag("RECOMENDADO", true));
+    }
+    card.appendChild(top);
+    addText(card, "p",
+      `Nivel ${option.level} · ${MINUTES.format(option.etaMinutes)} min · ${KM.format(option.distanceKm)} km`);
+    if (!option.serviceConfirmed) {
+      addText(card, "p",
+        "Urgencias sin confirmar: suma 10 min al orden (RN-10).", "hospital-unconfirmed");
+    }
+    addButton(card, "Trasladar aquí", index === 0 ? "primary-button" : "secondary-button",
+      () => transferTo(option));
+    list.appendChild(card);
+  }
+  area.appendChild(list);
+  box.appendChild(area);
+}
+
+async function loadTransferOptions() {
+  if (busy) {
+    return;
+  }
+  busy = true;
+  renderPanel();
+  try {
+    transferOptions = await listTransferHospitals(mission.id);
+    drawHospitals(transferOptions);
+    hideMessage();
+  } catch (error) {
+    transferOptions = null;
+    showMessage(error.message, true);
+  } finally {
+    busy = false;
+    renderPanel();
+  }
+}
+
+async function transferTo(option) {
+  if (busy) {
+    return;
+  }
+  busy = true;
+  renderPanel();
+  try {
+    mission = await startTransfer(mission.id, option.hospitalId);
+    showMessage(`Misión ${mission.id}: TRASLADANDO a ${option.name}. `
+      + "La simulación lleva la ambulancia por la ruta ACTIVA.");
+    drawHospitals([option]);
+    await loadEmergency(current.id, false);
+  } catch (error) {
+    // 409: the mission changed or the hospital can no longer receive; the list is asked again.
+    showMessage(error.message, true);
+    transferOptions = null;
+  } finally {
+    busy = false;
+    renderPanel();
+  }
+}
+
 function renderPanel() {
   const box = byId("dispatch-summary");
   box.replaceChildren();
@@ -281,9 +417,11 @@ function renderPanel() {
       box.appendChild(row);
     }
 
-    if (mission.status === "EN_SITIO") {
+    if (mission.status === "EN_SITIO" && canDispatch()) {
+      renderTransfer(box);
+    } else if (mission.status === "TRASLADANDO") {
       addText(box, "p",
-        "El traslado al hospital (TRASLADANDO) llega con K7b. Si no hay traslado, cierra la emergencia.",
+        "La ambulancia va al hospital por la ruta ACTIVA. Cuando llegue, finaliza la misión.",
         "status-text");
     }
   } else if (current.status === "REPORTADA" && canDispatch()) {
@@ -353,8 +491,9 @@ async function showMissionRoutes() {
     }
     drawRoutes(map, routeLayer, routes, byId("route-list"));
     setRouteTag("MISIÓN", true);
-    byId("route-note").textContent =
-      "Rutas guardadas en Oracle al despachar: la ACTIVA es la que sigue la unidad.";
+    byId("route-note").textContent = mission.status === "TRASLADANDO"
+      ? "Rutas al hospital guardadas en Oracle al iniciar el traslado: la ACTIVA es la que sigue la ambulancia."
+      : "Rutas guardadas en Oracle al despachar: la ACTIVA es la que sigue la unidad.";
   } catch (error) {
     clearRoutes(error.message);
   }
@@ -372,6 +511,7 @@ async function dispatch() {
     const result = await dispatchUnit(current.id, selected.vehicleId);
     unitCodes.set(selected.vehicleId, selected.unitCode);
     mission = result.assignment;
+    live?.follow(mission);
     candidates = [];
     current = (await findEmergency(current.id)) ?? current;
     drawMarkers();
@@ -424,6 +564,7 @@ async function close() {
   try {
     current = await closeEmergency(current.id);
     mission = null;
+    live?.follow(null);
     candidates = [];
     selected = null;
     showMessage(`Emergencia ${current.code} cerrada.`);
@@ -437,6 +578,23 @@ async function close() {
     busy = false;
     confirmingClose = false;
     renderPanel();
+  }
+}
+
+/** The simulation changed the open mission: read it again and say what happened. */
+async function missionChanged(kind, tracked) {
+  const id = mission?.id;
+
+  const text = kind === "status"
+    ? `Misión ${id}: la unidad pasó a ${tracked.status} (simulación).`
+    : kind === "route"
+      ? `Misión ${id}: el sistema recalculó la ruta por el tráfico o un cierre (SIMULACION).`
+      : `Misión ${id} terminada.`;
+
+  await loadEmergency(current.id, false);
+
+  if (kind !== "ended" || !mission) {
+    showMessage(text);
   }
 }
 
@@ -455,15 +613,15 @@ function routeHint() {
 }
 
 /**
- * Reads the emergency again and shows what fits its status: the units that can go if it is
- * REPORTADA, or its open mission. The page does not ask by itself every few seconds: those
- * queries would keep the session alive (DT-08). The live follow-up arrives with /api/tracking.
+ * Reads the emergency again and shows its available units or open mission.
+ * D13 follows the open mission through automatic /api/tracking queries.
  */
 async function loadEmergency(id, resetMessage = true) {
   selected = null;
   mission = null;
   candidates = [];
   confirmingClose = false;
+  transferOptions = null;
   if (resetMessage) {
     hideMessage();
   }
@@ -485,6 +643,7 @@ async function loadEmergency(id, resetMessage = true) {
         candidates = await listCandidates(current.id);
         for (const unit of candidates) {
           unitCodes.set(unit.vehicleId, unit.unitCode);
+          unitTypes.set(unit.vehicleId, unit.vehicleType);
         }
       }
     } else if (current.status !== "CERRADA") {
@@ -492,6 +651,9 @@ async function loadEmergency(id, resetMessage = true) {
       if (mission) {
         await learnUnitCode(mission.vehicleId);
       }
+    }
+    if (mission?.status !== "TRASLADANDO") {
+      hospitalLayer?.clearLayers();
     }
   } catch (error) {
     showMessage(error.message, true);
@@ -501,6 +663,8 @@ async function loadEmergency(id, resetMessage = true) {
   drawMarkers();
   renderCandidates();
   renderPanel();
+
+  live?.follow(mission);
 
   if (mission) {
     await showMissionRoutes();
@@ -528,7 +692,14 @@ async function initialize() {
   if (map) {
     markerLayer = L.layerGroup().addTo(map);
     routeLayer = L.layerGroup().addTo(map);
+    hospitalLayer = L.layerGroup().addTo(map);
   }
+
+  live = startDispatchLive(map, session, {
+    status: byId("map-live"),
+    isBusy: () => busy,
+    onChange: missionChanged,
+  });
 
   byId("dispatch-button").addEventListener("click", dispatch);
   byId("refresh-button").addEventListener("click", () => {

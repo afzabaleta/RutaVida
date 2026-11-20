@@ -134,6 +134,7 @@ El servidor registra el detalle técnico en el log, nunca en la respuesta.
 | 50 | `GET` | `/api/reports/operations` | `REPORTES/CONSULTAR` | RF-11 |
 | 51 | `GET` | `/api/panic/emergency-types` | Ninguno (pública, solo lectura) | CU-22 |
 | 52 | `POST` | `/api/citizens` | Ninguno (pública, máximo 10 cuentas por hora por dirección de red) | CU-23 |
+| 53 | `GET` | `/api/road/segments/nearest?lat=&lon=` | `RED_VIAL/CONSULTAR` | CU-13 |
 
 "Sesión" significa que basta con un token válido, sin un permiso específico.
 
@@ -273,7 +274,7 @@ Las rutas del historial no traen el trazado: el historial es para leer, no para 
 
 ## 6. Despacho y rutas
 
-Estado: 6.1, 6.2, 6.3, 6.4 y 6.6 (A12d) y 6.7 (A16) están programadas. 6.5 y el paso a `TRASLADANDO` esperan el traslado al hospital (CU-11, K7b).
+Estado: 6.1 a 6.4 y 6.6 (A12d), 6.7 (A16) y 6.5 con el paso a `TRASLADANDO` (A25, sobre K10) están programadas.
 
 ### 6.1 `GET /api/emergencies/{id}/candidates`
 
@@ -373,17 +374,22 @@ La web vuelve a pedir esta ruta cuando `/api/tracking` indica que cambió `route
 
 ### 6.5 `GET /api/dispatches/{id}/hospitals`
 
-Hospitales operativos para el traslado (CU-11), el más conveniente primero:
+Hospitales para el traslado de la misión `{id}` (CU-11, RN-10), el más conveniente primero. Permiso `DESPACHO/GESTIONAR`.
+
+- Solo entran los hospitales **activos** que ofrecen `URGENCIAS` y a los que se llega por la red vial cargada.
+- El orden es por `scoreMinutes`: el tiempo de la mejor ruta desde la ambulancia, con el tráfico actual, más **10 minutos** si el hospital no ha confirmado el servicio (`serviceConfirmed: false`). Hoy ninguno está confirmado en la base (`disponible = 'N'`), así que todos suman lo mismo y el orden queda por tiempo.
 
 ```json
 { "success": true, "message": null, "value": [
   { "hospitalId": 1, "name": "HOSPITAL ROSARIO PUMAREJO DE LOPEZ", "level": "II",
     "location": { "latitude": 10.469330, "longitude": -73.254520 },
-    "etaMinutes": 4.2, "distanceKm": 1.65 }
+    "etaMinutes": 4.2, "distanceKm": 1.65, "serviceConfirmed": false, "scoreMinutes": 14.2 }
 ] }
 ```
 
-`409` si la misión no está `EN_SITIO`.
+Los números del ejemplo son ilustrativos; los reales los calcula el servidor.
+
+Errores: `409` si la misión no está `EN_SITIO` o la unidad no es una ambulancia; `404` si la misión no existe. Una lista vacía (`200`) quiere decir que ningún hospital cumple las condiciones.
 
 ### 6.6 `PATCH /api/dispatches/{id}/status`
 
@@ -401,9 +407,13 @@ Para pasar a `TRASLADANDO` se envía también el hospital (CU-11):
 { "status": "TRASLADANDO", "hospitalId": 1 }
 ```
 
-Salida `200`: la asignación actualizada (forma de 6.3). Con `TRASLADANDO`, el servidor calcula y guarda las rutas al hospital, y la web las lee con 6.4.
+Salida `200`: la asignación actualizada (forma de 6.3). Con `TRASLADANDO`, el servidor calcula y guarda las rutas al hospital en la misma transacción: la recomendada queda `ACTIVA` y las otras `PROPUESTA`. La web las lee con 6.4 y el simulador lleva la ambulancia por la `ACTIVA`. Al llegar al hospital la misión **sigue** en `TRASLADANDO`: el coordinador la pasa a `FINALIZADA`, lo que termina las rutas y libera la ambulancia.
 
-Errores: `409` con `"No se puede cambiar la asignación de ASIGNADA a TRASLADANDO."` si la transición no está permitida; `400` si falta `hospitalId` al pasar a `TRASLADANDO`. Mientras no esté CU-11 (K7b), `TRASLADANDO` responde `400` con `"El traslado necesita el hospital de destino (CU-11, pendiente)."`.
+Errores:
+- `400` con `"Para el traslado elija el hospital de destino (hospitalId)."` si falta `hospitalId` al pasar a `TRASLADANDO`.
+- `400` con `"El hospital (hospitalId) solo se envía con el estado TRASLADANDO."` si se manda `hospitalId` con otro estado.
+- `409` si la transición no está permitida (por ejemplo, `"No se puede cambiar la asignación de ASIGNADA a FINALIZADA."`), si se pide `TRASLADANDO` y la misión no está `EN_SITIO` o la unidad no es una ambulancia, o si ese hospital no puede recibir el traslado (inactivo, sin `URGENCIAS` o sin camino por la red vial).
+- `404` si la misión o el hospital no existen.
 
 La llegada al sitio (`EN_SITIO`) también la puede marcar el simulador por su cuenta.
 
@@ -530,6 +540,22 @@ Salida `201`: el incidente (forma de 9.1). `400` si el tramo no existe o el tipo
 
 Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RECHAZADO" }` o `{ "status": "CERRADO" }`. Al pasar a `ACTIVO` o `CERRADO`, el motor de rutas lo tiene en cuenta en el siguiente ciclo de la simulación (unos segundos) y se revisan las rutas activas (CU-17, K8 y K9). Salida `200`: el incidente (forma de 9.1). `400` si falta `status`; `404` si el incidente no existe. `409` si la transición no está permitida (`IncidentService`).
 
+### 9.4 `GET /api/road/segments/nearest?lat=10.4621&lon=-73.2570`
+
+El tramo de la red vial más cercano a un punto del mapa, para registrar un incidente con un clic sobre la calle (CU-13). Permiso `RED_VIAL/CONSULTAR` (operador, coordinador y administrador). Es una acción del usuario: mantiene viva la sesión.
+
+```json
+{ "success": true, "message": null, "value": {
+   "segmentId": 413, "reverseSegmentId": 414, "streetName": "Calle 16",
+   "from": { "latitude": 10.468901, "longitude": -73.258004 },
+   "to": { "latitude": 10.468377, "longitude": -73.260112 },
+   "distanceMeters": 6.4 } }
+```
+
+- La distancia se mide a la **línea** del tramo, no a sus esquinas, sobre la red que el servidor tiene en memoria (la que cargó al arrancar).
+- `reverseSegmentId` es la misma calle en el otro sentido; `null` si la calle es de un solo sentido. En la red, cada sentido es un tramo, así que un cierre de las dos calzadas son **dos** incidentes, uno por tramo.
+- Errores: `400` si falta `lat` o `lon`, no son números o están fuera de rango; `409` si no hay ninguna calle a menos de **150 m** («Haga clic sobre una calle») o si la red vial no está cargada.
+
 ## 10. Simulación (CU-19)
 
 ### 10.1 `GET /api/simulation`
@@ -544,6 +570,8 @@ Valida o cierra un incidente (CU-14): `{ "status": "ACTIVO" }`, `{ "status": "RE
 Sin cuerpo. Inician o detienen el simulador. Salida `200`: el estado de 10.1. Iniciar uno que ya corre (o detener uno detenido) no es error: responde el estado actual.
 
 El servidor arranca con la simulación **detenida**. Al iniciarla, cada `tickSeconds` (2 s) mueve las unidades con misión, cambia el tráfico cada 15 s, aplica los incidentes `ACTIVO`, recalcula las rutas afectadas y guarda posiciones y tráfico con fuente `SIMULACION` (K9). Las rutas del despacho y la simulación usan el mismo grafo: el tráfico simulado cambia los tiempos de las rutas nuevas. Al detener el servidor, la simulación se detiene.
+
+**Cuánto tráfico simula:** en cada cambio (cada 15 s) el 3 % de los tramos recibe un nivel nuevo y lo conserva hasta que vuelve a salir. La mayor parte de la ciudad fluye: los trancones caen sobre todo en las vías principales (velocidad base de 40 km/h o más, las avenidas de OpenStreetMap) y son más frecuentes en las horas pico supuestas (6:30–8:30, 11:30–13:30 y 17:00–19:00). Con la red de Valledupar queda con tráfico cerca del 4 % de los tramos fuera de la hora pico y cerca del 9 % en la hora pico. Son supuestos para calibrar con datos reales, no mediciones.
 
 ### 10.3 `POST /api/simulation/traffic`
 

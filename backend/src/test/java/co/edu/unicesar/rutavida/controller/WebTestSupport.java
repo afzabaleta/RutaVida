@@ -61,7 +61,8 @@ public final class WebTestSupport {
                 new Permission(17L, "DESPACHO", "CONSULTAR", "Ver asignaciones"),
                 new Permission(18L, "DESPACHO", "GESTIONAR", "Asignar unidades y actualizar el estado de la mision"),
                 new Permission(9L, "TRAFICO", "CONSULTAR", "Ver estado del trafico"),
-                new Permission(10L, "TRAFICO", "GESTIONAR", "Registrar trafico y controlar el simulador"))));
+                new Permission(10L, "TRAFICO", "GESTIONAR", "Registrar trafico y controlar el simulador"),
+                new Permission(19L, "RED_VIAL", "CONSULTAR", "Ver nodos, tramos y semaforos"))));
         String hash = hasher.hash(PASSWORD.toCharArray());
         LocalDateTime registered = LocalDateTime.now(clock);
         userDao.insert(new User(0L, 2L, "1000000001", "Ana", "Pérez", "ana.perez@ejemplo.com",
