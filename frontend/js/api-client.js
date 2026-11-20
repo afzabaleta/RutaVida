@@ -680,3 +680,37 @@ export function saveRecord(collection, id, body) {
 export function changeRecordStatus(collection, id, status) {
   return request("PATCH", `${adminPath(collection, id)}/status`, { status });
 }
+
+
+ // ------------------------------------------------------------------ Report a road incident (CU-13)
+
+/**
+ * The street segment closest to a point of the map (docs/api.md 9.4), with its two ends as
+ * [lat, lng]. reverseSegmentId is the same street in the other direction (null if one-way).
+ */
+export async function findNearestSegment(latitude, longitude) {
+    const query = `lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`;
+    const segment = await request("GET", `/api/road/segments/nearest?${query}`);
+    return { ...segment, path: [toPoint(segment.from), toPoint(segment.to)] };
+}
+
+/** Registers a road incident (9.2): it enters PENDIENTE and does not change any route yet. */
+export function reportIncident({ segmentId, type, severity, blocksSegment, description }) {
+    return request("POST", "/api/incidents", { segmentId, type, severity, blocksSegment, description });
+}
+
+// ------------------------------------------------------------------ Audit (CU-21)
+
+/**
+ * Entries of AUDITORIA (docs/api.md 15.13), the newest first.
+ */
+export function listAudit(filters = {}) {
+    const query = new URLSearchParams();
+    for (const [name, value] of Object.entries(filters)) {
+        if (value !== null && value !== undefined && String(value).trim() !== "") {
+            query.set(name, String(value).trim());
+        }
+    }
+    const text = query.toString();
+    return request("GET", `/api/audit${text ? `?${text}` : ""}`);
+}

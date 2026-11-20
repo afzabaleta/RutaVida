@@ -39,6 +39,13 @@ const MENU = [
     href: "./reportes.html",
     permission: "REPORTES:CONSULTAR",
   },
+{
+    group: "ANÁLISIS",
+    label: "Auditoría",
+    icon: "clock",
+    href: "./auditoria.html",
+    permission: "AUDITORIA:CONSULTAR",
+},
   {
     group: "CIUDADANOS",
     label: "Botón de pánico",

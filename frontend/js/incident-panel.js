@@ -262,4 +262,6 @@ export function startIncidents(map, session, { list, pill, message }, onChange) 
 
   refresh();
   setInterval(refresh, REFRESH_MS);
+  // The incident form (CU-13) refreshes the list right after a report.
+  return { refresh };
 }

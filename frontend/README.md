@@ -489,3 +489,53 @@ El centro de operaciones permite controlar la simulación de unidades y visualiz
 Todos los movimientos y datos de tráfico son simulados. No corresponden a GPS ni a tráfico real.
 
 El cálculo y recálculo de rutas es responsabilidad del backend. El frontend consulta y representa los resultados.
+
+
+
+## Formulario de incidentes (CU-13)
+
+Permite al operador reportar accidentes, cierres de vías, obras,
+manifestaciones y otros incidentes desde el mapa del panel de control.
+
+### Funcionamiento
+
+- Selección del tramo vial mediante un clic en el mapa.
+- Registro del tipo, severidad y descripción del incidente.
+- Posibilidad de reportar incidentes en ambos sentidos de la vía.
+- Actualización inmediata de la lista de incidentes.
+- Los incidentes se registran inicialmente como PENDIENTE.
+- Solo afectan las rutas después de ser validados, según la RN-05.
+
+### Permisos requeridos
+
+- `INCIDENTES:GESTIONAR`
+- `RED_VIAL:CONSULTAR`
+
+### Endpoints de la API
+
+- `GET /api/road/segments/nearest`
+- `POST /api/incidents`
+
+## Auditoría (CU-21)
+
+Permite consultar el registro de operaciones almacenadas en la tabla
+AUDITORIA de Oracle desde la sección Análisis del menú lateral.
+
+### Funcionalidades
+
+- Consulta de operaciones por fecha y hora.
+- Filtros por módulo, usuario y resultado.
+- Diferenciación visual entre operaciones exitosas y fallidas.
+- Consulta rápida de la última hora, 24 horas y 7 días.
+- Descarga de registros en formato CSV compatible con Excel.
+- Máximo de 500 registros por consulta.
+- Periodo máximo de consulta de 31 días.
+- Pantalla de solo lectura.
+
+### Permiso requerido
+
+- `AUDITORIA:CONSULTAR`
+
+### Endpoint de la API
+
+- `GET /api/audit`
