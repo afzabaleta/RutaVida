@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <meta name="theme-color" content="#101923">
+  <title>RutaVida | Administración</title>
+  <script src="./js/theme-boot.js"></script>
+  <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/rutavida.css">
+  <link rel="stylesheet" href="./css/dashboard.css">
+  <link rel="stylesheet" href="./css/app-shell.css">
+  <link rel="stylesheet" href="./css/operacion.css">
+  <link rel="stylesheet" href="./css/reportes.css">
+  <link rel="stylesheet" href="./css/admin.css">
+  <link rel="stylesheet" href="./css/theme.css">
+  <script type="module" src="./js/admin.js"></script>
+</head>
+<body class="dashboard-body admin-body">
+  <main class="dashboard-main admin-main">
+    <section class="welcome-row">
+      <div>
+        <p class="eyebrow">CONFIGURACIÓN</p>
+        <h1 class="page-title">Adminis<span>tración</span></h1>
+        <p class="muted">Usuarios, unidades, estaciones y hospitales guardados en Oracle.</p>
+      </div>
+    </section>
+
+    <nav id="admin-tabs" class="admin-tabs" aria-label="Secciones de administración"></nav>
+    <p id="admin-message" class="form-message" role="status" aria-live="polite" hidden></p>
+
+    <!-- USUARIOS (CU-03, docs/api.md 15.1 a 15.4) -->
+    <section id="tab-users" class="admin-section" data-title="Usuarios" hidden>
+      <article class="reports-panel">
+        <h2>Usuarios</h2>
+        <div class="reports-table-scroll">
+          <table class="reports-table">
+            <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Correo</th><th>Estado</th><th>Acción</th></tr></thead>
+            <tbody id="users-rows"></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="reports-panel admin-form-panel" data-manage>
+        <h2>Nuevo usuario</h2>
+        <form id="user-form" class="admin-form" novalidate>
+          <div class="form-field"><label for="new-user-role">Rol</label><select id="new-user-role" name="roleId" required></select></div>
+          <div class="form-field"><label for="new-user-document">Documento</label><input id="new-user-document" name="document" maxlength="20" required></div>
+          <div class="form-field"><label for="new-user-first">Nombres</label><input id="new-user-first" name="firstNames" maxlength="80" required></div>
+          <div class="form-field"><label for="new-user-last">Apellidos</label><input id="new-user-last" name="lastNames" maxlength="80" required></div>
+          <div class="form-field"><label for="new-user-email">Correo</label><input id="new-user-email" name="email" type="email" maxlength="120" required></div>
+          <div class="form-field"><label for="new-user-username">Usuario</label><input id="new-user-username" name="username" maxlength="40" autocomplete="off" required></div>
+          <div class="form-field admin-wide"><label for="new-user-password">Contraseña inicial</label><input id="new-user-password" name="password" type="password" minlength="10" autocomplete="new-password" required><small class="muted">Mínimo 10 caracteres, con letras y números. Entréguela a la persona por privado.</small></div>
+          <div class="form-actions admin-wide"><button type="submit" class="primary-button">Crear usuario</button></div>
+        </form>
+      </article>
+    </section>
+
+    <!-- UNIDADES (CU-04, 7.2 y 15.6 a 15.8) -->
+    <section id="tab-units" class="admin-section" data-title="Unidades" hidden>
+      <article class="reports-panel">
+        <h2>Unidades</h2>
+        <div class="reports-table-scroll">
+          <table class="reports-table">
+            <thead><tr><th>Código</th><th>Tipo</th><th>Estación</th><th>Placa</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="units-rows"></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="reports-panel admin-form-panel" data-manage>
+        <h2 id="unit-form-title">Nueva unidad</h2>
+        <form id="unit-form" class="admin-form" novalidate>
+          <input type="hidden" name="id">
+          <div class="form-field"><label for="unit-type">Tipo</label><select id="unit-type" name="vehicleTypeId" required></select></div>
+          <div class="form-field"><label for="unit-station">Estación</label><select id="unit-station" name="stationId" required></select></div>
+          <div class="form-field"><label for="unit-code">Código</label><input id="unit-code" name="unitCode" maxlength="30" placeholder="AMB-12" required></div>
+          <div class="form-field"><label for="unit-plate">Placa (opcional)</label><input id="unit-plate" name="plate" maxlength="10"></div>
+          <div class="form-actions admin-wide"><button type="button" class="secondary-button" data-cancel hidden>Cancelar edición</button><button type="submit" class="primary-button">Guardar unidad</button></div>
+        </form>
+      </article>
+    </section>
+
+    <!-- ESTACIONES (CU-04, 7.3, 15.9 y 15.10) -->
+    <section id="tab-stations" class="admin-section" data-title="Estaciones" hidden>
+      <article class="reports-panel">
+        <h2>Estaciones y bases</h2>
+        <div class="reports-table-scroll">
+          <table class="reports-table">
+            <thead><tr><th>Nombre</th><th>Dirección</th><th>Ubicación</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="stations-rows"></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="reports-panel admin-form-panel" data-manage>
+        <h2 id="station-form-title">Nueva estación</h2>
+        <form id="station-form" class="admin-form" novalidate>
+          <input type="hidden" name="id">
+          <div class="form-field admin-wide"><label for="station-name">Nombre</label><input id="station-name" name="name" maxlength="150" required></div>
+          <div class="form-field admin-wide"><label for="station-address">Dirección</label><input id="station-address" name="address" maxlength="180" required></div>
+          <div class="form-field"><label for="station-neighborhood">Barrio (opcional)</label><input id="station-neighborhood" name="neighborhood" maxlength="100"></div>
+          <div class="form-field"><label for="station-phone">Teléfono (opcional)</label><input id="station-phone" name="phone" maxlength="20"></div>
+          <div class="form-field"><label for="station-lat">Latitud</label><input id="station-lat" name="latitude" type="number" step="0.000001" placeholder="10.4700" required></div>
+          <div class="form-field"><label for="station-lon">Longitud</label><input id="station-lon" name="longitude" type="number" step="0.000001" placeholder="-73.2500" required></div>
+          <div class="form-actions admin-wide"><button type="button" class="secondary-button" data-cancel hidden>Cancelar edición</button><button type="submit" class="primary-button">Guardar estación</button></div>
+        </form>
+      </article>
+    </section>
+
+    <!-- HOSPITALES (CU-05, 7.4, 15.11 y 15.12) -->
+    <section id="tab-hospitals" class="admin-section" data-title="Hospitales" hidden>
+      <article class="reports-panel">
+        <h2>Hospitales</h2>
+        <div class="reports-table-scroll">
+          <table class="reports-table">
+            <thead><tr><th>Nombre</th><th>Nivel</th><th>Dirección</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="hospitals-rows"></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="reports-panel admin-form-panel" data-manage>
+        <h2 id="hospital-form-title">Nuevo hospital</h2>
+        <form id="hospital-form" class="admin-form" novalidate>
+          <input type="hidden" name="id">
+          <div class="form-field admin-wide"><label for="hospital-name">Nombre</label><input id="hospital-name" name="name" maxlength="150" required></div>
+          <div class="form-field"><label for="hospital-level">Nivel</label><select id="hospital-level" name="level" required><option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="IV">IV</option></select></div>
+          <div class="form-field"><label for="hospital-capacity">Capacidad de urgencias (opcional)</label><input id="hospital-capacity" name="emergencyCapacity" type="number" min="0" step="1"></div>
+          <div class="form-field admin-wide"><label for="hospital-address">Dirección</label><input id="hospital-address" name="address" maxlength="180" required></div>
+          <div class="form-field"><label for="hospital-phone">Teléfono (opcional)</label><input id="hospital-phone" name="phone" maxlength="20"></div>
+          <div class="form-field"><label for="hospital-lat">Latitud</label><input id="hospital-lat" name="latitude" type="number" step="0.000001" required></div>
+          <div class="form-field"><label for="hospital-lon">Longitud</label><input id="hospital-lon" name="longitude" type="number" step="0.000001" required></div>
+          <div class="form-actions admin-wide"><button type="button" class="secondary-button" data-cancel hidden>Cancelar edición</button><button type="submit" class="primary-button">Guardar hospital</button></div>
+        </form>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

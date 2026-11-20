@@ -386,7 +386,7 @@ Cambio solo visual: la lógica, las llamadas a la API y los datos no cambian.
 
 - `js/app-shell.js` arma el menú lateral y el encabezado de todas las páginas internas. Lo llama `startPage()` (`page-session.js`) después de validar la sesión. Estilos en `css/app-shell.css`.
 - Cada opción del menú aparece solo si el rol tiene su permiso (`hasPermission`); un grupo sin opciones no se muestra. La opción activa lleva `aria-current="page"`.
-- «Historial y reportes» está en la lista con `available: false` hasta que se fusione `reportes.html` (D10). «Administración» se ve gris y no es un enlace hasta D11.
+- «Historial y reportes» y «Administración» están disponibles cuando el rol tiene los permisos correspondientes. Administración lleva a `admin.html` (D11).
 - En pantallas de menos de 900 px el menú es un cajón que se abre con ☰ y se cierra con el fondo, con Escape o al elegir una opción.
 - La campana de alertas (`alert-bell.js`, sin cambios en su lógica) está en el encabezado del panel, de `emergencia.html` y de `despacho.html`. Fuera del panel, el contador se actualiza al abrir la campana.
 - El mapa oscuro es un filtro CSS sobre `.leaflet-tile-pane`: solo cambian las teselas de OpenStreetMap; los íconos, las rutas y la atribución conservan sus colores.
@@ -413,6 +413,29 @@ La pagina reportes.html permite consultar indicadores historicos desde Oracle.
 - Los indicadores proceden de Oracle; no se inventan resultados.
 
 Pendiente: verificar el funcionamiento real y la visualizacion movil.
+
+
+## D11. Administración
+
+`admin.html` centraliza la gestión operativa del sistema. El enlace del menú solo se muestra a los roles con `USUARIOS:GESTIONAR`; dentro de la página, cada pestaña y formulario respeta los permisos entregados por el servidor.
+
+### Pestañas y permisos
+
+- **Usuarios:** consulta con `USUARIOS:CONSULTAR`, creación y activación/desactivación con `USUARIOS:GESTIONAR`.
+- **Unidades:** consulta con `UNIDADES:CONSULTAR`, registro, edición y cambio de estado con `UNIDADES:GESTIONAR`.
+- **Estaciones:** consulta con `UNIDADES:CONSULTAR`, creación, edición y activación/desactivación con `UNIDADES:GESTIONAR`.
+- **Hospitales:** consulta con `HOSPITALES:CONSULTAR`, creación, edición y activación/desactivación con `HOSPITALES:GESTIONAR`.
+
+La pestaña activa también puede abrirse mediante `#users`, `#units`, `#stations` o `#hospitals`. No existen acciones de borrado, las contraseñas no se muestran ni se conservan en el cliente y una unidad en estado `OCUPADO` solo se informa como «En misión».
+
+### API utilizada
+
+- Usuarios: `GET /api/users`, `GET /api/roles`, `POST /api/users` y `PATCH /api/users/{id}/status`.
+- Unidades: `GET /api/units`, `GET /api/vehicle-types`, `GET /api/stations`, `POST /api/units`, `PUT /api/units/{id}` y `PATCH /api/units/{id}/status`.
+- Estaciones: `GET /api/stations`, `POST /api/stations`, `PUT /api/stations/{id}` y `PATCH /api/stations/{id}/status`.
+- Hospitales: `GET /api/hospitals?all=true`, `POST /api/hospitals`, `PUT /api/hospitals/{id}` y `PATCH /api/hospitals/{id}/status`.
+
+Archivos: `admin.html`, `css/admin.css` y `js/admin.js`. Los estilos de tablas y paneles reutilizan `reportes.css`, y los formularios y botones reutilizan `operacion.css`.
 
 
 ## D12. Panel de simulación
