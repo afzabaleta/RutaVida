@@ -1,0 +1,25 @@
+/* Administration page (CU-03, CU-04, CU-05). Tables and panels reuse reportes.css;
+   forms and buttons reuse operacion.css. */
+
+.admin-main { display: grid; gap: 20px; min-width: 0; padding-bottom: 48px; }
+.admin-main > * { min-width: 0; }
+.admin-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-tab { min-height: 42px; padding: 8px 18px; border: 1px solid var(--control-border); border-radius: 999px; background: var(--control-bg); color: var(--control-text); font: inherit; font-weight: 600; cursor: pointer; }
+.admin-tab:hover { background: var(--control-hover-bg); }
+.admin-tab[aria-selected="true"] { border-color: var(--primary); background: var(--primary); color: #fff; }
+.admin-tab:focus-visible { outline: 3px solid var(--shell-focus); outline-offset: 2px; }
+/* The table on top and its form below: the tables have up to 6 columns and need the width. */
+.admin-section { display: grid; gap: 20px; }
+.admin-section[hidden] { display: none; }
+/* Codes, states and buttons do not break in the middle of a word; long names still wrap. */
+.admin-section .reports-table td { overflow-wrap: normal; }
+.admin-section .reports-table td:last-child { white-space: nowrap; }
+.admin-form-panel { max-width: 880px; }
+.admin-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.admin-wide { grid-column: 1 / -1; }
+.admin-form small { font-size: .8125rem; }
+.admin-row-button { min-height: 34px; padding: 6px 12px; margin: 2px 6px 2px 0; font-size: .8125rem; }
+.admin-status-select { min-height: 34px; padding: 4px 8px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--field-bg); color: var(--text); font: inherit; font-size: .8125rem; }
+#admin-message[hidden] { display: none; }
+.admin-form [data-cancel][hidden] { display: none; }
+@media (max-width: 600px) { .admin-form { grid-template-columns: minmax(0, 1fr); } .admin-tab { flex: 1 1 40%; } }

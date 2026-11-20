@@ -626,3 +626,57 @@ export async function listTrafficSegments() {
     to: toPoint(segment.to),
   }));
 }
+
+// ------------------------------------------------------------------ Administration (docs/api.md 15)
+
+/** Users, active or not, without password (15.1). */
+export function listUsers() {
+  return request("GET", "/api/users");
+}
+
+/** Active roles with their permissions (15.4). */
+export function listRoles() {
+  return request("GET", "/api/roles");
+}
+
+export function createUser(user) {
+  return request("POST", "/api/users", user);
+}
+
+export function listVehicleTypes() {
+  return request("GET", "/api/vehicle-types");
+}
+
+/** Units as the API sends them (7.2): ids of type and station, plate and status. */
+export function listUnitRecords() {
+  return request("GET", "/api/units");
+}
+
+/** Every station, active or not (7.3). */
+export function listAllStations() {
+  return request("GET", "/api/stations");
+}
+
+/** Every hospital, active or not (7.4 with ?all=true). */
+export function listAllHospitals() {
+  return request("GET", "/api/hospitals?all=true");
+}
+
+const ADMIN_COLLECTIONS = ["users", "units", "stations", "hospitals"];
+
+function adminPath(collection, id) {
+  if (!ADMIN_COLLECTIONS.includes(collection)) {
+    throw new Error(`Colección desconocida: ${collection}`);
+  }
+  return id ? `/api/${collection}/${encodeURIComponent(id)}` : `/api/${collection}`;
+}
+
+/** Creates (POST, without id) or edits (PUT, with id) a unit, station or hospital (15.6 to 15.11). */
+export function saveRecord(collection, id, body) {
+  return request(id ? "PUT" : "POST", adminPath(collection, id), body);
+}
+
+/** PATCH .../{id}/status: A or I for users, stations and hospitals; the operational status for units. */
+export function changeRecordStatus(collection, id, status) {
+  return request("PATCH", `${adminPath(collection, id)}/status`, { status });
+}
