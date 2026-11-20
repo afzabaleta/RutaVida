@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+  <meta name="theme-color" content="#101923">
+  <title>RutaVida | Unidades</title>
+  <script src="./js/theme-boot.js"></script>
+  <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/rutavida.css">
+  <link rel="stylesheet" href="./css/dashboard.css">
+  <link rel="stylesheet" href="./css/app-shell.css">
+  <link rel="stylesheet" href="./css/recursos.css">
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="vendor/leaflet-1.9.4/leaflet.css">
+  <script defer src="vendor/leaflet-1.9.4/leaflet.js"></script>
+  <script type="module" src="./js/unidades.js"></script>
+</head>
+
+<body class="dashboard-body">
+  <main class="dashboard-main resource-main">
+    <section class="welcome-row">
+      <div>
+        <h1 class="page-title">Uni<span>dades</span></h1>
+        <p class="muted">
+          Ambulancias, bomberos y patrullas con su estado y su base. Se consultan aquí; se
+          registran y cambian en Administración.
+        </p>
+      </div>
+      <dl class="resource-summary" aria-label="Unidades por estado">
+        <div class="is-available"><dt>Disponibles</dt><dd id="count-available">—</dd></div>
+        <div class="is-busy"><dt>En misión</dt><dd id="count-busy">—</dd></div>
+        <div class="is-off"><dt>Fuera de operación</dt><dd id="count-off">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="resource-layout">
+      <section class="side-panel resource-list-panel" aria-labelledby="units-title">
+        <div class="panel-heading">
+          <h2 id="units-title">Unidades</h2>
+          <span class="count-pill" id="unit-pill">0</span>
+        </div>
+
+        <div class="resource-filters resource-filters-3">
+          <label for="unit-search">Buscar
+            <input id="unit-search" type="search" placeholder="Código o base" autocomplete="off">
+          </label>
+          <label for="unit-type">Tipo
+            <select id="unit-type">
+              <option value="">Todos</option>
+              <option value="AMBULANCIA">Ambulancias</option>
+              <option value="BOMBERO">Bomberos</option>
+              <option value="POLICIA">Patrullas</option>
+            </select>
+          </label>
+          <label for="unit-status">Estado
+            <select id="unit-status">
+              <option value="">Todos</option>
+              <option value="DISPONIBLE">Disponible</option>
+              <option value="OCUPADO">En misión</option>
+              <option value="MANTENIMIENTO">Mantenimiento</option>
+              <option value="FUERA_SERVICIO">Fuera de servicio</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="unit-list" class="item-list resource-list" aria-live="polite">
+          <p class="empty-state">Cargando…</p>
+        </div>
+      </section>
+
+      <section class="map-panel resource-map-panel" aria-label="Mapa de unidades">
+        <div id="map" role="application" aria-label="Mapa en vivo de las unidades de Valledupar"></div>
+        <div class="map-legend" aria-label="Leyenda del mapa">
+          <span><i class="legend-icon" data-icon="AMBULANCIA"></i> Ambulancia</span>
+          <span><i class="legend-icon" data-icon="BOMBERO"></i> Bomberos</span>
+          <span><i class="legend-icon" data-icon="POLICIA"></i> Patrulla</span>
+          <span><i class="legend-icon" data-icon="station"></i> Estación</span>
+          <span><i class="legend-ring available-ring"></i> Disponible</span>
+          <span><i class="legend-ring busy-ring"></i> Ocupada</span>
+        </div>
+        <p id="unit-live" class="map-footnote">
+          Posiciones en vivo cada 5 segundos. SIMULACIÓN: las unidades todavía no transmiten GPS real.
+        </p>
+      </section>
+    </section>
+
+    <section class="side-panel resource-stations" aria-labelledby="stations-title">
+      <div class="panel-heading">
+        <h2 id="stations-title">Bases y estaciones</h2>
+        <span class="count-pill" id="station-pill">0</span>
+      </div>
+      <div id="station-list" class="item-list resource-station-list">
+        <p class="empty-state">Cargando…</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
