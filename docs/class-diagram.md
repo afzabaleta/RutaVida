@@ -1912,7 +1912,10 @@ classDiagram
         +signalDelaySec : double
     }
     class SimulatedTrafficProvider {
+        ~SAMPLE_SHARE : double$
+        ~MAIN_ROAD_FROM_KMH : double$
         -edgeCount : int
+        -mainRoad : boolean[]
         -forced : Map~Integer,Double~
         -random : Random
         -clock : Clock

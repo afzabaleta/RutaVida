@@ -571,6 +571,8 @@ Sin cuerpo. Inician o detienen el simulador. Salida `200`: el estado de 10.1. In
 
 El servidor arranca con la simulación **detenida**. Al iniciarla, cada `tickSeconds` (2 s) mueve las unidades con misión, cambia el tráfico cada 15 s, aplica los incidentes `ACTIVO`, recalcula las rutas afectadas y guarda posiciones y tráfico con fuente `SIMULACION` (K9). Las rutas del despacho y la simulación usan el mismo grafo: el tráfico simulado cambia los tiempos de las rutas nuevas. Al detener el servidor, la simulación se detiene.
 
+**Cuánto tráfico simula:** en cada cambio (cada 15 s) el 3 % de los tramos recibe un nivel nuevo y lo conserva hasta que vuelve a salir. La mayor parte de la ciudad fluye: los trancones caen sobre todo en las vías principales (velocidad base de 40 km/h o más, las avenidas de OpenStreetMap) y son más frecuentes en las horas pico supuestas (6:30–8:30, 11:30–13:30 y 17:00–19:00). Con la red de Valledupar queda con tráfico cerca del 4 % de los tramos fuera de la hora pico y cerca del 9 % en la hora pico. Son supuestos para calibrar con datos reales, no mediciones.
+
 ### 10.3 `POST /api/simulation/traffic`
 
 Fuerza el nivel de tráfico de un tramo, para mostrar el recálculo en la demostración. Se guarda en `TRAFICO` con fuente `SIMULACION`.
