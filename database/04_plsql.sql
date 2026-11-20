@@ -258,6 +258,9 @@ END sp_cerrar_emergencia;
 -- ---------------------------------------------------------------------
 -- 5. TRIGGERS DE AUDITORIA (solo cambios de estado)
 --    operacion = CAMBIO_ESTADO; detalle = 'ANTES -> DESPUES'
+--    fecha_hora va explicita en hora de Colombia: en Oracle Cloud el
+--    servidor esta en UTC y el DEFAULT SYSTIMESTAMP saldria 5 horas
+--    adelante (13_hora_auditoria.sql corrige las bases ya instaladas).
 -- ---------------------------------------------------------------------
 
 CREATE OR REPLACE TRIGGER trg_emergencia_estado
@@ -265,8 +268,9 @@ AFTER UPDATE OF estado ON emergencia
     FOR EACH ROW
     WHEN (NEW.estado <> OLD.estado)
 BEGIN
-INSERT INTO auditoria (id_usuario, modulo, operacion, registro_id, resultado, detalle)
-VALUES (fn_usuario_sesion, 'EMERGENCIAS', 'CAMBIO_ESTADO', :NEW.id_emergencia, 'EXITO',
+INSERT INTO auditoria (id_usuario, modulo, operacion, registro_id, fecha_hora, resultado, detalle)
+VALUES (fn_usuario_sesion, 'EMERGENCIAS', 'CAMBIO_ESTADO', :NEW.id_emergencia,
+        CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP), 'EXITO',
         :OLD.estado || ' -> ' || :NEW.estado);
 END;
 /
@@ -276,8 +280,9 @@ AFTER UPDATE OF estado ON asignacion_emergencia
     FOR EACH ROW
     WHEN (NEW.estado <> OLD.estado)
 BEGIN
-INSERT INTO auditoria (id_usuario, modulo, operacion, registro_id, resultado, detalle)
-VALUES (fn_usuario_sesion, 'DESPACHO', 'CAMBIO_ESTADO', :NEW.id_asignacion, 'EXITO',
+INSERT INTO auditoria (id_usuario, modulo, operacion, registro_id, fecha_hora, resultado, detalle)
+VALUES (fn_usuario_sesion, 'DESPACHO', 'CAMBIO_ESTADO', :NEW.id_asignacion,
+        CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP), 'EXITO',
         :OLD.estado || ' -> ' || :NEW.estado);
 END;
 /
@@ -287,8 +292,9 @@ AFTER UPDATE OF estado ON incidente_vial
     FOR EACH ROW
     WHEN (NEW.estado <> OLD.estado)
 BEGIN
-INSERT INTO auditoria (id_usuario, modulo, operacion, registro_id, resultado, detalle)
-VALUES (fn_usuario_sesion, 'INCIDENTES', 'CAMBIO_ESTADO', :NEW.id_incidente, 'EXITO',
+INSERT INTO auditoria (id_usuario, modulo, operacion, registro_id, fecha_hora, resultado, detalle)
+VALUES (fn_usuario_sesion, 'INCIDENTES', 'CAMBIO_ESTADO', :NEW.id_incidente,
+        CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP), 'EXITO',
         :OLD.estado || ' -> ' || :NEW.estado);
 END;
 /
