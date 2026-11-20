@@ -54,6 +54,28 @@ public class VehicleMovementSimulator implements VehiclePositionSource {
         trips.put(vehicleId, new Trip(vehicleId, edgesOf(route), vehicle, clock.instant()));
     }
 
+    /**
+     * Starts moving a unit along a path of the graph that is not a saved route: the round of
+     * a patrol (DT-10). The edges are indexes of the graph, in order, and must be connected.
+     */
+    public synchronized void followPath(long vehicleId, List<Integer> edgeIndexes, VehicleProfile vehicle) {
+        Objects.requireNonNull(vehicle, "vehicle");
+        if (edgeIndexes == null || edgeIndexes.isEmpty()) {
+            throw new IllegalArgumentException("The path has no segments");
+        }
+        int[] edges = new int[edgeIndexes.size()];
+        for (int i = 0; i < edges.length; i++) {
+            edges[i] = edgeIndexes.get(i);
+            if (edges[i] < 0 || edges[i] >= graph.edgeCount()) {
+                throw new IllegalArgumentException("Edge " + edges[i] + " is not in the road graph");
+            }
+            if (i > 0 && graph.edge(edges[i - 1]).to() != graph.edge(edges[i]).from()) {
+                throw new IllegalArgumentException("Edges " + edges[i - 1] + " and " + edges[i] + " are not connected");
+            }
+        }
+        trips.put(vehicleId, new Trip(vehicleId, edges, vehicle, clock.instant()));
+    }
+
     /** The unit stops being simulated (mission cancelled or finished). */
     public synchronized void stopFollowing(long vehicleId) {
         trips.remove(vehicleId);

@@ -1757,6 +1757,7 @@ classDiagram
         +maxKmh : double
         +AMBULANCE : VehicleProfile$
         +FIRE_TRUCK : VehicleProfile$
+        +PATROL : VehicleProfile$
         +forType(typeName: String) VehicleProfile$
     }
     class RoadGraph {
@@ -2055,9 +2056,22 @@ classDiagram
         -trips : Map~Long, Trip~
         +poll() List~VehicleLocation~
         +follow(vehicleId: long, route: Route, vehicle: VehicleProfile) void
+        +followPath(vehicleId: long, edgeIndexes: List~Integer~, vehicle: VehicleProfile) void
         +stopFollowing(vehicleId: long) void
         +isFollowing(vehicleId: long) boolean
         +resume() void
+    }
+    class PatrolSimulator {
+        -graph : RoadGraph
+        -movement : VehicleMovementSimulator
+        -tracking : TrackingService
+        -vehicleDao : EmergencyVehicleDAO
+        -typeDao : VehicleTypeDAO
+        -random : Random
+        +PATROL_TYPE : String$
+        +tick() void
+        +resume() void
+        +isPatrolling(vehicleId: long) boolean
     }
     class GpsPositionSource {
         <<fase 2>>
@@ -2098,6 +2112,9 @@ classDiagram
     SimulationEngine --> TrafficRecorder
     SimulationEngine --> SimulatedTrafficProvider
     SimulationEngine --> VehicleMovementSimulator : follow
+    SimulationEngine --> PatrolSimulator : rondas de las patrullas (DT-10)
+    PatrolSimulator --> VehicleMovementSimulator : su propio movimiento
+    PatrolSimulator --> TrackingService : guarda las posiciones
     SimulationEngine ..> DispatchService : activeMissions, advance
     TrackingService ..> DispatchService : moveVehicle
     VehicleMovementSimulator --> RoadGraph : lee tramos y tráfico

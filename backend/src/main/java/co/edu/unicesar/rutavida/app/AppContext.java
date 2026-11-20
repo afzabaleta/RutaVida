@@ -77,6 +77,7 @@ import co.edu.unicesar.rutavida.service.TrackingService;
 import co.edu.unicesar.rutavida.service.TrafficMapService;
 import co.edu.unicesar.rutavida.service.TrafficRecorder;
 import co.edu.unicesar.rutavida.service.UserService;
+import co.edu.unicesar.rutavida.simulation.PatrolSimulator;
 import co.edu.unicesar.rutavida.simulation.SimulationEngine;
 import co.edu.unicesar.rutavida.simulation.VehicleMovementSimulator;
 import co.edu.unicesar.rutavida.traffic.SimulatedTrafficProvider;
@@ -117,6 +118,8 @@ public final class AppContext {
 
     /** Seed of the simulated traffic: the same demo gives the same traffic every time (K2). */
     static final long TRAFFIC_SEED = 2026L;
+    /** Seed of the rounds of the patrols: the same demo every time (DT-10). */
+    private static final long PATROL_SEED = 2026L;
 
     private final DatabaseConnection database;
     private final JdbcTransactionManager jdbc;
@@ -384,6 +387,19 @@ public final class AppContext {
      * Every part works on the shared graph and reads and writes Oracle; everything it
      * produces is marked SIMULACION.
      */
+    /**
+     * The police patrols on their rounds (DT-10), with their own movement and their own
+     * tracking, so they never touch the units on a mission.
+     */
+    private PatrolSimulator patrols(RoadGraph graph) {
+        VehicleMovementSimulator patrolMovement = new VehicleMovementSimulator(graph, new EmergencyCost(), clock);
+        TrackingService patrolTracking = new TrackingService(patrolMovement, new JdbcEmergencyVehicleDAO(jdbc),
+                new JdbcVehicleLocationDAO(jdbc), dispatchService(), jdbc);
+        return new PatrolSimulator(graph, patrolMovement, patrolTracking, new JdbcEmergencyVehicleDAO(jdbc),
+                new JdbcVehicleTypeDAO(jdbc), new EmergencyCost(), new Random(PATROL_SEED),
+                PatrolSimulator.DEFAULT_MIN_METERS, PatrolSimulator.DEFAULT_MAX_METERS);
+    }
+
     public synchronized SimulationEngine simulationEngine() {
         if (simulationEngine == null) {
             RoadGraph graph = roadGraph();
@@ -398,7 +414,7 @@ public final class AppContext {
                     new RoadConditionService(graph, new JdbcRoadIncidentDAO(jdbc), clock),
                     new TrafficRecorder(graph, new JdbcTrafficReadingDAO(jdbc), jdbc, clock),
                     monitor, movement, tracking, dispatchService(), clock,
-                    SimulationEngine.DEFAULT_TICK, SimulationEngine.DEFAULT_TRAFFIC_EVERY);
+                    SimulationEngine.DEFAULT_TICK, SimulationEngine.DEFAULT_TRAFFIC_EVERY, patrols(graph));
         }
         return simulationEngine;
     }

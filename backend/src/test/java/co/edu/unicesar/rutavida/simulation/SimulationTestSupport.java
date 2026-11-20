@@ -49,8 +49,17 @@ public final class SimulationTestSupport {
         return engine(incidents);
     }
 
+    /** The engine that also moves the police patrols on their rounds (DT-10). */
+    public SimulationEngine engineWith(PatrolSimulator patrols) {
+        return engine(incidents, patrols);
+    }
+
     /** The same engine, with another source of incidents (for example, one that fails). */
     public SimulationEngine engine(RoadIncidentDAO incidentDao) {
+        return engine(incidentDao, null);
+    }
+
+    private SimulationEngine engine(RoadIncidentDAO incidentDao, PatrolSimulator patrols) {
         RouteMonitor monitor = new RouteMonitor(city.routes,
                 new RouteService(city.graph, city.routes, city.transactions, CLOCK), city.vehicles,
                 () -> DispatchTestSupport.VEHICLE_TYPES, city.assignments,
@@ -60,7 +69,7 @@ public final class SimulationTestSupport {
                 new RoadConditionService(city.graph, incidentDao, clock),
                 new TrafficRecorder(city.graph, traffic::addAll, city.transactions, clock), monitor, movement,
                 new TrackingService(movement, city.vehicles, history, dispatch, city.transactions),
-                dispatch, clock, Duration.ofSeconds(2), Duration.ofHours(1));
+                dispatch, clock, Duration.ofSeconds(2), Duration.ofHours(1), patrols);
     }
 
     /** A clock that the tests move forward by hand. */
