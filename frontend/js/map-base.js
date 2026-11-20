@@ -115,7 +115,7 @@ export function createBaseMap(elementId) {
     iconMarker(
       map,
       station.location,
-      placeIcon("station"),
+      placeIcon("station", station),
       `${station.name} (REAL, D2)`,
     );
   }

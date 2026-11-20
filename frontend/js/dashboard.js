@@ -239,7 +239,7 @@ function renderPlaces(map, stations, hospitals) {
     const marker = addMarker(
       map,
       item,
-      placeIcon("station"),
+      placeIcon("station", item),
       makePopup(
         station.name,
         station.address || "Dirección no disponible",
