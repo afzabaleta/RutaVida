@@ -1,14 +1,14 @@
 // Map icons (D7): each unit is drawn as its kind of vehicle (ambulance, fire truck or police
-// patrol) and the ring around it shows its status. Hospitals, stations and emergencies have
-// their own icon too. The drawings are simple original SVG, made for RutaVida.
+// patrol) and the ring around it shows its status. Hospitals and the fire station use the
+// project PNG artwork; generic stations and emergency markers keep their original SVG.
 
-const SIZE = 34;
+const SIZE = 28;
 
 /** Units are drawn above hospitals, stations and emergencies (Leaflet zIndexOffset). */
 export const UNIT_Z = 1000;
 
 /** Distance in pixels between units parked at the same point (for example, at their station). */
-const SPREAD = 34;
+const SPREAD = 28;
 
 /** Ring of a unit by its operational status. */
 const STATUS_RING = {
@@ -16,6 +16,14 @@ const STATUS_RING = {
   OCUPADO: "#f59e0b",
   MANTENIMIENTO: "#94a3b8",
   FUERA_SERVICIO: "#94a3b8",
+};
+
+const PNG = {
+  hospital: "./img/icons/hospital.png",
+  AMBULANCIA: "./img/icons/ambulancia.png",
+  BOMBERO: "./img/icons/camion-de-bomberos.png",
+  POLICIA: "./img/icons/coche-de-policia.png",
+  "fire-station": "./img/icons/estacion-de-bomberos.png",
 };
 
 const RED = "#e5484d";
@@ -35,6 +43,7 @@ const GLYPHS = {
   AMBULANCIA: {
     badge: "#c81e2c",
     label: "Ambulancia",
+    image: PNG.AMBULANCIA,
     body: (badge) => `
       <rect x="11" y="12.4" width="3.8" height="2.4" rx=".8" fill="${RED}" stroke="#fff" stroke-width=".6"/>
       <rect x="14.8" y="12.4" width="3.8" height="2.4" rx=".8" fill="${BLUE}" stroke="#fff" stroke-width=".6"/>
@@ -45,6 +54,7 @@ const GLYPHS = {
   BOMBERO: {
     badge: "#b45309",
     label: "Bomberos",
+    image: PNG.BOMBERO,
     body: (badge) => `
       <rect x="8.5" y="12.6" width="15" height="1.4" fill="#fff"/>
       <path d="M10 12.6v2.6M13 12.6v2.6M16 12.6v2.6M19 12.6v2.6M22 12.6v2.6" stroke="#fff" stroke-width="1"/>
@@ -54,6 +64,7 @@ const GLYPHS = {
   POLICIA: {
     badge: "#1d4ed8",
     label: "Patrulla",
+    image: PNG.POLICIA,
     body: () => `
       <rect x="15" y="12.6" width="3.4" height="2.2" rx=".8" fill="${RED}" stroke="#fff" stroke-width=".6"/>
       <rect x="18.4" y="12.6" width="3.4" height="2.2" rx=".8" fill="${BLUE}" stroke="#fff" stroke-width=".6"/>
@@ -94,9 +105,27 @@ function glyphOf(vehicleType) {
   return GLYPHS[String(vehicleType ?? "").toUpperCase()] ?? GLYPHS.UNIDAD;
 }
 
-/** SVG of a unit: a round badge with its vehicle, and a ring with the color of its status. */
+function statusClass(status) {
+  return `rv-status-${String(status ?? "").toLowerCase().replaceAll("_", "-")}`;
+}
+
+function image(src, className) {
+  return `<img class="rv-map-image ${className}" src="${src}" alt="" aria-hidden="true">`;
+}
+
+function marker(content, className) {
+  return `<span class="rv-map-marker ${className}">${content}</span>`;
+}
+
+/** PNG of a unit inside the operational-status ring; unknown types keep the original SVG. */
 export function unitSvg(vehicleType, status) {
   const glyph = glyphOf(vehicleType);
+  if (glyph.image) {
+    return marker(
+      image(glyph.image, "rv-map-image--vehicle"),
+      `rv-map-marker--unit ${statusClass(status)}`,
+    );
+  }
   const ring = STATUS_RING[String(status ?? "").toUpperCase()] ?? "#fff";
   return `<svg viewBox="0 0 40 40" width="${SIZE}" height="${SIZE}" aria-hidden="true">
     <circle cx="20" cy="20" r="17" fill="${glyph.badge}" stroke="${ring}" stroke-width="3"/>
@@ -107,6 +136,21 @@ export function unitSvg(vehicleType, status) {
 /** SVG of a hospital, a station or an emergency. */
 export function placeSvg(kind) {
   return `<svg viewBox="0 0 40 40" width="${SIZE}" height="${SIZE}" aria-hidden="true">${PLACES[kind] ?? PLACES.emergency}</svg>`;
+}
+
+function isFireStation(station) {
+  // The API has no station-type field. Only an explicitly named fire station receives this art.
+  return /bomberos?|fire\s+station/i.test(String(station?.name ?? ""));
+}
+
+function placeMarkup(kind, place = null) {
+  if (kind === "hospital") {
+    return marker(image(PNG.hospital, "rv-map-image--hospital"), "rv-map-marker--place rv-map-marker--hospital");
+  }
+  if (kind === "station" && isFireStation(place)) {
+    return marker(image(PNG["fire-station"], "rv-map-image--station"), "rv-map-marker--place rv-map-marker--fire-station");
+  }
+  return placeSvg(kind);
 }
 
 function divIcon(html, extraClass = "", shift = [0, 0]) {
@@ -168,12 +212,12 @@ export function unitSlots(items, locationOf = (item) => item.location) {
   });
 }
 
-/** Leaflet icon of a place: "hospital", "station" or "emergency" (the emergency pulses). */
-export function placeIcon(kind) {
+/** Leaflet icon of a place; only explicitly named fire stations receive the fire-station PNG. */
+export function placeIcon(kind, place = null) {
   if (kind === "panic") {
     return divIcon(placeSvg(kind), "rv-pulse rv-pulse-amber");
   }
-  return divIcon(placeSvg(kind), kind === "emergency" ? "rv-pulse" : "");
+  return divIcon(placeMarkup(kind, place), kind === "emergency" ? "rv-pulse" : "");
 }
 
 /** Spanish name of the kind of vehicle, for popups. */
@@ -192,11 +236,11 @@ export function iconMarker(map, location, icon, popupText, zIndexOffset = 0) {
 
 /**
  * Draws the small icons of a legend: every element with data-icon="hospital", "station",
- * "emergency", "panic", "AMBULANCIA", "BOMBERO" or "POLICIA" gets its SVG.
+ * "emergency", "panic", "AMBULANCIA", "BOMBERO" or "POLICIA" gets its marker art.
  */
 export function paintLegend(root = document) {
   for (const element of root.querySelectorAll("[data-icon]")) {
     const kind = element.dataset.icon;
-    element.innerHTML = PLACES[kind] ? placeSvg(kind) : unitSvg(kind, "DISPONIBLE");
+    element.innerHTML = PLACES[kind] ? placeMarkup(kind) : unitSvg(kind, "DISPONIBLE");
   }
 }

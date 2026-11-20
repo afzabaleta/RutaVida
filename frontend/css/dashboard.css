@@ -878,6 +878,37 @@
   display: block;
 }
 
+.rv-map-marker {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(15, 35, 60, .24);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .94);
+}
+
+.rv-map-marker--unit {
+  border: 2.5px solid #94a3b8;
+  background: rgba(255, 255, 255, .96);
+}
+
+.rv-map-marker--unit.rv-status-disponible { border-color: #22c55e; }
+.rv-map-marker--unit.rv-status-ocupado { border-color: #f59e0b; }
+.rv-map-marker--unit.rv-status-mantenimiento,
+.rv-map-marker--unit.rv-status-fuera-servicio { border-color: #94a3b8; }
+
+.rv-map-image {
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.rv-map-image--hospital { width: 22px; height: 22px; }
+.rv-map-image--vehicle { width: 20px; height: 20px; }
+.rv-map-image--station { width: 21px; height: 21px; }
+
 .rv-pulse::before {
   content: "";
   position: absolute;
@@ -908,6 +939,16 @@
   width: 20px;
   height: 20px;
 }
+
+.legend-icon .rv-map-marker {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.legend-icon .rv-map-image--hospital { width: 17px; height: 17px; }
+.legend-icon .rv-map-image--vehicle { width: 15px; height: 15px; }
+.legend-icon .rv-map-image--station { width: 16px; height: 16px; }
 
 .legend-ring {
   display: inline-block;
