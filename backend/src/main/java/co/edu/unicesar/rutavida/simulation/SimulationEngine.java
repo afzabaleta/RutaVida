@@ -42,7 +42,8 @@ import java.util.logging.Logger;
  *   <li>makes each unit follow the ACTIVA route of its mission: a new dispatch leaves
  *   (ASIGNADA → EN_RUTA) and a recalculated route replaces the old one;</li>
  *   <li>moves the units and saves their positions (A13);</li>
- *   <li>marks EN_SITIO the units that reached the end of their route to the scene.</li>
+ *   <li>marks EN_SITIO the units that reached the end of their route to the scene;</li>
+ *   <li>moves the police patrols on their rounds, if there are any (DT-10).</li>
  * </ol>
  * Each step runs even if another one fails, so one error does not stop the simulation.
  * Everything it produces is marked SIMULACION: no real GPS nor real traffic is used.
@@ -65,6 +66,8 @@ public class SimulationEngine {
     private final Clock clock;
     private final Duration tick;
     private final Duration trafficEvery;
+    /** The rounds of the patrols (DT-10); null when the engine has no patrols. */
+    private final PatrolSimulator patrols;
 
     /** Unit → route it follows, unit → its mission, and the units already at the end of their route. */
     private final Map<Long, Long> following = new HashMap<>();
@@ -80,6 +83,16 @@ public class SimulationEngine {
                             TrafficRecorder trafficRecorder, RouteMonitor routeMonitor,
                             VehicleMovementSimulator movement, TrackingService tracking, DispatchService dispatch,
                             Clock clock, Duration tick, Duration trafficEvery) {
+        this(graph, traffic, roadConditions, trafficRecorder, routeMonitor, movement, tracking, dispatch,
+                clock, tick, trafficEvery, null);
+    }
+
+    /** The same engine, also moving the police patrols on their rounds (DT-10). */
+    public SimulationEngine(RoadGraph graph, SimulatedTrafficProvider traffic, RoadConditionService roadConditions,
+                            TrafficRecorder trafficRecorder, RouteMonitor routeMonitor,
+                            VehicleMovementSimulator movement, TrackingService tracking, DispatchService dispatch,
+                            Clock clock, Duration tick, Duration trafficEvery, PatrolSimulator patrols) {
+        this.patrols = patrols;
         this.graph = Objects.requireNonNull(graph, "graph");
         this.traffic = Objects.requireNonNull(traffic, "traffic");
         this.roadConditions = Objects.requireNonNull(roadConditions, "roadConditions");
@@ -102,6 +115,9 @@ public class SimulationEngine {
             return;
         }
         movement.resume();
+        if (patrols != null) {
+            patrols.resume();
+        }
         startedAt = LocalDateTime.now(clock);
         scheduler = Executors.newSingleThreadScheduledExecutor(work -> {
             Thread thread = new Thread(work, "rutavida-simulation");
@@ -164,6 +180,9 @@ public class SimulationEngine {
         step("misiones", this::followMissions);
         step("posiciones", tracking::refreshPositions);
         step("llegadas", this::markArrivals);
+        if (patrols != null) {
+            step("patrullas", patrols::tick);
+        }
     }
 
     /** Runs one step and logs its error, so the next steps and cycles still run. */

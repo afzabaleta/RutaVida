@@ -46,6 +46,8 @@ BEGIN
     borrar('INCIDENTE_VIAL');
 
     -- Las unidades EJEMPLO- vuelven a su estacion; una OCUPADA queda DISPONIBLE.
+    -- Las patrullas (EJEMPLO-POL-) no: siguen en la calle donde iban, repartidas
+    -- por la ciudad (11_patrullas_ejemplo.sql las pone en su esquina de partida).
     -- La hora en hora de Colombia, como la escribe el servidor Java (en la nube
     -- SYSTIMESTAMP sale en UTC y la simulacion descartaria las posiciones nuevas).
     -- MANTENIMIENTO y FUERA_SERVICIO se respetan.
@@ -56,7 +58,8 @@ BEGIN
            estado_operativo = CASE WHEN v.estado_operativo = 'OCUPADO'
                                    THEN 'DISPONIBLE' ELSE v.estado_operativo END,
            fecha_actualizacion = CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP)
-     WHERE v.codigo_unidad LIKE 'EJEMPLO-%';
+     WHERE v.codigo_unidad LIKE 'EJEMPLO-%'
+       AND v.codigo_unidad NOT LIKE 'EJEMPLO-POL-%';
     v_unidades := SQL%ROWCOUNT;
     DBMS_OUTPUT.PUT_LINE(RPAD('VEHICULO_EMERGENCIA', 24) || v_unidades || ' unidades EJEMPLO en su estacion');
 
