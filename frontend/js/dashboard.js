@@ -11,6 +11,7 @@ import {
 } from "./api-client.js";
 
 import { startIncidents } from "./incident-panel.js";
+import { startIncidentForm } from "./incident-form.js";
 import { startPanicLayer } from "./panic-layer.js";
 import { paintLegend, placeIcon, UNIT_Z, unitIcon, unitSlots } from "./map-icons.js";
 
@@ -566,7 +567,7 @@ async function initializeDashboard() {
     pill: byId("panic-pill"),
     message: byId("panic-message"),
   });
-startIncidents(
+const incidents = startIncidents(
   map,
   session,
   {
@@ -580,6 +581,17 @@ startIncidents(
      }
    }
 );
+
+// Report an incident with a click on the street (CU-13); the list shows it at once.
+startIncidentForm(map, session, {
+    openButton: byId("incident-report-button"),
+    form: byId("incident-form"),
+    street: byId("incident-street"),
+    bothWays: byId("incident-both"),
+    bothWaysField: byId("incident-both-field"),
+    message: byId("incident-message"),
+}, () => incidents.refresh());
+
 
 
   byId("response-time").textContent = "Sin datos";
