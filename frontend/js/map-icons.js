@@ -2,13 +2,13 @@
 // patrol) and the ring around it shows its status. Hospitals and the fire station use the
 // project PNG artwork; generic stations and emergency markers keep their original SVG.
 
-const SIZE = 38;
+const SIZE = 28;
 
 /** Units are drawn above hospitals, stations and emergencies (Leaflet zIndexOffset). */
 export const UNIT_Z = 1000;
 
 /** Distance in pixels between units parked at the same point (for example, at their station). */
-const SPREAD = 34;
+const SPREAD = 28;
 
 /** Ring of a unit by its operational status. */
 const STATUS_RING = {
