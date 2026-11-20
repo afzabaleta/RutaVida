@@ -36,3 +36,6 @@ nbproject/private/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+### Registro de errores del servidor (util/ErrorLog) ###
+**/logs/

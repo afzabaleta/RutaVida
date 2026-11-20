@@ -163,6 +163,8 @@ Deja el resultado en `frontend/data/rutas-demo.geojson` y en `frontend/data/ruta
 
 Con Oracle encendido, ejecutar `co.edu.unicesar.rutavida.app.WebServer` (carpeta de trabajo `backend/`). Debe mostrar `[OK] RutaVida está en http://localhost:8080`. El mismo servidor entrega las páginas de `frontend/` y la API de [`docs/api.md`](docs/api.md); se detiene con el botón *Stop* de IntelliJ. Si el puerto 8080 está ocupado, se puede pasar otro como argumento (por ejemplo `8081`).
 
+**Registro de errores:** además de la consola, las advertencias y los errores del servidor (con el detalle técnico) se guardan en `backend/logs/rutavida-errores.0.log`, en hora de Colombia. Sirve para revisar qué falló después de una prueba, aunque ya se haya cerrado IntelliJ. Son hasta 5 archivos de 1 MB que rotan (`.0` es el más reciente). La carpeta `logs/` no se sube a Git y no guarda contraseñas ni datos de `db.properties`.
+
 **Sin IntelliJ (computador de la presentación):** en IntelliJ, *Maven → Lifecycle → package* (o `mvn -f backend/pom.xml package`) deja `backend/target/rutavida.jar` y sus librerías en `backend/target/lib/`. Después, doble clic en `iniciar-servidor.bat` (Windows) o `./iniciar-servidor.sh` (Linux o macOS), desde la raíz del repositorio. Necesita Java 21 y `backend/db.properties`. Para otro puerto: `iniciar-servidor.bat 8081`.
 
 **Pruebas automáticas en GitHub:** `.github/workflows/pruebas.yml` corre `mvn package` (todas las pruebas y el JAR) en cada Pull Request y en cada push a `develop` o `main`. Allí no hay Oracle, así que las pruebas de integración se omiten solas; esas se siguen corriendo en el computador de cada uno.
