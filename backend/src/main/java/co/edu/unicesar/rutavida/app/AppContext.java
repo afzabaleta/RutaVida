@@ -397,7 +397,8 @@ public final class AppContext {
                 new JdbcVehicleLocationDAO(jdbc), dispatchService(), jdbc);
         return new PatrolSimulator(graph, patrolMovement, patrolTracking, new JdbcEmergencyVehicleDAO(jdbc),
                 new JdbcVehicleTypeDAO(jdbc), new EmergencyCost(), new Random(PATROL_SEED),
-                PatrolSimulator.DEFAULT_MIN_METERS, PatrolSimulator.DEFAULT_MAX_METERS);
+                PatrolSimulator.DEFAULT_MIN_METERS, PatrolSimulator.DEFAULT_MAX_METERS,
+                PatrolSimulator.DEFAULT_SEPARATION_METERS);
     }
 
     public synchronized SimulationEngine simulationEngine() {

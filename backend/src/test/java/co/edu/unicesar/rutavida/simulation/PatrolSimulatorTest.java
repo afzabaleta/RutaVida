@@ -47,7 +47,7 @@ class PatrolSimulatorTest {
         TrackingService tracking = new TrackingService(movement, support.city.vehicles, history,
                 support.dispatch, support.city.transactions);
         patrols = new PatrolSimulator(support.city.graph, movement, tracking, support.city.vehicles,
-                () -> types, new EmergencyCost(), new Random(11), 200, 700);
+                () -> types, new EmergencyCost(), new Random(11), 200, 700, 0);
     }
 
     private GeoPoint patrolAt() {
@@ -128,6 +128,26 @@ class PatrolSimulatorTest {
         assertThrows(IllegalArgumentException.class, () -> new PatrolSimulator(support.city.graph, movement,
                 new TrackingService(movement, support.city.vehicles, history, support.dispatch,
                         support.city.transactions), support.city.vehicles, () -> types, new EmergencyCost(),
-                new Random(1), 500, 400));
+                new Random(1), 500, 400, 0));
+    }
+
+    @Test
+    void twoPatrolsDoNotGoToTheSameSide() {
+        long second = support.city.vehicles.insert(new EmergencyVehicle(0, POLICE_TYPE, 1, "EJEMPLO-POL-02", null,
+                VehicleOperationalStatus.AVAILABLE, DispatchTestSupport.at(2, 2),
+                LocalDateTime.ofInstant(support.clock.instant(), support.clock.getZone()).minusMinutes(5)));
+        VehicleMovementSimulator apart = new VehicleMovementSimulator(support.city.graph, new EmergencyCost(), support.clock);
+        PatrolSimulator separated = new PatrolSimulator(support.city.graph, apart,
+                new TrackingService(apart, support.city.vehicles, history, support.dispatch, support.city.transactions),
+                support.city.vehicles, () -> types, new EmergencyCost(), new Random(5), 200, 900, 300);
+
+        for (int cycle = 0; cycle < 15; cycle++) {
+            separated.tick();
+            GeoPoint one = support.city.vehicles.findById(patrol).orElseThrow().getLastLocation();
+            GeoPoint two = support.city.vehicles.findById(second).orElseThrow().getLastLocation();
+            assertNotEquals(one, two, "cycle " + cycle + ": the two patrols are never in the same place");
+            support.clock.advance(20);
+        }
+        assertTrue(separated.isPatrolling(patrol) || separated.isPatrolling(second));
     }
 }

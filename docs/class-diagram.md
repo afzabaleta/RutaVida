@@ -2068,7 +2068,9 @@ classDiagram
         -vehicleDao : EmergencyVehicleDAO
         -typeDao : VehicleTypeDAO
         -random : Random
+        -destinations : Map~Long, Integer~
         +PATROL_TYPE : String$
+        +DEFAULT_SEPARATION_METERS : double$
         +tick() void
         +resume() void
         +isPatrolling(vehicleId: long) boolean
