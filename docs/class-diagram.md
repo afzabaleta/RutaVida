@@ -2539,6 +2539,13 @@ classDiagram
     class RouteDemo {
         +main(args: String[]) void$
     }
+    class RouteBenchmark {
+        +DEFAULT_TRIPS : int$
+        +SEED : long$
+        +main(args: String[]) void$
+        +measure(graph: RoadGraph, trips: int, random: Random) List~Trip~$
+        +summarize(trips: List~Trip~) List~Summary~$
+    }
     class WebServer {
         +main(args: String[]) void$
     }
