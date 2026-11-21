@@ -417,9 +417,8 @@ Pendiente: verificar el funcionamiento real y la visualizacion movil.
 
 ## Panel de control con el mapa primero, Hospitales y Unidades
 
-El **Panel de control** (`dashboard.html`) muestra primero el **mapa en vivo de Valledupar**, con la barra de simulación arriba. El mapa ocupa casi toda la pantalla (`calc(100vh - 300px)`, mínimo 460 px; en el celular, 65 % de la altura). Debajo del mapa, al bajar con el scroll, están:
+El **Panel de control** (`dashboard.html`) muestra arriba los **indicadores** y debajo el **mapa en vivo de Valledupar**, con la barra de simulación encima del mapa. El mapa ocupa casi toda la pantalla (`calc(100vh - 300px)`, mínimo 460 px; en el celular, 65 % de la altura). Debajo del mapa, al bajar con el scroll, están:
 
-- los indicadores;
 - **Emergencias**, **Incidentes viales** (reportar y validar) y **Alertas SOS**;
 - **Misiones activas**.
 

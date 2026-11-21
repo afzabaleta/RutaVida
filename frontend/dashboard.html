@@ -43,7 +43,45 @@
   </div>
 
   <main class="dashboard-main dashboard-map-first">
-    <!-- The live map takes the screen; the rest of the operation is below it. -->
+    <section class="kpi-grid" aria-label="Indicadores del sistema">
+      <article class="kpi-card kpi-red">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-alert"></span></span>
+        <div>
+          <p>Emergencias activas</p>
+          <strong id="emergency-count">—</strong>
+          <small>Oracle</small>
+        </div>
+      </article>
+
+      <article class="kpi-card kpi-blue">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-check"></span></span>
+        <div>
+          <p>Unidades disponibles</p>
+          <strong id="unit-count">—</strong>
+          <small>Oracle (incluye EJEMPLO)</small>
+        </div>
+      </article>
+
+      <article class="kpi-card kpi-green">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-hospital"></span></span>
+        <div>
+          <p>Hospitales activos</p>
+          <strong id="hospital-count">—</strong>
+          <small>Oracle (datos de D2)</small>
+        </div>
+      </article>
+
+      <article class="kpi-card kpi-amber">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-clock"></span></span>
+        <div>
+          <p>Tiempo promedio de respuesta</p>
+          <strong id="response-time">Sin datos</strong>
+          <small>Reporte → llegada, hoy (Oracle)</small>
+        </div>
+      </article>
+    </section>
+
+    <!-- The live map, big, under the indicators; the rest of the operation is below it. -->
     <section class="map-panel map-hero" aria-labelledby="map-title">
       <div class="map-heading">
         <h1 id="map-title" class="map-title">Mapa en vivo de Valledupar</h1>
@@ -98,44 +136,6 @@
         consulta la fuente de cada sitio en su marcador. Prototipo académico: las unidades
         <code>EJEMPLO-…</code> están identificadas y su movimiento es SIMULACIÓN.
       </p>
-    </section>
-
-    <section class="kpi-grid" aria-label="Indicadores del sistema">
-      <article class="kpi-card kpi-red">
-        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-alert"></span></span>
-        <div>
-          <p>Emergencias activas</p>
-          <strong id="emergency-count">—</strong>
-          <small>Oracle</small>
-        </div>
-      </article>
-
-      <article class="kpi-card kpi-blue">
-        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-check"></span></span>
-        <div>
-          <p>Unidades disponibles</p>
-          <strong id="unit-count">—</strong>
-          <small>Oracle (incluye EJEMPLO)</small>
-        </div>
-      </article>
-
-      <article class="kpi-card kpi-green">
-        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-hospital"></span></span>
-        <div>
-          <p>Hospitales activos</p>
-          <strong id="hospital-count">—</strong>
-          <small>Oracle (datos de D2)</small>
-        </div>
-      </article>
-
-      <article class="kpi-card kpi-amber">
-        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-clock"></span></span>
-        <div>
-          <p>Tiempo promedio de respuesta</p>
-          <strong id="response-time">Sin datos</strong>
-          <small>Reporte → llegada, hoy (Oracle)</small>
-        </div>
-      </article>
     </section>
 
     <section class="operations-grid" aria-label="Operación en curso">
