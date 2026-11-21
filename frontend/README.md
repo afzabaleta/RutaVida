@@ -415,6 +415,28 @@ La pagina reportes.html permite consultar indicadores historicos desde Oracle.
 Pendiente: verificar el funcionamiento real y la visualizacion movil.
 
 
+## Panel de control con el mapa primero, Hospitales y Unidades
+
+El **Panel de control** (`dashboard.html`) muestra primero el **mapa en vivo de Valledupar**, con la barra de simulación arriba. El mapa ocupa casi toda la pantalla (`calc(100vh - 300px)`, mínimo 460 px; en el celular, 65 % de la altura). Debajo del mapa, al bajar con el scroll, están:
+
+- los indicadores;
+- **Emergencias**, **Incidentes viales** (reportar y validar) y **Alertas SOS**;
+- **Misiones activas**.
+
+Los hospitales y las estaciones siguen dibujados en el mapa, pero sus listas pasaron a páginas propias del menú (grupo OPERACIÓN):
+
+- **Hospitales** (`hospitales.html` y `js/hospitales.js`, permiso `HOSPITALES:CONSULTAR`):
+  - Lista con búsqueda por nombre o dirección y filtro por nivel.
+  - Cada tarjeta muestra el nivel, la capacidad de urgencias (o «sin dato verificado»), la dirección, el teléfono (enlace `tel:`) y la fuente del dato (D2).
+  - Clic en la tarjeta: el mapa se centra en el hospital.
+- **Unidades** (`unidades.html` y `js/unidades.js`, permiso `UNIDADES:CONSULTAR`):
+  - Resumen por estado (disponibles, en misión, fuera de operación).
+  - Lista con búsqueda y filtros por tipo y estado.
+  - Mapa en vivo (`live-map.js`, posiciones SIMULACION cada 5 s), con el estado de las tarjetas al día. La lista solo se redibuja si cambia un estado.
+  - Debajo, **Bases y estaciones**, con cuántas unidades tiene registradas cada una.
+
+Las dos páginas solo consultan: crear y editar se hace en Administración. Comparten `js/resource-page.js` (mapa, marcador, tarjeta, búsqueda sin tildes) y `css/recursos.css`. El ícono del menú de Unidades es `img/icons/unit.svg` (original del proyecto).
+
 ## D11. Administración
 
 `admin.html` centraliza la gestión operativa del sistema. El enlace del menú solo se muestra a los roles con `USUARIOS:GESTIONAR`; dentro de la página, cada pestaña y formulario respeta los permisos entregados por el servidor.

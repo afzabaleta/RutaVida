@@ -33,6 +33,20 @@ const MENU = [
     permission: "DESPACHO:GESTIONAR",
   },
   {
+    group: "OPERACIÓN",
+    label: "Hospitales",
+    icon: "hospital",
+    href: "./hospitales.html",
+    permission: "HOSPITALES:CONSULTAR",
+  },
+  {
+    group: "OPERACIÓN",
+    label: "Unidades",
+    icon: "unit",
+    href: "./unidades.html",
+    permission: "UNIDADES:CONSULTAR",
+  },
+  {
     group: "ANÁLISIS",
     label: "Historial y reportes",
     icon: "chart",

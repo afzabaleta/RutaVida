@@ -19,7 +19,6 @@ import {
   STATIONS as D2_STATIONS,
   HOSPITALS as D2_HOSPITALS,
   ROAD_NETWORK_ZONE,
-  SOURCES_CHECKED_ON,
 } from "./valledupar-data.js";
 
 import { startLiveMap } from "./live-map.js";
@@ -220,25 +219,16 @@ function findReference(collection, name) {
   return collection.find((item) => item.name === name);
 }
 
+/**
+ * Stations and hospitals on the map. Their lists are on their own pages now
+ * (hospitales.html and unidades.html), so the panel only draws the markers.
+ */
 function renderPlaces(map, stations, hospitals) {
-  const list = byId("hospital-list");
-  list.replaceChildren();
-
   for (const station of stations) {
-    const reference = findReference(
-      D2_STATIONS,
-      station.name,
-    );
+    const reference = findReference(D2_STATIONS, station.name);
+    const item = { ...station, location: station.location || reference?.location || null };
 
-    const item = {
-      ...station,
-      location:
-        station.location ||
-        reference?.location ||
-        null,
-    };
-
-    const marker = addMarker(
+    addMarker(
       map,
       item,
       placeIcon("station", item),
@@ -249,72 +239,24 @@ function renderPlaces(map, stations, hospitals) {
         reference?.source,
       ),
     );
-
-    list.appendChild(
-      makeDataCard({
-        title: station.name,
-        label: "ORACLE · ESTACIÓN",
-        description:
-          station.address || "Dirección no disponible",
-        status: marker
-          ? ""
-          : "Sin posición conocida",
-        action: marker
-          ? () => focusMarker(map, marker)
-          : null,
-      }),
-    );
   }
 
   for (const hospital of hospitals) {
-    const reference = findReference(
-      D2_HOSPITALS,
-      hospital.name,
-    );
+    const reference = findReference(D2_HOSPITALS, hospital.name);
+    const item = { ...hospital, location: hospital.location || reference?.location || null };
 
-    const item = {
-      ...hospital,
-      location:
-        hospital.location ||
-        reference?.location ||
-        null,
-    };
-
-    const description =
-      `${hospital.address || "Dirección no disponible"} · ` +
-      `Nivel ${hospital.level || "Sin datos"}`;
-
-    const marker = addMarker(
+    addMarker(
       map,
       item,
       placeIcon("hospital"),
       makePopup(
         hospital.name,
-        description,
+        `${hospital.address || "Dirección no disponible"} · Nivel ${hospital.level || "Sin datos"}`,
         "ORACLE · Hospital",
         reference?.source,
       ),
     );
-
-    list.appendChild(
-      makeDataCard({
-        title: hospital.name,
-        label: "ORACLE · HOSPITAL",
-        description,
-        status: marker
-          ? ""
-          : "Sin posición conocida",
-        action: marker
-          ? () => focusMarker(map, marker)
-          : null,
-      }),
-    );
   }
-
-  showEmpty(
-    list,
-    "No hay hospitales ni estaciones disponibles.",
-  );
 }
 
 function renderEmergencies(map, emergencies) {
@@ -368,56 +310,11 @@ if (!usesSummary) {
   );
 }
 
-function renderUnits(map, units, live) {
-  const list = byId("unit-list");
-  list.replaceChildren();
-
-  const available = units.filter(
-    (unit) => unit.status === "DISPONIBLE"
-  );
-
-  byId("unit-pill").textContent = String(units.length);
-
+/** Available units for the indicator when the role cannot read the summary (REPORTES). */
+function countUnits(units) {
   if (!usesSummary) {
-    byId("unit-count").textContent = String(available.length);
+    byId("unit-count").textContent = String(units.filter((unit) => unit.status === "DISPONIBLE").length);
   }
-
-  for (const unit of units) {
-    const title =
-      unit.code ||
-      unit.name ||
-      `Unidad ${unit.id ?? ""}`;
-
-    const isExample =
-      unit.isExample === true ||
-      unit.example === true ||
-      String(unit.code || "").startsWith("EJEMPLO-");
-
-    const label = isExample ? "EJEMPLO" : "ORACLE";
-
-    const description =
-      `${unit.type || "Unidad"} · ` +
-      `${unit.status || "Sin estado"}`;
-
-    // The marker is drawn by the live map (D7); clicking the card centers the map on it.
-    const canFocus = Boolean(live && unit.location);
-
-    list.appendChild(
-      makeDataCard({
-        title,
-        label,
-        description,
-        status: canFocus
-          ? "Clic para verla en el mapa en vivo"
-          : "Sin posición conocida",
-        action: canFocus
-          ? () => live.focus(unit.id)
-          : null,
-      })
-    );
-  }
-
-  showEmpty(list, "No hay unidades disponibles.");
 }
 
 let usesSummary = false;
@@ -596,14 +493,7 @@ startIncidentForm(map, session, {
 
   byId("response-time").textContent = "Sin datos";
   byId("hospital-count").textContent = "—";
-  byId("hospital-pill").textContent = "—";
-
-  byId("source-date").textContent =
-    `Fecha de revisión de fuentes: ${SOURCES_CHECKED_ON}`;
-
   byId("emergency-list").replaceChildren();
-  byId("unit-list").replaceChildren();
-  byId("hospital-list").replaceChildren();
 
   const results = await Promise.allSettled([
     listEmergencies(),
@@ -632,16 +522,9 @@ startIncidentForm(map, session, {
   }
 
   if (units.status === "fulfilled") {
-    renderUnits(
-      map,
-      units.value,
-      live,
-    );
+    countUnits(units.value);
   } else {
-    showFailure(
-      byId("unit-list"),
-      units.reason,
-    );
+    console.error("No fue posible contar las unidades:", units.reason);
   }
 
   if (
@@ -653,17 +536,13 @@ startIncidentForm(map, session, {
       stations.value,
       hospitals.value,
     );
-if (!usesSummary) {
-  byId("hospital-count").textContent = String(hospitals.value.length);
-}
-    byId("hospital-pill").textContent =
-      String(hospitals.value.length);
+    if (!usesSummary) {
+      byId("hospital-count").textContent = String(hospitals.value.length);
+    }
   } else {
-    showFailure(
-      byId("hospital-list"),
-      stations.status === "rejected"
-        ? stations.reason
-        : hospitals.reason,
+    console.error(
+      "No fue posible dibujar estaciones y hospitales:",
+      stations.status === "rejected" ? stations.reason : hospitals.reason,
     );
   }
 
