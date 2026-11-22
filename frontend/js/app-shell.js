@@ -359,11 +359,6 @@ function startDrawer(sidebar, burger, backdrop) {
 }
 
 /**
- * Wraps the page in the shell: side menu, header and drawer.
- * Elements marked data-shell-slot="header-actions" (the alert bell)
- * move into the header with their ids intact.
- */
-/**
  * Shows whether the simulation really runs (D12).
  * Pages without the simulation panel only identify simulated data.
  */
@@ -378,6 +373,11 @@ export function showSimulationState(running) {
   }
 }
 
+/**
+ * Wraps the page in the shell: side menu, header and drawer.
+ * Elements marked data-shell-slot="header-actions" (the alert bell)
+ * move into the header with their ids intact.
+ */
 export function renderAppShell(session) {
   if (document.body.classList.contains("has-shell")) {
     return;
