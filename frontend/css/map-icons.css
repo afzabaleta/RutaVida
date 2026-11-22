@@ -1,0 +1,64 @@
+/*
+ * Size and look of the map icons drawn by js/map-icons.js (stations, hospitals, units,
+ * emergencies and SOS). Shared by every page with a map, the panic button included:
+ * without it the SVG and PNG icons are drawn at their natural size and cover the city.
+ */
+.rv-map-icon {
+  background: none;
+  border: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .45));
+}
+
+.rv-map-icon svg {
+  display: block;
+}
+
+.rv-map-marker {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(15, 35, 60, .24);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .94);
+}
+
+.rv-map-marker--unit {
+  border: 2.5px solid #94a3b8;
+  background: rgba(255, 255, 255, .96);
+}
+
+.rv-map-marker--unit.rv-status-disponible { border-color: #22c55e; }
+.rv-map-marker--unit.rv-status-ocupado { border-color: #f59e0b; }
+.rv-map-marker--unit.rv-status-mantenimiento,
+.rv-map-marker--unit.rv-status-fuera-servicio { border-color: #94a3b8; }
+
+.rv-map-image {
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.rv-map-image--hospital { width: 22px; height: 22px; }
+.rv-map-image--vehicle { width: 20px; height: 20px; }
+.rv-map-image--station { width: 21px; height: 21px; }
+
+.rv-pulse::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 3px solid #e5484d;
+  animation: rv-pulse 1.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes rv-pulse {
+  from { transform: scale(.7); opacity: .9; }
+  to { transform: scale(1.5); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-pulse::before { animation: none; opacity: 0; }
+}
