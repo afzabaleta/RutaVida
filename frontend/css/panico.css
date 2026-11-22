@@ -197,6 +197,24 @@
   .panic-actions .panic-secondary { flex: 1 1 170px; min-width: 0; padding-inline: 10px; }
   .panic-details-grid { grid-template-columns: 1fr; gap: 12px; }
   .panic-sos { width: 100%; min-height: 57px; }
+  /* The hints keep a 45px indent with !important on wide screens; on a phone they line up with the rest. */
+  .panic-hint, .panic-result { margin-left: 0 !important; }
+}
+
+/* Narrow phones (390 px): the name, «Inicio», «Llamar al 123» and the theme switch do not fit in one row.
+   The logo already links to the start page, so «Inicio» goes and the name gets smaller. */
+@media (max-width: 430px) {
+  .panic-home { display: none; }
+  .panic-brand { gap: 7px; }
+  .panic-brand img { width: 38px; height: 38px; }
+  .panic-brand-name { font-size: 1.22rem; }
+  .panic-nav { gap: 6px; }
+  .panic-call { padding: 8px 9px; }
+}
+
+/* Smaller phones (360 px): only the logo, which still links to the start page. */
+@media (max-width: 375px) {
+  .panic-brand-name { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) { .rv-pulse-amber { animation: none; } .panic-sos { transform: none !important; } }
