@@ -78,14 +78,19 @@ class ClientIdentifierConnectionFactoryTest {
     }
 
     @Test
-    void withoutASessionNothingIsSent() throws SQLException {
+    void withoutASessionTheIdentifierIsCleared() throws SQLException {
+        // A reused connection may still carry the user of the request that had it before.
         Recorder recorder = new Recorder();
         Connection fake = fakeConnection(recorder, false);
 
         Connection opened = new ClientIdentifierConnectionFactory(() -> fake, () -> null).open();
 
         assertSame(fake, opened);
-        assertTrue(recorder.calls.isEmpty());
+        assertEquals(List.of(
+                "prepareCall " + ClientIdentifierConnectionFactory.CLEAR_IDENTIFIER,
+                "execute",
+                "close statement"), recorder.calls);
+        assertFalse(recorder.closed);
     }
 
     @Test

@@ -26,6 +26,7 @@ import co.edu.unicesar.rutavida.dao.RoleDAO;
 import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.UserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.ClientIdentifierConnectionFactory;
+import co.edu.unicesar.rutavida.dao.jdbc.PooledConnectionFactory;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcAuditDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcAlertDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcEmergencyAssignmentDAO;
@@ -162,9 +163,10 @@ public final class AppContext {
         this.database = Objects.requireNonNull(database, "database");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.session = new SessionContext();
-        // Every connection tells Oracle who is logged in (CLIENT_IDENTIFIER, used by the triggers).
-        this.jdbc = new JdbcTransactionManager(
-                new ClientIdentifierConnectionFactory(database::open, this::currentUserId));
+        // Connections are reused (a new one to Oracle Cloud costs about half a second), and every
+        // one handed out tells Oracle who is logged in (CLIENT_IDENTIFIER, used by the triggers).
+        this.jdbc = new JdbcTransactionManager(new ClientIdentifierConnectionFactory(
+                new PooledConnectionFactory(database::open), this::currentUserId));
 
         // Security (A2 + S2 + S3)
         this.userDao = new JdbcUserDAO(jdbc);
