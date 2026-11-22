@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+  <meta name="theme-color" content="#101923">
+  <title>RutaVida | Hospitales</title>
+  <script src="./js/theme-boot.js"></script>
+  <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/rutavida.css">
+  <link rel="stylesheet" href="./css/dashboard.css">
+  <link rel="stylesheet" href="./css/map-icons.css">
+  <link rel="stylesheet" href="./css/app-shell.css">
+  <link rel="stylesheet" href="./css/recursos.css">
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="vendor/leaflet-1.9.4/leaflet.css">
+  <script defer src="vendor/leaflet-1.9.4/leaflet.js"></script>
+  <script type="module" src="./js/hospitales.js"></script>
+</head>
+
+<body class="dashboard-body">
+  <main class="dashboard-main resource-main">
+    <section class="welcome-row">
+      <div>
+        <h1 class="page-title">Hospi<span>tales</span></h1>
+        <p class="muted">
+          Red de hospitales y clínicas de Valledupar que reciben los traslados. Se consultan aquí;
+          se crean y editan en Administración.
+        </p>
+      </div>
+      <p id="hospital-total" class="resource-total"></p>
+    </section>
+
+    <section class="resource-layout">
+      <section class="side-panel resource-list-panel" aria-labelledby="hospitals-title">
+        <div class="panel-heading">
+          <h2 id="hospitals-title">Hospitales</h2>
+          <span class="count-pill" id="hospital-pill">0</span>
+        </div>
+
+        <div class="resource-filters">
+          <label for="hospital-search">Buscar
+            <input id="hospital-search" type="search" placeholder="Nombre o dirección" autocomplete="off">
+          </label>
+          <label for="hospital-level">Nivel
+            <select id="hospital-level">
+              <option value="">Todos</option>
+              <option value="I">I</option>
+              <option value="II">II</option>
+              <option value="III">III</option>
+              <option value="IV">IV</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="hospital-list" class="item-list resource-list" aria-live="polite">
+          <p class="empty-state">Cargando…</p>
+        </div>
+      </section>
+
+      <section class="map-panel resource-map-panel" aria-label="Mapa de hospitales">
+        <div id="map" role="application" aria-label="Mapa de los hospitales de Valledupar"></div>
+        <div class="map-legend" aria-label="Leyenda del mapa">
+          <span><i class="legend-icon" data-icon="hospital"></i> Hospital</span>
+        </div>
+        <p class="map-footnote">Cartografía © OpenStreetMap contributors. Ubicaciones de Oracle (datos de D2).</p>
+      </section>
+    </section>
+
+    <div class="source-note resource-note">
+      <strong>Sobre estos datos</strong>
+      <p>
+        Los hospitales vienen de Oracle (scripts <code>03_datos_valledupar.sql</code> y
+        <code>10_hospitales_y_unidades.sql</code>), con la fuente de cada dato. Verifica las
+        direcciones y teléfonos antes de usarlos en una operación real.
+      </p>
+      <p id="source-date">Fecha de revisión de fuentes: —</p>
+    </div>
+  </main>
+</body>
+</html>

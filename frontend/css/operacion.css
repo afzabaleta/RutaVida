@@ -1,0 +1,480 @@
+
+.operation-main {
+  display: grid;
+  gap: 22px;
+}
+
+.operation-notice {
+  padding: 14px 18px;
+  border: 1px solid var(--notice-border);
+  border-radius: 12px;
+  background: var(--notice-bg);
+  color: var(--notice-text);
+  font-size: .9375rem;
+  line-height: 1.5;
+}
+
+.operation-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.4fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.form-panel,
+.operation-map-panel {
+  padding: 24px;
+  min-width: 0;
+}
+
+.form-panel form {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.form-field {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.form-field label,
+.form-field legend,
+.field-label {
+  color: var(--text);
+  font-weight: 600;
+  font-size: .9375rem;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  transition: border-color 150ms ease;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder {
+  color: var(--placeholder);
+}
+
+.form-field input:hover,
+.form-field select:hover,
+.form-field textarea:hover {
+  border-color: var(--border-hover);
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.severity-field {
+  border: 0;
+  padding: 0;
+}
+
+.severity-field legend {
+  margin-bottom: 10px;
+}
+
+.severity-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.severity-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--field-bg);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.severity-chip:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.severity-chip input {
+  accent-color: var(--blue);
+}
+
+.severity-critica {
+  border-color: var(--red);
+}
+
+.severity-alta {
+  border-color: var(--amber);
+}
+
+.severity-media {
+  border-color: var(--blue);
+}
+
+.severity-baja {
+  border-color: var(--green);
+}
+
+.severity-chip:has(input:checked) {
+  background: var(--selected-bg);
+  border-width: 2px;
+  padding: 9px 13px;
+}
+
+.secondary-button,
+.primary-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 46px;
+  padding: 11px 18px;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+/* Same pair as the dashboard: red primary, white outline secondary. */
+.secondary-button {
+  border: 1.5px solid var(--outline);
+  background: transparent;
+  color: var(--text);
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--outline-hover);
+  background: var(--outline-hover-bg);
+}
+
+.primary-button {
+  border: 1px solid #d42335;
+  background: #d42335;
+  color: white;
+}
+
+.primary-button:hover:not(:disabled) {
+  border-color: #b81c2c;
+  background: #b81c2c;
+}
+
+.secondary-button:focus-visible,
+.primary-button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.primary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.point-text {
+  color: var(--blue);
+  font-size: .9375rem;
+  overflow-wrap: anywhere;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.form-message {
+  padding: 12px 14px;
+  border-radius: 9px;
+  line-height: 1.5;
+}
+
+.form-message.error {
+  background: rgba(255, 102, 116, 0.12);
+  border: 1px solid var(--red);
+  color: var(--error-text);
+}
+
+.form-message.ok {
+  background: rgba(75, 214, 160, 0.12);
+  border: 1px solid var(--green);
+  color: var(--ok-text);
+}
+
+.operation-map-panel #map {
+  width: 100%;
+  height: 560px;
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .operation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operation-map-panel #map {
+    height: 420px;
+  }
+}
+
+@media (max-width: 600px) {
+  .form-panel,
+  .operation-map-panel {
+    padding: 15px;
+  }
+
+  .operation-map-panel #map {
+    height: 350px;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions > * {
+    width: 100%;
+  }
+}
+
+/* Dispatch page (despacho.html) */
+.side-panel select {
+  width: 100%;
+  margin-top: 6px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.side-panel select:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.side-panel select option {
+  background: var(--surface);
+}
+
+.unit-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.unit-choice input {
+  margin-top: 4px;
+  accent-color: var(--amber);
+}
+
+.unit-choice > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.unit-choice:has(input:checked) {
+  border-color: var(--amber);
+  background: rgba(246, 185, 75, .08);
+}
+
+.dispatch-summary {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0;
+  font-size: .9375rem;
+}
+
+.dispatch-summary p {
+  margin: 0;
+}
+
+.dispatch-button {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 12px;
+  background: #d42335;
+  font-size: 1rem;
+}
+
+.dispatch-button:hover:not(:disabled) {
+  background: #b81c2c;
+}
+
+.dispatch-button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* Dispatch and mission (D6b) */
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mission-actions button {
+  flex: 1 1 140px;
+  min-height: 44px;
+}
+
+/* Transfer to a hospital (CU-11) */
+.transfer-area {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.transfer-area > .primary-button {
+  width: 100%;
+  min-height: 44px;
+}
+
+.hospital-options {
+  display: grid;
+  gap: 8px;
+}
+
+.hospital-option {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hospital-option-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.hospital-option h3 {
+  margin: 0;
+  font-size: .9375rem;
+}
+
+.hospital-option button {
+  min-height: 40px;
+  margin-top: 4px;
+}
+
+.hospital-unconfirmed {
+  font-size: .8125rem;
+  color: var(--amber);
+}
+
+.close-area {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.close-area > .secondary-button {
+  width: 100%;
+  min-height: 44px;
+}
+
+#refresh-button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+}
+
+.route-difference {
+  margin: 0;
+  font-size: .875rem;
+  color: var(--amber);
+}
+
+.secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dispatch-button[hidden] {
+  display: none;
+}
+
+/* Dispatch page on narrow screens (D8, Diego): long texts wrap inside the cards and the
+   buttons take the whole width, so nothing overflows on a phone. */
+.route-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-card-top {
+  flex-wrap: wrap;
+}
+
+.route-card-top h3 {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.unit-choice input {
+  flex-shrink: 0;
+}
+
+.unit-choice > div {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .mission-actions {
+    flex-direction: column;
+  }
+
+  .mission-actions button {
+    flex: 0 0 auto;
+  }
+
+  .mission-actions button,
+  #refresh-button,
+  #dispatch-button,
+  .close-area button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  #emergency-select {
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+  }
+}

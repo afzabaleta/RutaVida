@@ -1,0 +1,170 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+
+    <meta name="theme-color" content="#101923">
+
+    <title>RutaVida | Auditoría</title>
+
+    <script src="./js/theme-boot.js"></script>
+
+    <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+
+    <link rel="stylesheet" href="./css/rutavida.css">
+    <link rel="stylesheet" href="./css/dashboard.css">
+    <link rel="stylesheet" href="./css/map-icons.css">
+    <link rel="stylesheet" href="./css/app-shell.css">
+    <link rel="stylesheet" href="./css/reportes.css">
+    <link rel="stylesheet" href="./css/auditoria.css">
+    <link rel="stylesheet" href="./css/theme.css">
+
+    <script type="module" src="./js/auditoria.js"></script>
+</head>
+
+<body class="dashboard-body reports-body">
+
+<main class="dashboard-main reports-main">
+
+    <section class="welcome-row">
+        <div>
+            <p class="eyebrow">TRAZABILIDAD</p>
+
+            <h1 class="page-title">Audi<span>toría</span></h1>
+
+            <p class="muted">
+                Quién hizo qué y cuándo, según la tabla AUDITORIA de Oracle. Solo lectura.
+            </p>
+        </div>
+
+        <div class="welcome-actions">
+            <button class="button button-secondary"
+                    id="audit-csv"
+                    type="button"
+                    disabled>
+                Descargar CSV
+            </button>
+        </div>
+    </section>
+
+    <section class="reports-panel" aria-labelledby="audit-filters-title">
+
+        <h2 id="audit-filters-title">Filtros</h2>
+
+        <form id="audit-filters" class="reports-filters audit-filters">
+
+            <label for="audit-from">Desde
+                <input id="audit-from"
+                       name="from"
+                       type="datetime-local"
+                       required>
+            </label>
+
+            <label for="audit-to">Hasta
+                <input id="audit-to"
+                       name="to"
+                       type="datetime-local"
+                       required>
+            </label>
+
+            <label for="audit-module">Módulo
+                <select id="audit-module" name="module">
+                    <option value="">Todos</option>
+                </select>
+            </label>
+
+            <label for="audit-user">Usuario
+                <input id="audit-user"
+                       name="username"
+                       type="search"
+                       placeholder="Todos"
+                       autocomplete="off">
+            </label>
+
+            <label for="audit-result">Resultado
+                <select id="audit-result" name="result">
+                    <option value="">Todos</option>
+                    <option value="EXITO">Éxito</option>
+                    <option value="FALLO">Fallo</option>
+                </select>
+            </label>
+
+            <div class="reports-presets" aria-label="Periodos rápidos">
+
+                <button type="button" data-hours="1">
+                    Última hora
+                </button>
+
+                <button type="button" data-hours="24">
+                    24 horas
+                </button>
+
+                <button type="button" data-hours="168">
+                    7 días
+                </button>
+
+            </div>
+
+            <button class="button" type="submit">
+                Consultar
+            </button>
+
+        </form>
+
+        <p id="audit-message"
+           class="muted"
+           role="status"
+           aria-live="polite">
+        </p>
+
+    </section>
+
+    <section class="reports-panel" aria-labelledby="audit-table-title">
+
+        <div class="reports-section-heading">
+
+            <h2 id="audit-table-title">
+                Registro de operaciones
+            </h2>
+
+            <p id="audit-count" class="muted"></p>
+
+        </div>
+
+        <div class="reports-table-scroll">
+
+            <table class="reports-table audit-table">
+
+                <thead>
+                <tr>
+                    <th scope="col">Fecha y hora</th>
+                    <th scope="col">Usuario</th>
+                    <th scope="col">Módulo</th>
+                    <th scope="col">Operación</th>
+                    <th scope="col">Registro</th>
+                    <th scope="col">Resultado</th>
+                    <th scope="col">Detalle</th>
+                </tr>
+                </thead>
+
+                <tbody id="audit-rows">
+                <tr>
+                    <td colspan="7">Cargando…</td>
+                </tr>
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</main>
+
+</body>
+</html>

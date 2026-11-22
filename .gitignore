@@ -1,0 +1,41 @@
+### Credenciales y configuración local (NUNCA subir) ###
+backend/db.properties
+*.env
+.env
+**/wallet/
+Wallet_*.zip
+**/Wallet_*/
+cwallet.sso
+ewallet.p12
+ewallet.pem
+### Descargas de OpenStreetMap (se regeneran con database/osm/*.overpassql) ###
+database/osm/*.osm
+
+### Registros de ejecución de scripts (SPOOL) ###
+*.log
+
+### Maven ###
+**/target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+### NetBeans / Eclipse / VS Code ###
+nbproject/private/
+.classpath
+.project
+.settings/
+.vscode/
+
+### Sistema operativo ###
+.DS_Store
+Thumbs.db
+desktop.ini
+
+### Registro de errores del servidor (util/ErrorLog) ###
+**/logs/

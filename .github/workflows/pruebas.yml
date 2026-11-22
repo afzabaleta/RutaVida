@@ -1,0 +1,32 @@
+# Runs the tests and builds the jar on every pull request and every push to develop or main.
+# There is no Oracle here: the integration tests skip themselves (no db.properties).
+name: Pruebas
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Pruebas y empaquetado
+        run: mvn -B -ntp -f backend/pom.xml package
+      - name: Guardar los reportes si algo falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-de-pruebas
+          path: backend/target/surefire-reports/
