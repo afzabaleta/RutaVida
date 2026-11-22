@@ -5,8 +5,11 @@ import {
   listUnits,
   hasPermission,
   todayIso,
+  typeLabel,
+  SEVERITIES,
 } from "./api-client.js";
 import { startPage } from "./page-session.js";
+import { vehicleLabel } from "./map-icons.js";
 
 const $ = (id) => document.getElementById(id);
 let emergencies = [];
@@ -56,12 +59,18 @@ function renderKpis(report) {
   $("kpi-response").textContent =
     report.averageResponseMinutes == null
       ? "Sin datos"
-      : `${Number(report.averageResponseMinutes).toFixed(1)} min`;
+      : `${Number(report.averageResponseMinutes).toLocaleString("es-CO", { maximumFractionDigits: 1 })} min`;
   $("kpi-dispatches").textContent = display(report.dispatches);
   $("kpi-incidents").textContent = display(report.roadIncidents);
 }
 
-function renderChart(id, values) {
+/** "ALTA" -> "Alta"; an unknown code is shown as it comes. */
+function severityLabel(code) {
+  return SEVERITIES.find((severity) => severity.code === code)?.label ?? display(code);
+}
+
+/** labelOf turns the code the server sends into the text shown (EMERGENCIA_MEDICA -> Emergencia médica). */
+function renderChart(id, values, labelOf = display) {
   const container = $(id);
   container.replaceChildren();
 
@@ -81,7 +90,7 @@ function renderChart(id, values) {
 
     const label = document.createElement("span");
     label.className = "report-chart-label";
-    label.textContent = display(item.label);
+    label.textContent = labelOf(item.label);
 
     const track = document.createElement("div");
     track.className = "report-chart-track";
@@ -102,9 +111,9 @@ function renderChart(id, values) {
 function renderReport(report) {
   renderKpis(report);
   renderChart("chart-days", report.byDay);
-  renderChart("chart-types", report.byEmergencyType);
-  renderChart("chart-severity", report.bySeverity);
-  renderChart("chart-vehicles", report.byVehicleType);
+  renderChart("chart-types", report.byEmergencyType, typeLabel);
+  renderChart("chart-severity", report.bySeverity, severityLabel);
+  renderChart("chart-vehicles", report.byVehicleType, vehicleLabel);
 }
 
 function addCell(row, value) {
@@ -159,8 +168,8 @@ function renderHistory() {
     const row = document.createElement("tr");
     addCell(row, item.code);
     addCell(row, dateText(item.reportedAt));
-    addCell(row, item.type);
-    addCell(row, item.severity);
+    addCell(row, typeLabel(item.type));
+    addCell(row, severityLabel(item.severity));
     addCell(row, item.status);
 
     const cell = document.createElement("td");
