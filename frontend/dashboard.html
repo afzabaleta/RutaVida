@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+  <meta name="theme-color" content="#101923">
+  <title>RutaVida | Centro de operaciones</title>
+  <!-- Sets data-theme before paint (no flash). -->
+  <script src="./js/theme-boot.js"></script>
+  <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/rutavida.css">
+  <link rel="stylesheet" href="./css/dashboard.css">
+  <link rel="stylesheet" href="./css/map-icons.css">
+  <link rel="stylesheet" href="./css/app-shell.css">
+  <link rel="stylesheet" href="./css/simulacion.css">
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet"
+    href="vendor/leaflet-1.9.4/leaflet.css">
+  <script defer
+    src="vendor/leaflet-1.9.4/leaflet.js"></script>
+
+  <script type="module" src="./js/dashboard.js"></script>
+</head>
+
+<body class="dashboard-body">
+  <!-- Moved into the page header by app-shell.js -->
+  <div class="bell-container" data-shell-slot="header-actions">
+    <button
+      id="alert-bell"
+      class="bell-button"
+      type="button"
+      aria-label="Alertas"
+      aria-expanded="false"
+      aria-controls="alert-panel">
+      <span class="shell-icon shell-icon-bell" aria-hidden="true"></span>
+      <span id="alert-count" class="bell-count" hidden>0</span>
+    </button>
+
+    <section id="alert-panel" class="bell-panel" hidden>
+      <h2>Alertas</h2>
+      <div id="alert-list" class="bell-list"></div>
+    </section>
+  </div>
+
+  <main class="dashboard-main dashboard-map-first">
+    <section class="kpi-grid" aria-label="Indicadores del sistema">
+      <article class="kpi-card kpi-red">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-alert"></span></span>
+        <div>
+          <p>Emergencias activas</p>
+          <strong id="emergency-count">—</strong>
+          <small>Oracle</small>
+        </div>
+      </article>
+
+      <article class="kpi-card kpi-blue">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-check"></span></span>
+        <div>
+          <p>Unidades disponibles</p>
+          <strong id="unit-count">—</strong>
+          <small>Oracle (incluye EJEMPLO)</small>
+        </div>
+      </article>
+
+      <article class="kpi-card kpi-green">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-hospital"></span></span>
+        <div>
+          <p>Hospitales activos</p>
+          <strong id="hospital-count">—</strong>
+          <small>Oracle (datos de D2)</small>
+        </div>
+      </article>
+
+      <article class="kpi-card kpi-amber">
+        <span class="kpi-icon" aria-hidden="true"><span class="shell-icon shell-icon-clock"></span></span>
+        <div>
+          <p>Tiempo promedio de respuesta</p>
+          <strong id="response-time">Sin datos</strong>
+          <small>Reporte → llegada, hoy (Oracle)</small>
+        </div>
+      </article>
+    </section>
+
+    <!-- The live map, big, under the indicators; the rest of the operation is below it. -->
+    <section class="map-panel map-hero" aria-labelledby="map-title">
+      <div class="map-heading">
+        <h1 id="map-title" class="map-title">Mapa en vivo de Valledupar</h1>
+        <span class="map-status" id="live-status"><span></span> Conectando seguimiento…</span>
+      </div>
+
+      <section class="sim-panel" id="sim-panel" aria-labelledby="sim-title" hidden>
+        <div class="sim-state">
+          <span class="sim-dot" aria-hidden="true"></span>
+          <div>
+            <h2 id="sim-title">Simulación</h2>
+            <p id="sim-state" role="status">Consultando…</p>
+          </div>
+        </div>
+
+        <div class="sim-actions">
+          <button type="button" class="button" id="sim-start">Iniciar</button>
+          <button type="button" class="button button-secondary" id="sim-stop">Detener</button>
+          <button type="button" class="button button-secondary" id="sim-congest">Congestionar ruta activa</button>
+          <button type="button" class="button button-secondary" id="sim-release">Liberar tráfico</button>
+        </div>
+
+        <p class="sim-message" id="sim-message" role="status"></p>
+      </section>
+
+      <p class="route-toast" id="route-toast" role="status" hidden></p>
+
+      <div
+        id="map"
+        role="application"
+        aria-label="Mapa interactivo con emergencias, unidades, estaciones y hospitales">
+      </div>
+
+      <div class="map-legend" aria-label="Leyenda del mapa">
+        <span><i class="legend-icon" data-icon="station"></i> Estación</span>
+        <span><i class="legend-icon" data-icon="hospital"></i> Hospital</span>
+        <span><i class="legend-icon" data-icon="emergency"></i> Emergencia</span>
+        <span><i class="legend-icon" data-icon="panic"></i> SOS pendiente</span>
+        <span><i class="legend-icon" data-icon="panic-validated"></i> SOS validado</span>
+        <span><i class="legend-icon" data-icon="AMBULANCIA"></i> Ambulancia</span>
+        <span><i class="legend-icon" data-icon="BOMBERO"></i> Bomberos</span>
+        <span><i class="legend-icon" data-icon="POLICIA"></i> Patrulla</span>
+        <span><i class="legend-ring available-ring"></i> Disponible</span>
+        <span><i class="legend-ring busy-ring"></i> Ocupada</span>
+        <span><i class="legend-zone"></i> Zona vial K4</span>
+        <span><i class="legend-traffic moderate"></i> Tráfico moderado</span>
+        <span><i class="legend-traffic congested"></i> Tráfico congestionado</span>
+      </div>
+
+      <p class="map-footnote">
+        Cartografía © OpenStreetMap contributors. Las ubicaciones son referenciales;
+        consulta la fuente de cada sitio en su marcador. Prototipo académico: las unidades
+        <code>EJEMPLO-…</code> están identificadas y su movimiento es SIMULACIÓN.
+      </p>
+    </section>
+
+    <section class="operations-grid" aria-label="Operación en curso">
+      <section class="side-panel emergency-panel" aria-labelledby="emergencies-title">
+        <div class="panel-heading">
+          <div>
+            <h2 id="emergencies-title">Emergencias</h2>
+          </div>
+          <span class="count-pill" id="emergency-pill">0</span>
+        </div>
+
+        <div id="emergency-list" class="item-list">
+          <p class="empty-state">Cargando…</p>
+        </div>
+      </section>
+
+      <section class="side-panel incidents-panel" aria-labelledby="incidents-title">
+        <div class="panel-heading">
+          <div>
+            <h2 id="incidents-title">Incidentes viales</h2>
+          </div>
+          <span class="count-pill" id="incident-pill">0</span>
+        </div>
+
+        <p class="incident-description">
+          Incidentes reportados en Oracle. Los pendientes requieren
+          validación antes de afectar las rutas.
+        </p>
+
+        <button type="button" id="incident-report-button"
+                class="button incident-report-button"
+                aria-pressed="false" hidden>
+          Reportar incidente
+        </button>
+
+        <form id="incident-form" class="incident-form" hidden novalidate>
+          <p class="incident-form-street">
+            <strong>Calle:</strong>
+            <span id="incident-street"></span>
+          </p>
+
+          <label for="incident-type">Tipo
+            <select id="incident-type" name="type" required></select>
+          </label>
+
+          <label for="incident-severity">Severidad
+            <select id="incident-severity" name="severity" required></select>
+          </label>
+
+          <label class="incident-check">
+            <input type="checkbox" name="blocksSegment">
+            Cierra la vía: las unidades no pasan por ahí
+          </label>
+
+          <label class="incident-check" id="incident-both-field">
+            <input type="checkbox" id="incident-both" checked>
+            En los dos sentidos de la calle
+          </label>
+
+          <label for="incident-description">Descripción (opcional)
+            <textarea id="incident-description"
+                      name="description"
+                      rows="2"
+                      maxlength="300"></textarea>
+          </label>
+
+          <div class="incident-form-actions">
+            <button type="button" class="map-action" data-cancel>
+              Cancelar
+            </button>
+
+            <button type="submit" class="button">
+              Registrar incidente
+            </button>
+          </div>
+        </form>
+
+        <div id="incident-list" class="item-list">
+          <p class="empty-state">Cargando incidentes…</p>
+        </div>
+
+        <p id="incident-message" class="incident-message" role="status"></p>
+      </section>
+
+      <section class="side-panel sos-panel" aria-labelledby="panic-title">
+        <div class="panel-heading">
+          <h2 id="panic-title">Alertas SOS</h2>
+          <span id="panic-pill" class="count-pill">0</span>
+        </div>
+        <a class="panel-link" href="./panico.html">Abrir botón SOS</a>
+        <p id="panic-message" class="panic-message" role="status">Cargando reportes SOS...</p>
+        <div id="panic-list" class="panic-dashboard-list"></div>
+      </section>
+    </section>
+
+    <section class="map-panel route-panel missions-panel" aria-labelledby="mission-title">
+      <div class="map-heading">
+        <div>
+          <h2 id="mission-title">Misiones activas</h2>
+        </div>
+        <span class="data-tag real-tag">ORACLE</span>
+      </div>
+
+      <p class="map-footnote">
+        Las posiciones se actualizan cada 5 segundos.
+        SIMULACIÓN: las unidades todavía no transmiten GPS real.
+      </p>
+
+      <div id="mission-list" class="route-list">
+        <p class="empty-state">Cargando misiones…</p>
+      </div>
+    </section>
+
+    <footer class="dashboard-footer">
+      <span>RutaVida · Panel principal</span>
+      <span>Hospitales y unidades: en su página del menú</span>
+    </footer>
+  </main>
+</body>
+</html>

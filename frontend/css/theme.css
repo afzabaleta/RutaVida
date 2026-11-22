@@ -1,0 +1,186 @@
+/* Light theme (docs/mockups/rediseno-panel-claro.png).
+   Dark is the default and is defined in :root / .dashboard-body by
+   dashboard.css and app-shell.css; this file only redefines those colour
+   variables when <html data-theme="light"> (set by theme-boot.js).
+   Text colours keep at least 4.5:1 contrast on their background. */
+
+:root[data-theme="light"],
+:root[data-theme="light"] .dashboard-body {
+  color-scheme: light;
+
+  /* Page */
+  --bg: #f3f5f9;
+  --surface: #ffffff;
+  --surface-raised: #f5f7fb;
+  --border: #dfe5ee;
+  --border-strong: #c9d2df;
+  --border-hover: #a3b1c6;
+  --text: #14213a;
+  --text-soft: #2a3850;
+  --text-sub: #4f5d73;
+  --muted: #526077;
+  --placeholder: #677488;
+  --field-bg: #ffffff;
+  --selected-bg: #edf2fb;
+
+  /* Accent text: darker than in dark mode so they read on white. */
+  --red: #c41e2e;
+  --red-text: #b01a2a;
+  --amber: #8a5a00;
+  --blue: #1f5fbf;
+  --green: #0f7a4a;
+  --blue-soft: rgb(31 95 191 / 9%);
+  --title-accent: #d42335;
+
+  /* Buttons */
+  --outline: #14213a;
+  --outline-hover: #000000;
+  --outline-hover-bg: rgb(20 33 58 / 6%);
+  --control-border: #b4c0d2;
+  --control-bg: #ffffff;
+  --control-hover-bg: #eef2f8;
+  --control-text: #14213a;
+  --action-border: #b7cdf3;
+
+  /* Example / simulation notices and tags */
+  --notice-border: #e3c27a;
+  --notice-bg: #fdf6e6;
+  --notice-text: #6b4600;
+  --tag-amber-bg: #fbefd5;
+  --tag-green-bg: #dff3e9;
+  --error-text: #a3162a;
+  --ok-text: #0d6b41;
+
+  /* KPI cards: soft colour background, solid colour circle. */
+  --kpi-red-bg: #fdeef0;
+  --kpi-red-border: #f3c4ca;
+  --kpi-blue-bg: #ebf2fd;
+  --kpi-blue-border: #c3d6f5;
+  --kpi-green-bg: #e8f6ef;
+  --kpi-green-border: #bfe3cf;
+  --kpi-amber-bg: #fdf4e3;
+  --kpi-amber-border: #efd7a6;
+  --kpi-sub: #4f5d73;
+
+  /* Alert bell */
+  --unread-border: #b7cdf3;
+  --unread-bg: #edf3fd;
+  --pill-blue: #1f5fbf;
+
+  /* SOS reports */
+  --sos-pending-border: #e3c27a;
+  --sos-validated-border: #f0b4bb;
+  --sos-pending-pill-bg: #fbefd5;
+  --sos-pending-pill-text: #6b4600;
+  --sos-validated-pill-bg: #fde4e7;
+  --sos-validated-pill-text: #a3162a;
+
+  /* Map: plain OpenStreetMap tiles. */
+  --map-bg: #e8ecf2;
+  --tile-filter: none;
+
+  /* Panel title bars (light only) */
+  --panel-head-bg: #1b2a4a;
+  --panel-head-text: #ffffff;
+  --panel-head-muted: #d3dbe8;
+
+  /* Side menu and header */
+  --shell-bg: #f3f5f9;
+  --shell-side: #ffffff;
+  --shell-border: #dfe5ee;
+  --shell-text: #14213a;
+  --shell-item: #2a3850;
+  --shell-muted: #526077;
+  --shell-group: #56647b;
+  --shell-hover: #eef2f8;
+  --shell-red-light: #d42335;
+  --shell-focus: #1f5fbf;
+  --shell-title: #14213a;
+  --shell-icon-fg: #14213a;
+  --shell-tag-border: #c3ccda;
+  --shell-sos-border: #d42335;
+  --shell-sos-text: #b01a2a;
+  --shell-sim-border: #a6d9bf;
+  --shell-sim-bg: #eaf7f0;
+  --shell-sim-text: #0d6b41;
+  --shell-sim-sub: #2c6a4c;
+  --shell-avatar-bg: #1b2a4a;
+  --shell-avatar-text: #ffffff;
+  --shell-active-shadow: 0 6px 16px rgb(212 35 53 / 24%);
+  --shell-backdrop: rgb(20 33 58 / 45%);
+  --shell-drawer-shadow: 20px 0 50px rgb(20 33 58 / 25%);
+}
+
+/* ---------- Light only: soft elevation instead of borders alone ---------- */
+
+:root[data-theme="light"] .side-panel,
+:root[data-theme="light"] .map-panel,
+:root[data-theme="light"] .kpi-card {
+  box-shadow: 0 1px 2px rgb(20 33 58 / 6%), 0 4px 14px rgb(20 33 58 / 5%);
+}
+
+/* ---------- Light only: dark blue title bars on the panels ---------- */
+
+.side-panel {
+  --panel-pad: 20px;
+}
+
+.form-panel,
+.operation-map-panel {
+  --panel-pad: 24px;
+}
+
+@media (max-width: 600px) {
+  .form-panel,
+  .operation-map-panel {
+    --panel-pad: 15px;
+  }
+}
+
+:root[data-theme="light"] .side-panel > .panel-heading,
+:root[data-theme="light"] .incidents-panel > .panel-heading {
+  margin: 0 calc(-1 * var(--panel-pad)) 16px;
+  padding: 13px var(--panel-pad);
+  background: var(--panel-head-bg);
+  color: var(--panel-head-text);
+}
+
+:root[data-theme="light"] .side-panel > .panel-heading:first-child {
+  margin-top: calc(-1 * var(--panel-pad));
+}
+
+:root[data-theme="light"] .map-panel > .map-heading,
+:root[data-theme="light"] .route-panel > .map-heading {
+  background: var(--panel-head-bg);
+  color: var(--panel-head-text);
+}
+
+:root[data-theme="light"] .map-heading .map-status {
+  color: var(--panel-head-muted);
+}
+
+:root[data-theme="light"] .side-panel > .panel-heading .count-pill,
+:root[data-theme="light"] .incidents-panel > .panel-heading .count-pill {
+  border-color: rgb(255 255 255 / 25%);
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+}
+
+/* Tags on a dark title bar get a white chip so their dark text stays readable. */
+:root[data-theme="light"] .map-heading .data-tag {
+  background: #fff;
+}
+
+:root[data-theme="light"] .route-panel {
+  border-top: 0;
+}
+
+:root[data-theme="light"] .side-panel .panel-divider {
+  height: 0;
+  margin: 8px 0;
+}
+
+/* Leaflet controls and popups are already light; only the tile container changes. */
+:root[data-theme="light"] .leaflet-bar a {
+  border-bottom-color: var(--border);
+}

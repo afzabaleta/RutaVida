@@ -1,0 +1,474 @@
+# Contratos de las entidades — Fase 2 (S1)
+
+Acuerdo entre **Andrés** (base de datos y DAO) y **Sherly** (modelo) sobre las entidades que se programan en la tarea S1. Define, para cada clase, sus atributos, el tipo Java, la columna de Oracle que le corresponde y las validaciones del constructor.
+
+- **Fuente:** `database/01_esquema.sql` (columnas y restricciones) y `docs/class-diagram.md`, secciones 1.1 a 1.3 (atributos y métodos).
+- **Estado:** **acordado** el 15/10/2026. Sherly aprobó el PR #3 y eligió la propuesta en los 5 puntos de la sección 7.
+- Si al programar hace falta cambiar algo, se cambia aquí y en `docs/class-diagram.md` en el mismo PR, y se avisa al grupo.
+
+> **Actualización 30/10/2026: refactorización de capas** (rama `refactor/simplify-layers`).
+> Las entidades ya **no validan ni tienen métodos con reglas**: solo guardan datos (atributos, constructor, getters, `setId` y setters de los datos que cambian). Los atributos, tipos y columnas de este documento **no cambian**. Lo que cambia es **quién aplica** la columna *Validación*: ahora la aplica el **servicio** que crea o modifica la entidad, y Oracle la sigue garantizando con sus restricciones. Así una fila antigua de la base de datos siempre se puede leer, y cada regla está en un solo lugar.
+>
+> | Antes (en la entidad o el enum) | Ahora |
+> |---|---|
+> | `Emergency.changeStatus`, `EmergencyStatus.canChangeTo`, `isActive` | `EmergencyService.changeStatus`, `canChange`, `isActive` |
+> | `EmergencyAssignment.changeStatus`, `AssignmentStatus.canChangeTo`, `isOpen` | `DispatchService.changeStatus`, `canChange`, `isOpen` |
+> | `EmergencyVehicle.isDispatchable`, `moveTo` | `DispatchService.isDispatchable`, `moveVehicle` |
+> | `RoadIncident.activate`, `reject`, `close`, `affectsRouting`, `blocksTraffic` | Mismos nombres en `IncidentService` |
+> | `Role.hasPermission`, `UserSession.hasPermission` / `require` | `AuthService.hasPermission` / `requirePermission` |
+> | Formato de documento, email y `username` de `User` | `AdminBootstrapService` (y `UserService` cuando se programe) |
+> | `GeoPoint.distanceMetersTo` | `GeoUtil.metersBetween` |
+> | `assignId(long)` | `setId(long)` |
+> | `Locatable`, `equals`/`hashCode`/`toString` de las entidades, `getFullName`, `isOperational`, `getBaseTimeSeconds`, `isSimulated`, `isToHospital`, `usesSegment`, `getTimeToArrival`, `TrafficLight.changeState` | Eliminados: nadie los usaba fuera de las pruebas del modelo. Si un caso de uso los necesita, se agregan en su servicio |
+> | Validaciones de `EmergencyStation`, `Hospital`, `EmergencyVehicle`, `VehicleType` (teléfono, placa en mayúsculas…) | Pendientes: se agregan en `FleetService` y `HospitalService` (Sprint 3). Mientras tanto las protegen las restricciones de Oracle |
+
+---
+
+## 1. Reglas comunes
+
+Estas reglas aplican a todas las entidades de S1.
+
+| # | Regla | Motivo |
+|---|---|---|
+| R1 | Las entidades van en el paquete `model` y **no importan** JDBC, DAO, service, controller, view ni Swing. Sí pueden usar `model.enums` | `ArchitectureTest` |
+| R2 | Todos los datos se reciben en el **constructor**, que **no valida**. Hay *setters* solo para los datos que cambian (estado, fechas de cierre, última posición). Las validaciones de la columna *Validación* las hace el **servicio** antes de guardar y lanza `ValidationException` o `BusinessRuleException` | El modelo solo guarda datos; las reglas viven en un solo lugar (Service) |
+| R3 | **Identificador:** `long id`. El valor `0` significa "todavía no está guardado". El DAO, después del `INSERT`, llama a `setId(long)` | Las secuencias de Oracle generan el id |
+| R4 | **Otras entidades se referencian por id** (`roleId`, `emergencyTypeId`), no por el objeto completo. Excepción: `Role.permissions` y `UserSession`, que sí guardan objetos | Evita cargar media base de datos para leer una emergencia |
+| R5 | **Campos opcionales** (columnas que aceptan `NULL`): `String` → `null` (nunca `""`); números → `Integer`/`Long`/`Double`; fechas → `LocalDateTime` en `null`. Campos obligatorios: primitivos (`long`, `int`) u objetos no nulos | Igual a la base de datos |
+| R6 | **Textos:** el servicio hace `trim()` (con `ValidationUtil.requireText` / `optionalText`). Un texto obligatorio vacío o en blanco es inválido. Un texto opcional en blanco se guarda como `null` | Evita guardar espacios |
+| R7 | **Longitudes:** el servicio rechaza un texto más largo que su columna `VARCHAR2` | Mejor un mensaje claro que un error de Oracle |
+| R8 | **Códigos en mayúsculas:** nombres de rol, de tipo y de módulo/acción los pasa a mayúsculas el servicio (`toUpperCase(Locale.ROOT)`) | Las restricciones `CHECK (x = UPPER(x))` |
+| R9 | **Estados y catálogos:** se usan los enums que **ya existen** en `model.enums` (`RecordStatus`, `Severity`, `EmergencyStatus`, `VehicleOperationalStatus`, `HospitalLevel`). No se crean enums nuevos ni se duplican. La conversión al código de Oracle (`'A'`, `'REPORTADA'`) la hace el DAO con `code()` y `fromCode()` | `EnumSqlContractTest` |
+| R10 | **Fechas:** `TIMESTAMP` ↔ `LocalDateTime`. Las fechas de creación (`registeredAt`, `reportedAt`) las pone el **servicio** con el `Clock` de `AppContext` y el DAO las inserta explícitamente (no se depende del `DEFAULT SYSTIMESTAMP`) | Pruebas repetibles |
+| R11 | **Coordenadas:** siempre como `GeoPoint`, nunca como dos `double` sueltos | Información en un solo lugar |
+| R12 | Las entidades no redefinen `equals` ni `hashCode` (se comparan por id cuando hace falta). Los *records* (`GeoPoint`, `UserSession`, `RouteSegment`) comparan por valor | Nadie necesitaba otra comparación |
+| R13 | Las entidades no redefinen `toString()`, así que `passwordHash` nunca aparece en un log. Nadie debe imprimir un `User` con sus datos | Seguridad |
+| R14 | Los mensajes de `ValidationException` van **en español** y sin detalles técnicos (por ejemplo: "La latitud debe estar entre -90 y 90") | Pueden llegar al usuario |
+
+---
+
+## 2. Tipos compartidos
+
+### `GeoPoint` (*record*)
+
+| Atributo | Tipo | Columnas Oracle | Validación |
+|---|---|---|---|
+| `latitude` | `double` | `latitud NUMBER(9,6)` | Entre -90 y 90 |
+| `longitude` | `double` | `longitud NUMBER(9,6)` | Entre -180 y 180 |
+
+La distancia se calcula con `GeoUtil.metersBetween` (fórmula de Haversine, radio de la Tierra 6 371 000 m). Los rangos de latitud y longitud los comprueba `ValidationUtil.requireLocation` en el servicio. Validar que una emergencia esté **dentro de Valledupar** también es una regla del servicio.
+
+`EmergencyVehicle.getLastLocation()` puede devolver `null` si la unidad todavía no tiene posición. (La interfaz `Locatable` se eliminó: ningún servicio la usaba.)
+
+---
+
+## 3. Seguridad
+
+### `Role` ↔ `ROL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_rol NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre_rol VARCHAR2(50)` | Sí | Mayúsculas, máx. 50, único (lo garantiza Oracle) |
+| `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | `ACTIVE` ↔ `'A'`, `INACTIVE` ↔ `'I'` |
+| `permissions` | `Set<Permission>` | Tabla `ROL_PERMISO` | Sí (puede estar vacío) | Copia inmutable |
+
+Regla (en `AuthService.hasPermission(session, module, action)`): `true` solo si el rol está activo **y** tiene un permiso con ese módulo y esa acción exactos. `GESTIONAR` **no** incluye `CONSULTAR`: en los datos iniciales cada rol tiene los dos cuando corresponde.
+
+`ROL_PERMISO` no tiene clase propia: el DAO la usa para llenar `permissions`.
+
+### `Permission` ↔ `PERMISO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_permiso NUMBER(10)` | Sí | R3 |
+| `module` | `String` | `modulo VARCHAR2(60)` | Sí | Mayúsculas, máx. 60 |
+| `action` | `String` | `accion VARCHAR2(40)` | Sí | Mayúsculas, máx. 40 (`CONSULTAR` o `GESTIONAR` en los datos actuales) |
+| `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
+
+La comparación de módulo y acción la hace `AuthService.hasPermission`, sin importar mayúsculas o minúsculas.
+
+### `User` ↔ `USUARIO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_usuario NUMBER(10)` | Sí | R3 |
+| `roleId` | `long` | `id_rol NUMBER(10)` | Sí | Mayor que 0 |
+| `document` | `String` | `documento VARCHAR2(20)` | Sí | Solo letras y números, de 5 a 20 caracteres |
+| `firstNames` | `String` | `nombres VARCHAR2(80)` | Sí | Máx. 80 |
+| `lastNames` | `String` | `apellidos VARCHAR2(80)` | Sí | Máx. 80 |
+| `email` | `String` | `email VARCHAR2(120)` | Sí | Se pasa a minúsculas; formato `texto@texto.texto`; máx. 120 |
+| `username` | `String` | `username VARCHAR2(40)` | Sí | Se pasa a minúsculas; letras, números, `.`, `_`; de 4 a 40 |
+| `passwordHash` | `String` | `password_hash VARCHAR2(255)` | Sí | No vacío, máx. 255. **Nunca** una contraseña en texto plano |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+| `registeredAt` | `LocalDateTime` | `fecha_registro TIMESTAMP` | Sí | R10 |
+
+Las validaciones de formato (documento, email y `username` en minúsculas) las hace `AdminBootstrapService` al crear el administrador; `AuthService.login` normaliza el `username` antes de buscarlo. Sin `toString()` propio (R13).
+
+El formato del hash (PBKDF2 con sal) lo define la clase `PasswordHasher` de `util`. La entidad solo guarda el texto resultante.
+
+### `AuditLog` ↔ `AUDITORIA`
+
+Agregada el 16/10/2026: no estaba en S1, pero la necesitan `AuditDAO` (A2) y `AuditService` (S2). La programa Andrés con las mismas reglas R1–R14, para que no la creen dos personas.
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_auditoria NUMBER(12)` | Sí | R3 |
+| `userId` | `Long` | `id_usuario NUMBER(10)` | No | Mayor que 0 si tiene valor. `null` = acción sin usuario autenticado (inicio de sesión fallido, simulador) |
+| `module` | `String` | `modulo VARCHAR2(60)` | Sí | Mayúsculas, máx. 60 (`SEGURIDAD`, `EMERGENCIAS`, `DESPACHO`…) |
+| `operation` | `String` | `operacion VARCHAR2(40)` | Sí | Mayúsculas, máx. 40 (`LOGIN`, `REGISTRAR`, `CAMBIO_ESTADO`…) |
+| `recordId` | `Long` | `registro_id NUMBER(12)` | No | Mayor que 0 si tiene valor |
+| `occurredAt` | `LocalDateTime` | `fecha_hora TIMESTAMP` | Sí | R10 |
+| `result` | `AuditResult` | `resultado VARCHAR2(20)` | Sí | `SUCCESS` ↔ `EXITO`, `FAILURE` ↔ `FALLO` |
+| `detail` | `String` | `detalle VARCHAR2(500)` | No | Máx. 500 |
+
+Es historial: no tiene setters (solo `setId`). `AuditService.record` valida módulo, operación y resultado. Los cambios de estado de emergencias, asignaciones e incidentes los escriben los triggers de `04_plsql.sql` (DT-05); `AuditService` registra el resto.
+
+### `UserSession` (*record*, no es tabla)
+
+| Atributo | Tipo |
+|---|---|
+| `user` | `User` |
+| `role` | `Role` (con sus permisos) |
+| `startedAt` | `LocalDateTime` |
+
+Es un *record* sin métodos. Los permisos se consultan con `AuthService.hasPermission(session, module, action)`; `AuthService.requirePermission(...)` lanza `AccessDeniedException` si no lo tiene.
+
+---
+
+## 4. Emergencias
+
+### `EmergencyType` ↔ `TIPO_EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_tipo_emergencia NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre VARCHAR2(80)` | Sí | Mayúsculas, máx. 80 |
+| `priority` | `int` | `prioridad NUMBER(2)` | Sí | Entre 1 y 10 |
+| `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
+
+### `Emergency` ↔ `EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_emergencia NUMBER(10)` | Sí | R3 |
+| `emergencyTypeId` | `long` | `id_tipo_emergencia` | Sí | Mayor que 0 |
+| `reportedByUserId` | `long` | `id_usuario_reporta` | Sí | Mayor que 0 |
+| `addressReference` | `String` | `direccion_referencia VARCHAR2(200)` | Sí | Máx. 200 |
+| `location` | `GeoPoint` | `latitud`, `longitud NUMBER(9,6)` | Sí | No nulo |
+| `reportedAt` | `LocalDateTime` | `fecha_hora_reporte TIMESTAMP` | Sí | R10 |
+| `severity` | `Severity` | `severidad VARCHAR2(20)` | Sí | `LOW`/`MEDIUM`/`HIGH`/`CRITICAL` ↔ `BAJA`/`MEDIA`/`ALTA`/`CRITICA` |
+| `description` | `String` | `descripcion VARCHAR2(400)` | No | Máx. 400 |
+| `status` | `EmergencyStatus` | `estado VARCHAR2(30)` | Sí | Una emergencia nueva empieza en `REPORTED` |
+| `closedAt` | `LocalDateTime` | `fecha_hora_cierre TIMESTAMP` | No | Con valor **si y solo si** `status` es `CLOSED`; no puede ser anterior a `reportedAt` |
+
+Reglas (en `EmergencyService`):
+- `validateNew(emergency)`: comprueba los datos de la tabla anterior antes de guardar.
+- `changeStatus(emergency, next, at)`:
+  - Usa `canChange(from, to)`, que tiene el mapa de transiciones permitidas. Si la transición no está permitida, lanza `BusinessRuleException`.
+  - Al pasar a `CLOSED`, asigna `closedAt = at`; rechaza una hora de cierre anterior al reporte.
+- `isActive(emergency)`: cualquier estado menos `CLOSED`.
+
+Estas reglas repiten en Java las restricciones `ck_emergencia_cierre` y `ck_emergencia_fechas` de Oracle, para que el error se detecte antes de llegar a la base de datos.
+
+---
+
+## 5. Unidades y estaciones
+
+### `EmergencyStation` ↔ `ESTACION_EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_estacion NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre VARCHAR2(100)` | Sí | Máx. 100 |
+| `address` | `String` | `direccion VARCHAR2(180)` | Sí | Máx. 180 |
+| `neighborhood` | `String` | `barrio VARCHAR2(100)` | No | Máx. 100 |
+| `phone` | `String` | `telefono VARCHAR2(20)` | No | Dígitos, espacios, `+` y `-`; de 7 a 20 |
+| `location` | `GeoPoint` | `latitud`, `longitud` | Sí | No nulo |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+
+### `VehicleType` ↔ `TIPO_VEHICULO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_tipo_vehiculo NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre VARCHAR2(50)` | Sí | Mayúsculas, máx. 50 (`AMBULANCIA`, `BOMBERO`) |
+| `priority` | `int` | `prioridad NUMBER(2)` | Sí | Entre 1 y 10 |
+| `description` | `String` | `descripcion VARCHAR2(200)` | No | Máx. 200 |
+
+### `EmergencyVehicle` ↔ `VEHICULO_EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_vehiculo NUMBER(10)` | Sí | R3 |
+| `vehicleTypeId` | `long` | `id_tipo_vehiculo` | Sí | Mayor que 0 |
+| `stationId` | `long` | `id_estacion` | Sí | Mayor que 0 |
+| `unitCode` | `String` | `codigo_unidad VARCHAR2(30)` | Sí | Mayúsculas, máx. 30 |
+| `plate` | `String` | `placa VARCHAR2(10)` | No | Mayúsculas y sin espacios, máx. 10 |
+| `operationalStatus` | `VehicleOperationalStatus` | `estado_operativo VARCHAR2(30)` | Sí | Una unidad nueva empieza en `AVAILABLE` |
+| `lastLocation` | `GeoPoint` | `latitud`, `longitud` | No | Las dos columnas juntas o ninguna (`ck_vehiculo_posicion`) |
+| `lastLocationAt` | `LocalDateTime` | `fecha_actualizacion TIMESTAMP` | No | Si hay `lastLocation`, debe tener fecha |
+
+Reglas (en `DispatchService`):
+- `isDispatchable(vehicle)`: solo si el estado operativo es `AVAILABLE`.
+- `moveVehicle(vehicle, point, at)`: actualiza `lastLocation` y `lastLocationAt`. Rechaza `null` y una fecha anterior a la última conocida.
+- El estado operativo se cambia con `setOperationalStatus`; cualquier cambio entre los cuatro estados es válido.
+
+Las validaciones de código de unidad y placa (mayúsculas) se agregan en `FleetService` (Sprint 3).
+
+La **fase de la misión** (despachada, en ruta, en sitio) no está aquí: está en `ASIGNACION_EMERGENCIA` y es de la Fase 5.
+
+---
+
+## 6. Hospitales
+
+### `Hospital` ↔ `HOSPITAL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_hospital NUMBER(10)` | Sí | R3 |
+| `name` | `String` | `nombre VARCHAR2(150)` | Sí | Máx. 150 |
+| `level` | `HospitalLevel` | `nivel VARCHAR2(3)` | Sí | `LEVEL_I`…`LEVEL_IV` ↔ `'I'`…`'IV'` |
+| `address` | `String` | `direccion VARCHAR2(180)` | Sí | Máx. 180 |
+| `phone` | `String` | `telefono VARCHAR2(20)` | No | Igual que en `EmergencyStation` |
+| `location` | `GeoPoint` | `latitud`, `longitud` | Sí | No nulo |
+| `emergencyCapacity` | `Integer` | `capacidad_urgencias NUMBER(5)` | No | Mayor o igual a 0 |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+
+Sin métodos. Las validaciones (teléfono, capacidad) se agregan en `HospitalService` (Sprint 3); "operativo" es `status == ACTIVE`.
+
+`HospitalServiceOffering` (`SERVICIO_HOSPITAL`) **no** es parte de S1; se programa con el módulo de hospitales.
+
+---
+
+## 7. Puntos decididos en la revisión
+
+Sherly eligió la propuesta en los cinco puntos (comentario en el PR #3, 15/10/2026).
+
+| # | Tema | Decisión | Alternativa descartada |
+|---|---|---|---|
+| P1 | **`AccessDeniedException`** la necesitaba `UserSession.require()` (S1; hoy la lanza `AuthService.requirePermission`), pero en el plan está en la tarea A1 de Andrés **Sherly la crea en S1** (es una clase de 5 líneas en `exception`); se quitó de A1 | Andrés la sube antes, en un PR aparte |
+| P2 | Identificador de una entidad sin guardar | `long id = 0` + `setId()` (R3; antes `assignId()`) | `Long id = null` |
+| P3 | Formato del documento de identidad | Letras y números, de 5 a 20 | Solo dígitos (excluye pasaportes) |
+| P4 | Email y `username` | Se guardan en minúsculas | Se guardan como se escriben |
+| P5 | Clases de prueba | Una por entidad (`EmergencyTest`, `GeoPointTest`…), con al menos un caso válido y uno inválido por regla. **Reemplazado el 30/10/2026:** las reglas se prueban en los servicios (`EmergencyServiceTest`, `DispatchServiceTest`, `IncidentServiceTest`, `AuthServiceTest`) | — |
+
+---
+
+## 8. Cómo se comprueba que S1 cumple este contrato
+
+1. Las reglas tienen sus pruebas JUnit en el servicio que las aplica: datos válidos, cada validación que falla y cada transición de estado (`EmergencyServiceTest`, `DispatchServiceTest`, `IncidentServiceTest`, `AuthServiceTest`). Las entidades no tienen pruebas propias porque no tienen lógica.
+2. `ArchitectureTest` y `ClassDiagramSyncTest` en verde.
+3. Revisión de Andrés en el PR de S1: los nombres de atributos y tipos de este documento son los que va a usar el `RowMapper` de cada DAO en la Fase 3.
+
+
+---
+
+## 9. Red vial y tráfico (S4)
+
+Agregada el 22/10/2026 para la tarea S4. Se aplican las mismas reglas R1–R14.
+
+Estas cinco clases las usan los DAO de la red vial (A4) y `GraphLoader` y `RoadConditionService` (Kendrick, Sprint 2). La aprueba Andrés en el PR de S4.
+
+### `RoadNode` ↔ `NODO_VIAL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_nodo NUMBER(10)` | Sí | R3 |
+| `osmId` | `Long` | `osm_id NUMBER(19)` | No | Mayor que 0 si tiene valor (único, lo garantiza Oracle) |
+| `reference` | `String` | `referencia VARCHAR2(120)` | No | Máx. 120 |
+| `location` | `GeoPoint` | `latitud`, `longitud NUMBER(9,6)` | Sí | No nulo |
+| `nodeType` | `NodeType` | `tipo_nodo VARCHAR2(30)` | Sí | — |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+
+Sin métodos. `GraphLoader` solo carga los nodos con `status == ACTIVE`.
+
+
+### `RoadSegment` ↔ `TRAMO_VIAL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_tramo NUMBER(10)` | Sí | R3 |
+| `fromNodeId` | `long` | `id_nodo_origen` | Sí | Mayor que 0 |
+| `toNodeId` | `long` | `id_nodo_destino` | Sí | Mayor que 0 y distinto de `fromNodeId` (`ck_tramo_nodos`) |
+| `osmWayId` | `Long` | `osm_way_id NUMBER(19)` | No | Mayor que 0 si tiene valor |
+| `roadName` | `String` | `nombre_via VARCHAR2(120)` | Sí | Máx. 120 |
+| `lengthMeters` | `double` | `distancia_m NUMBER(10,2)` | Sí | Entre 0.01 y 99 999 999.99 |
+| `maxSpeedKmh` | `double` | `velocidad_max_kmh NUMBER(5,2)` | Sí | Entre 0.01 y 120 |
+| `status` | `RoadSegmentStatus` | `estado VARCHAR2(30)` | Sí | — |
+
+`tiempo_base_seg` no es un atributo: es una columna virtual que Oracle calcula.
+
+Sin métodos. `GraphLoader` trata el tramo como cerrado solo si el estado es `CERRADO`; `RESTRINGIDO` deja pasar. El tiempo base lo calcula el motor de rutas con la misma fórmula de la columna virtual.
+
+
+### `TrafficLight` ↔ `SEMAFORO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_semaforo NUMBER(10)` | Sí | R3 |
+| `nodeId` | `long` | `id_nodo` | Sí | Mayor que 0 |
+| `code` | `String` | `codigo VARCHAR2(30)` | Sí | Mayúsculas, máx. 30 (único, lo garantiza Oracle) |
+| `currentState` | `TrafficLightState` | `estado_actual VARCHAR2(20)` | Sí | — |
+| `cycleSeconds` | `Integer` | `tiempo_ciclo_seg NUMBER(4)` | No | Entre 1 y 9999 |
+| `synchronizedSignal` | `boolean` | `sincronizado CHAR(1)` | Sí | `true` ↔ `'S'`, `false` ↔ `'N'` (lo convierte el DAO) |
+| `status` | `RecordStatus` | `estado CHAR(1)` | Sí | — |
+
+El estado de la luz se cambia con `setCurrentState` (lo hará el simulador; RutaVida nunca controla un semáforo real).
+
+
+### `TrafficReading` ↔ `TRAFICO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_trafico NUMBER(12)` | Sí | R3 |
+| `segmentId` | `long` | `id_tramo` | Sí | Mayor que 0 |
+| `measuredAt` | `LocalDateTime` | `fecha_hora TIMESTAMP` | Sí | R10 |
+| `level` | `TrafficLevel` | `nivel VARCHAR2(20)` | Sí | — |
+| `averageSpeedKmh` | `Double` | `velocidad_promedio_kmh NUMBER(6,2)` | No | Entre 0 y 9999.99 |
+| `congestionFactor` | `double` | `factor_congestion NUMBER(5,2)` | Sí | Entre 1 y 999.99 (1 = flujo libre) |
+| `source` | `TrafficSource` | `fuente VARCHAR2(40)` | Sí | — |
+
+Es historial: no cambia después de crearla (solo `setId`). Los datos con fuente `SIMULACION` (`getSource()`) nunca se muestran como reales.
+
+
+### `RoadIncident` ↔ `INCIDENTE_VIAL`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_incidente NUMBER(10)` | Sí | R3 |
+| `segmentId` | `long` | `id_tramo` | Sí | Mayor que 0 |
+| `type` | `IncidentType` | `tipo_incidente VARCHAR2(60)` | Sí | — |
+| `severity` | `Severity` | `severidad VARCHAR2(20)` | Sí | — |
+| `blocksSegment` | `boolean` | `bloquea_tramo CHAR(1)` | Sí | `true` ↔ `'S'` (lo convierte el DAO) |
+| `description` | `String` | `descripcion VARCHAR2(300)` | No | Máx. 300 |
+| `startedAt` | `LocalDateTime` | `fecha_inicio TIMESTAMP` | Sí | R10 |
+| `endedAt` | `LocalDateTime` | `fecha_fin TIMESTAMP` | No | Con valor si y solo si el estado es `CERRADO` o `RECHAZADO`; no puede ser anterior a `startedAt` |
+| `status` | `IncidentStatus` | `estado VARCHAR2(20)` | Sí | Un incidente nuevo empieza en `PENDING` (RN-05) |
+| `origin` | `IncidentOrigin` | `origen VARCHAR2(20)` | Sí | — |
+
+Reglas (en `IncidentService`; los cambios no permitidos lanzan `BusinessRuleException`):
+
+- `validateNew(incident)`: comprueba los datos antes de guardar.
+- `activate(incident, blocks)`: solo desde `PENDIENTE`; pasa a `ACTIVO` y fija `blocksSegment` (CU-14).
+- `reject(incident, at)`: solo desde `PENDIENTE`; pasa a `RECHAZADO` y fija `endedAt`.
+- `close(incident, at)`: solo desde `ACTIVO`; pasa a `CERRADO` y fija `endedAt`.
+- `affectsRouting(incident)`: solo `ACTIVO`.
+- `blocksTraffic(incident)`: `affectsRouting` y `blocksSegment`; el motor trata el tramo como cerrado (sección 5 de `docs/convenciones-base-datos.md`).
+
+El trigger `trg_incidente_estado` de `04_plsql.sql` audita los cambios de estado: ni la entidad ni `IncidentService` llaman a `AuditService` para eso.
+
+---
+
+## 10. Despacho, rutas y seguimiento (S5)
+
+Agregada el 23/10/2026 para la tarea S5. Se aplican las mismas reglas R1–R14.
+
+Estas cuatro clases las usan los DAO de despacho y rutas (Andrés) y
+`DispatchService`, `RouteService`, `RouteMonitor` y `TrackingService`
+(Kendrick, Sprint 2). La aprueba Andrés en el PR de S5.
+
+### `EmergencyAssignment` ↔ `ASIGNACION_EMERGENCIA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_asignacion NUMBER(10)` | Sí | R3 |
+| `emergencyId` | `long` | `id_emergencia` | Sí | Mayor que 0 |
+| `vehicleId` | `long` | `id_vehiculo` | Sí | Mayor que 0 |
+| `coordinatorUserId` | `long` | `id_usuario_coordinador` | Sí | Mayor que 0 |
+| `assignedAt` | `LocalDateTime` | `fecha_asignacion TIMESTAMP` | Sí | R10 |
+| `departedAt` | `LocalDateTime` | `hora_salida TIMESTAMP` | No | No anterior a `assignedAt`. Con valor desde `EN_RUTA`; nulo en `ASIGNADA` |
+| `arrivedAt` | `LocalDateTime` | `hora_llegada TIMESTAMP` | No | Necesita `departedAt` y no es anterior a ella. Con valor si y solo si el estado es `EN_SITIO`, `TRASLADANDO` o `FINALIZADA` |
+| `status` | `AssignmentStatus` | `estado VARCHAR2(30)` | Sí | Una asignación nueva empieza en `ASSIGNED` |
+
+Reglas (en `DispatchService`):
+- `validateNew(assignment)`: comprueba los datos antes de guardar.
+- `changeStatus(assignment, next, at)`: usa `canChange(from, to)`; si no se permite, lanza `BusinessRuleException`. Al pasar a `EN_RUTA` fija `departedAt = at`; al pasar a `EN_SITIO` fija `arrivedAt = at`. Si la hora es anterior a `assignedAt`, lanza `ValidationException` y no cambia nada.
+- `isOpen(assignment)`: todos los estados menos `FINALIZADA` y `CANCELADA`.
+
+El tiempo de respuesta oficial va desde el **reporte** de la emergencia hasta la llegada y lo calcula Oracle (`fn_tiempo_respuesta`, DT-05). La entidad ya no tiene `getTimeToArrival()`, para que el dashboard no muestre dos "tiempos de respuesta" distintos.
+
+La asignación la crea `sp_asignar_unidad` y `trg_asignacion_estado` audita sus cambios de estado: la entidad no llama a `AuditService`.
+
+
+### `Route` ↔ `RUTA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_ruta NUMBER(12)` | Sí | R3 |
+| `emergencyId` | `long` | `id_emergencia` | Sí | Mayor que 0 |
+| `vehicleId` | `long` | `id_vehiculo` | Sí | Mayor que 0 |
+| `destinationHospitalId` | `Long` | `id_hospital_destino` | No | Mayor que 0. `null` = ruta hacia la emergencia; con valor = traslado |
+| `type` | `RouteType` | `tipo_ruta VARCHAR2(20)` | Sí | — |
+| `distanceKm` | `double` | `distancia_km NUMBER(8,2)` | Sí | Entre 0 y 999999.99 |
+| `estimatedMinutes` | `double` | `tiempo_estimado_min NUMBER(8,2)` | Sí | Entre 0 y 999999.99 |
+| `totalCost` | `double` | `costo_total NUMBER(12,2)` | Sí | Entre 0 y 9999999999.99 |
+| `generatedAt` | `LocalDateTime` | `fecha_generacion TIMESTAMP` | Sí | R10 |
+| `recommended` | `boolean` | `es_recomendada CHAR(1)` | Sí | `true` ↔ `'S'` (lo convierte el DAO) |
+| `status` | `RouteStatus` | `estado VARCHAR2(20)` | Sí | — |
+| `segments` | `List<RouteSegment>` | filas de `RUTA_TRAMO` | Sí | Al menos uno, con `order` 1, 2, 3… sin saltos. Se guarda una copia que no se puede modificar |
+
+Sin métodos con reglas. Una ruta va a un hospital cuando `getDestinationHospitalId() != null`. Para saber si un cambio de tráfico afecta una ruta, `RouteDAO.findActiveUsingSegments` busca en `getSegments()`.
+
+La ruta no cambia después de creada: `RouteDAO.updateStatus` cambia su estado en Oracle y un recálculo crea una ruta nueva.
+
+
+### `RouteSegment` (*record*) ↔ `RUTA_TRAMO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `order` | `int` | `orden_tramo NUMBER(5)` | Sí | Entre 1 y 99999 |
+| `segmentId` | `long` | `id_tramo` | Sí | Mayor que 0 |
+| `estimatedSeconds` | `Double` | `tiempo_estimado_seg NUMBER(10,2)` | No | Entre 0 y 99999999.99 |
+| `congestionFactor` | `Double` | `factor_congestion NUMBER(5,2)` | No | Entre 1 y 999.99 |
+| `trafficLightCount` | `Integer` | `semaforos_afectados NUMBER(3)` | No | Entre 0 y 999 |
+
+**Cambios frente al diagrama:**
+- Es un *record* sin `routeId`. La fila no tiene id propio (su clave es `id_ruta` + `orden_tramo`) y pertenece a su `Route`, así que el DAO escribe el id de la ruta. Si `RouteSegment` guardara `routeId`, quedaría en 0 después de `Route.setId`.
+- Los tres valores estimados son `Double`/`Integer` porque sus columnas aceptan `NULL` (R5).
+
+
+### `VehicleLocation` ↔ `UBICACION_VEHICULO`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_ubicacion NUMBER(12)` | Sí | R3 |
+| `vehicleId` | `long` | `id_vehiculo` | Sí | Mayor que 0 |
+| `recordedAt` | `LocalDateTime` | `fecha_hora TIMESTAMP` | Sí | R10 |
+| `location` | `GeoPoint` | `latitud`, `longitud NUMBER(9,6)` | Sí | No nulo (R11) |
+| `speedKmh` | `Double` | `velocidad_kmh NUMBER(7,2)` | No | Entre 0 y 99999.99 |
+| `headingDegrees` | `Double` | `direccion_grados NUMBER(6,2)` | No | Desde 0 y menor que 360 |
+| `source` | `PositionSource` | `fuente VARCHAR2(20)` | Sí | — |
+
+Es historial: no cambia después de crearla (solo `setId`). En la primera versión todas las posiciones vienen del simulador (`getSource()` = `SIMULATION`) y se muestran como `SIMULACION`, nunca como GPS real.
+
+
+
+---
+
+## 11. Alertas (S8)
+
+Agregada el 09/11/2026 para la tarea S8. Se aplican las mismas reglas R1–R14.
+
+### `Alert` ↔ `ALERTA`
+
+| Atributo | Tipo | Columna | Obligatorio | Validación |
+|---|---|---|---|---|
+| `id` | `long` | `id_alerta NUMBER(12)` | Sí | R3 |
+| `emergencyId` | `Long` | `id_emergencia` | No | `null` = alerta general (por ejemplo, disponibilidad de una unidad) |
+| `userId` | `long` | `id_usuario` | Sí | El usuario que la recibe |
+| `type` | `AlertType` | `tipo_alerta VARCHAR2(40)` | Sí | — |
+| `message` | `String` | `mensaje VARCHAR2(300)` | Sí | Máx. 300 |
+| `createdAt` | `LocalDateTime` | `fecha_hora TIMESTAMP` | Sí | R10 |
+| `read` | `boolean` | `leida CHAR(1)` | Sí | `true` ↔ `'S'` (lo convierte el DAO). Una alerta nueva no está leída |
+
+Reglas (en `AlertService`):
+
+- **A quién le llega.** Las alertas de una misión (`routeRecalculated`, `incidentOnRoute`, `congestionOnRoute`) le llegan al coordinador que despachó la unidad (`EmergencyAssignment.coordinatorUserId`). Las generales (`availabilityChanged`) les llegan a todos los usuarios activos cuyo rol activo tiene `DESPACHO / GESTIONAR`, en una sola transacción.
+- **El tipo sale del hecho.** Un incidente que cierra la vía (o de tipo `CIERRE`) es `CIERRE_VIA`; un accidente que no la cierra es `ACCIDENTE_EN_RUTA`; los demás, `OTRO`.
+- **Sin cambio, sin alerta.** Si la unidad sigue en el mismo estado, no se guarda nada.
+- **Cada usuario ve solo las suyas.** Marcar como leída la alerta de otro usuario responde "no encontrada", igual que una que no existe.
+- **No se auditan:** son avisos, no operaciones de negocio.
+
+`Notification` (`NOTIFICACION`) no es parte de S8: queda diseñada para avisos que no son operativos.

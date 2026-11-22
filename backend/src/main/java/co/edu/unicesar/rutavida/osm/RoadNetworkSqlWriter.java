@@ -1,0 +1,148 @@
+package co.edu.unicesar.rutavida.osm;
+
+import java.io.IOException;
+import java.text.Normalizer;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * Writes the road network as the Oracle script database/05_red_vial_valledupar.sql.
+ *
+ * <ul>
+ *   <li>Each NODO_VIAL row is identified by its {@code osm_id} and each TRAMO_VIAL row
+ *       looks up its two nodes by {@code osm_id}, so the script does not depend on the
+ *       values of the sequences.</li>
+ *   <li>{@code WHERE NOT EXISTS} lets the script run twice without duplicating rows.</li>
+ *   <li>Numbers always use a dot ({@link Locale#ROOT}), even on a computer in Spanish.</li>
+ *   <li>Texts lose their accents (like 03_datos_valledupar.sql) so SQL*Plus on Windows
+ *       does not damage them, and single quotes are doubled.</li>
+ *   <li>A comment never goes after the ';' of a statement (SqlScriptStyleTest).</li>
+ *   <li>The INSERTs go in PL/SQL blocks of {@link #BLOCK_SIZE}: each block is one round trip
+ *       to Oracle instead of one per row, which matters on Oracle Cloud (tens of thousands
+ *       of rows for the whole city).</li>
+ * </ul>
+ */
+public final class RoadNetworkSqlWriter {
+
+    public static final String FILE_NAME = "05_red_vial_valledupar.sql";
+    public static final String QUERY_FILE = "database/osm/valledupar_ciudad.overpassql";
+
+    /** INSERTs per PL/SQL block: few round trips, and a block small enough for Oracle to compile. */
+    static final int BLOCK_SIZE = 200;
+
+    public void write(RoadNetwork network, BoundingBox area, LocalDate downloadedOn,
+                      Appendable out) throws IOException {
+        RoadNetwork.Summary summary = network.summary();
+
+        line(out, "-- ============================================================");
+        line(out, "-- RutaVida - Red vial de Valledupar (area urbana)");
+        line(out, "-- Archivo: " + FILE_NAME);
+        line(out, "-- GENERADO por OsmImporter. No se edita a mano: se vuelve a generar.");
+        line(out, "--");
+        line(out, "-- Datos: (c) OpenStreetMap contributors, licencia ODbL");
+        line(out, "--        https://www.openstreetmap.org/copyright");
+        line(out, "-- Descarga: Overpass API, " + downloadedOn);
+        line(out, "-- Consulta: " + QUERY_FILE);
+        line(out, "-- Zona: sur " + number(area.south(), 6) + ", oeste " + number(area.west(), 6)
+                + ", norte " + number(area.north(), 6) + ", este " + number(area.east(), 6));
+        line(out, "--");
+        line(out, "-- Supuestos (NO son datos de OpenStreetMap):");
+        line(out, "--   * Vias principales sin maxspeed: "
+                + number(RoadNetworkBuilder.MAIN_ROAD_DEFAULT_KMH, 0)
+                + " km/h (Ley 2251 de 2022, maximo en vias urbanas)");
+        line(out, "--   * Vias locales sin maxspeed: "
+                + number(RoadNetworkBuilder.LOCAL_ROAD_DEFAULT_KMH, 0)
+                + " km/h (Ley 2251 de 2022, zonas residenciales)");
+        line(out, "--   * Vias sin nombre: '" + ascii(RoadNetworkBuilder.UNNAMED) + "'");
+        line(out, "--   * Nombres sin tildes, igual que 03_datos_valledupar.sql");
+        line(out, "--");
+        line(out, "-- Resumen: " + network.junctions().size() + " nodos, "
+                + network.links().size() + " tramos, a partir de " + summary.waysUsed()
+                + " de " + summary.waysRead() + " vias del archivo.");
+        line(out, "--   Vias sin nombre: " + summary.unnamedWays()
+                + ". Vias con velocidad supuesta: " + summary.waysWithDefaultSpeed()
+                + ". Pedazos descartados: " + summary.skippedPieces() + ".");
+        line(out, "-- WHERE NOT EXISTS evita duplicados si el script se ejecuta dos veces.");
+        line(out, "-- Las filas van en bloques PL/SQL de " + BLOCK_SIZE + ": un viaje a Oracle por bloque.");
+        line(out, "-- ============================================================");
+        line(out, "");
+        line(out, "SET DEFINE OFF");
+        line(out, "SET FEEDBACK OFF");
+        line(out, "");
+        line(out, "-- 1. NODOS (" + network.junctions().size() + ")");
+        List<String> nodes = new ArrayList<>();
+        for (RoadNetwork.Junction junction : network.junctions()) {
+            nodes.add("INSERT INTO nodo_vial (osm_id, referencia, latitud, longitud, tipo_nodo, estado) "
+                    + "SELECT " + junction.osmId() + ", " + text(junction.reference()) + ", "
+                    + number(junction.latitude(), 6) + ", " + number(junction.longitude(), 6) + ", '"
+                    + junction.type().code() + "', 'A' FROM dual "
+                    + "WHERE NOT EXISTS (SELECT 1 FROM nodo_vial WHERE osm_id = " + junction.osmId() + ");");
+        }
+        blocks(out, nodes);
+        line(out, "");
+        line(out, "COMMIT;");
+        line(out, "");
+        line(out, "-- 2. TRAMOS (" + network.links().size() + ")");
+        List<String> segments = new ArrayList<>();
+        for (RoadNetwork.Link link : network.links()) {
+            segments.add("INSERT INTO tramo_vial (id_nodo_origen, id_nodo_destino, osm_way_id, nombre_via, "
+                    + "distancia_m, velocidad_max_kmh) "
+                    + "SELECT o.id_nodo, d.id_nodo, " + link.osmWayId() + ", " + text(link.roadName()) + ", "
+                    + number(link.lengthMeters(), 2) + ", " + number(link.maxSpeedKmh(), 2) + " "
+                    + "FROM nodo_vial o, nodo_vial d "
+                    + "WHERE o.osm_id = " + link.fromOsmId() + " AND d.osm_id = " + link.toOsmId() + " "
+                    + "AND NOT EXISTS (SELECT 1 FROM tramo_vial t WHERE t.id_nodo_origen = o.id_nodo "
+                    + "AND t.id_nodo_destino = d.id_nodo AND t.osm_way_id = " + link.osmWayId() + ");");
+        }
+        blocks(out, segments);
+        line(out, "");
+        line(out, "COMMIT;");
+        line(out, "");
+        line(out, "SET FEEDBACK ON");
+        line(out, "SET DEFINE ON");
+        line(out, "");
+        line(out, "-- 3. COMPROBACION: con la red anterior borrada (database/osm/borrar_red_vial.sql)");
+        line(out, "-- deben salir exactamente estos numeros.");
+        line(out, "PROMPT Esperado: " + network.junctions().size() + " nodos y " + network.links().size() + " tramos");
+        line(out, "SELECT (SELECT COUNT(*) FROM nodo_vial) AS nodos, (SELECT COUNT(*) FROM tramo_vial) AS tramos FROM dual;");
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    /** The statements in BEGIN ... END; blocks of BLOCK_SIZE, each closed with "/" for SQL*Plus. */
+    private static void blocks(Appendable out, List<String> statements) throws IOException {
+        for (int start = 0; start < statements.size(); start += BLOCK_SIZE) {
+            line(out, "BEGIN");
+            for (String statement : statements.subList(start, Math.min(start + BLOCK_SIZE, statements.size()))) {
+                line(out, statement);
+            }
+            line(out, "END;");
+            line(out, "/");
+        }
+    }
+
+    private static void line(Appendable out, String text) throws IOException {
+        out.append(text).append('\n');
+    }
+
+    static String number(double value, int decimals) {
+        return String.format(Locale.ROOT, "%." + decimals + "f", value);
+    }
+
+    /** 'Text' with quotes doubled and without accents, or NULL. */
+    static String text(String value) {
+        if (value == null) {
+            return "NULL";
+        }
+        return "'" + ascii(value).replace("'", "''") + "'";
+    }
+
+    /** "Avenida Simón Bolívar" -> "Avenida Simon Bolivar"; control characters -> space. */
+    static String ascii(String value) {
+        String withoutAccents = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return withoutAccents.replaceAll("[^\\x20-\\x7E]", " ").strip();
+    }
+}

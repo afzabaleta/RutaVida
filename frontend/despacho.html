@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'">
+    <meta name="theme-color" content="#101923">
+    <title>RutaVida | Despacho</title>
+
+    <!-- Sets data-theme before paint (no flash). -->
+    <script src="./js/theme-boot.js"></script>
+    <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./css/rutavida.css">
+    <link rel="stylesheet" href="./css/dashboard.css">
+    <link rel="stylesheet" href="./css/map-icons.css">
+    <link rel="stylesheet" href="./css/app-shell.css">
+    <link rel="stylesheet" href="./css/operacion.css">
+    <link rel="stylesheet" href="./css/theme.css">
+
+    <link rel="stylesheet"
+          href="vendor/leaflet-1.9.4/leaflet.css">
+
+    <script defer
+            src="vendor/leaflet-1.9.4/leaflet.js"></script>
+
+    <script type="module" src="./js/despacho.js"></script>
+</head>
+
+<body class="dashboard-body">
+<!-- Moved into the page header by app-shell.js -->
+<div class="bell-container" data-shell-slot="header-actions">
+    <button
+            id="alert-bell"
+            class="bell-button"
+            type="button"
+            aria-label="Alertas"
+            aria-expanded="false"
+            aria-controls="alert-panel">
+        <span class="shell-icon shell-icon-bell" aria-hidden="true"></span>
+        <span id="alert-count" class="bell-count" hidden>0</span>
+    </button>
+
+    <section id="alert-panel" class="bell-panel" hidden>
+        <h2>Alertas</h2>
+        <div id="alert-list" class="bell-list"></div>
+    </section>
+</div>
+
+
+<main class="dashboard-main">
+    <section class="welcome-row">
+        <div>
+            <h1 class="page-title">Despachar <span>unidad</span></h1>
+            <p class="muted">
+                Elige la emergencia, compara las unidades por su tiempo de llegada
+                y sus 3 rutas, despacha y sigue la misión hasta el cierre.
+            </p>
+        </div>
+
+        <span class="demo-notice">
+            Emergencias, unidades y rutas de Oracle. Las unidades EJEMPLO-… son de ejemplo
+            y el tráfico es SIMULACION.
+        </span>
+    </section>
+
+    <section class="workspace">
+
+        <aside class="side-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>A atender</h2>
+                </div>
+            </div>
+
+            <label for="emergency-select" class="field-label">Emergencia</label>
+            <select id="emergency-select"></select>
+
+            <div id="emergency-detail" class="item-list"></div>
+
+            <div class="panel-divider"></div>
+
+            <div class="panel-heading">
+                <div>
+                    <h2>Unidades disponibles</h2>
+                </div>
+                <span class="count-pill" id="unit-pill">0</span>
+            </div>
+
+            <div id="unit-list" class="item-list"></div>
+
+            <p class="map-footnote">
+                Solo unidades DISPONIBLE de un tipo adecuado para la emergencia,
+                ordenadas por el tiempo de llegada que calcula el motor de rutas
+                sobre las calles, con el tráfico actual.
+            </p>
+        </aside>
+
+        <section class="map-panel">
+            <div class="map-heading">
+                <div>
+                    <h2>Emergencia, unidades y rutas</h2>
+                </div>
+                <span class="map-status" id="map-live" role="status">
+                    <span></span> Mapa de referencia
+                </span>
+            </div>
+
+            <div id="map" role="application"
+                 aria-label="Mapa con la emergencia, las unidades y las rutas"></div>
+
+            <p class="map-footnote">
+                Cartografía © OpenStreetMap contributors.
+            </p>
+
+            <section class="route-panel" aria-labelledby="route-title">
+                <div class="map-heading">
+                    <div>
+                            <h2 id="route-title">Rutas</h2>
+                    </div>
+                    <span id="route-tag" class="data-tag">SIN CALCULAR</span>
+                </div>
+
+                <div id="route-list" class="route-list"></div>
+                <p id="route-note" class="map-footnote"></p>
+            </section>
+        </section>
+
+        <aside class="side-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Despacho</h2>
+                </div>
+            </div>
+
+            <div id="dispatch-summary" class="dispatch-summary">
+                <p class="empty-state">Selecciona una unidad disponible.</p>
+            </div>
+
+            <button type="button" id="dispatch-button"
+                    class="button dispatch-button" disabled>
+                Despachar unidad
+            </button>
+
+            <div id="close-box"></div>
+
+            <p id="dispatch-message" class="form-message"
+               role="alert" aria-live="polite" hidden></p>
+
+            <button type="button" id="refresh-button" class="secondary-button">
+                Actualizar estado
+            </button>
+
+            <div class="panel-divider"></div>
+
+            <div class="source-note">
+                <strong>Qué hace el servidor</strong>
+                <p>
+                    Al despachar guarda la asignación, pone la emergencia en ASIGNADA
+                    y la unidad en OCUPADO, y guarda la ruta ACTIVA y las alternativas,
+                    todo en una sola transacción de Oracle.
+                </p>
+                <p>
+                    En el traslado (CU-11) ordena los hospitales activos con URGENCIAS por
+                    el tiempo de llegada con el tráfico actual, y al elegir uno guarda las
+                    rutas al hospital y pone la misión en TRASLADANDO, también en una sola
+                    transacción.
+                </p>
+                <p>
+                    Con una misión abierta, la página pregunta cada 5 s dónde va la unidad
+                    (posición SIMULACION) y se actualiza sola cuando llega, cuando el
+                    sistema recalcula la ruta o cuando la misión termina.
+                </p>
+            </div>
+        </aside>
+
+    </section>
+
+    <footer class="dashboard-footer">
+        <span>RutaVida · Despacho (CU-08 a CU-12, D6b)</span>
+        <span>Datos de Oracle y datos EJEMPLO identificados</span>
+    </footer>
+</main>
+</body>
+</html>
