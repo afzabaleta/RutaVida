@@ -983,6 +983,12 @@ classDiagram
     JdbcTransactionManager --> ConnectionFactory
     ConnectionFactory <|.. ClientIdentifierConnectionFactory
     ClientIdentifierConnectionFactory --> ConnectionFactory : decora
+    class PooledConnectionFactory {
+        +open() Connection
+        ~idleConnections() int
+    }
+    ConnectionFactory <|.. PooledConnectionFactory
+    PooledConnectionFactory --> ConnectionFactory : reutiliza conexiones
     ConnectionFactory <.. DatabaseConnection : open() cumple el contrato
     AbstractJdbcDAO --> JdbcTransactionManager
     AbstractJdbcDAO ..> RowMapper~T~
