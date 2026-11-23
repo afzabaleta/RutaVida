@@ -4,6 +4,7 @@ import co.edu.unicesar.rutavida.model.VehicleLocation;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Position history of the units (table UBICACION_VEHICULO). The last known position
@@ -21,4 +22,12 @@ public interface VehicleLocationDAO {
 
     /** Positions of one unit between {@code from} and {@code to} (both included), oldest first. */
     List<VehicleLocation> findByVehicle(long vehicleId, LocalDateTime from, LocalDateTime to);
+
+    /**
+     * Most recent report of every unit. Fakes written before real GPS can keep the default;
+     * the map then preserves its historical SIMULACION label.
+     */
+    default Map<Long, VehicleLocation> findLatestByVehicle() {
+        return Map.of();
+    }
 }

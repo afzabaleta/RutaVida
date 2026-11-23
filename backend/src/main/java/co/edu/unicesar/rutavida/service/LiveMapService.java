@@ -5,6 +5,7 @@ import co.edu.unicesar.rutavida.dao.EmergencyAssignmentDAO;
 import co.edu.unicesar.rutavida.dao.EmergencyVehicleDAO;
 import co.edu.unicesar.rutavida.dao.RouteDAO;
 import co.edu.unicesar.rutavida.dao.VehicleTypeDAO;
+import co.edu.unicesar.rutavida.dao.VehicleLocationDAO;
 import co.edu.unicesar.rutavida.dto.SimulationState;
 import co.edu.unicesar.rutavida.dto.TrackedMission;
 import co.edu.unicesar.rutavida.dto.TrackedUnit;
@@ -14,6 +15,7 @@ import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.VehicleType;
+import co.edu.unicesar.rutavida.model.VehicleLocation;
 import co.edu.unicesar.rutavida.model.enums.PositionSource;
 import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import co.edu.unicesar.rutavida.util.ValidationUtil;
@@ -45,6 +47,7 @@ public class LiveMapService {
     private final EmergencyAssignmentDAO assignmentDao;
     private final RouteDAO routeDao;
     private final AlertDAO alertDao;
+    private final VehicleLocationDAO locationDao;
     private final BooleanSupplier simulationRunning;
     private final Clock clock;
 
@@ -55,11 +58,19 @@ public class LiveMapService {
     public LiveMapService(EmergencyVehicleDAO vehicleDao, VehicleTypeDAO vehicleTypeDao,
                           EmergencyAssignmentDAO assignmentDao, RouteDAO routeDao, AlertDAO alertDao,
                           BooleanSupplier simulationRunning, Clock clock) {
+        this(vehicleDao, vehicleTypeDao, assignmentDao, routeDao, alertDao, null, simulationRunning, clock);
+    }
+
+    /** With the history DAO, the map distinguishes real GPS from simulation and exposes its telemetry. */
+    public LiveMapService(EmergencyVehicleDAO vehicleDao, VehicleTypeDAO vehicleTypeDao,
+                          EmergencyAssignmentDAO assignmentDao, RouteDAO routeDao, AlertDAO alertDao,
+                          VehicleLocationDAO locationDao, BooleanSupplier simulationRunning, Clock clock) {
         this.vehicleDao = Objects.requireNonNull(vehicleDao, "vehicleDao");
         this.vehicleTypeDao = Objects.requireNonNull(vehicleTypeDao, "vehicleTypeDao");
         this.assignmentDao = Objects.requireNonNull(assignmentDao, "assignmentDao");
         this.routeDao = Objects.requireNonNull(routeDao, "routeDao");
         this.alertDao = Objects.requireNonNull(alertDao, "alertDao");
+        this.locationDao = locationDao;
         this.simulationRunning = Objects.requireNonNull(simulationRunning, "simulationRunning");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -71,10 +82,12 @@ public class LiveMapService {
         Map<Long, String> typeNames = vehicleTypeDao.findAll().stream()
                 .collect(Collectors.toMap(VehicleType::getId, VehicleType::getName));
         List<EmergencyVehicle> vehicles = vehicleDao.findAll();
+        Map<Long, VehicleLocation> latest = locationDao == null ? Map.of() : locationDao.findLatestByVehicle();
 
         List<TrackedUnit> units = new ArrayList<>();
         for (EmergencyVehicle vehicle : vehicles) {
-            units.add(toUnit(vehicle, typeNames.getOrDefault(vehicle.getVehicleTypeId(), "UNIDAD")));
+            units.add(toUnit(vehicle, typeNames.getOrDefault(vehicle.getVehicleTypeId(), "UNIDAD"),
+                    latest.get(vehicle.getId())));
         }
 
         Map<Long, Route> activeByVehicle = routeDao.findActive().stream()
@@ -93,11 +106,13 @@ public class LiveMapService {
                 units, missions, unread);
     }
 
-    private static TrackedUnit toUnit(EmergencyVehicle vehicle, String typeName) {
+    private static TrackedUnit toUnit(EmergencyVehicle vehicle, String typeName, VehicleLocation latest) {
         boolean located = vehicle.getLastLocation() != null;
         return new TrackedUnit(vehicle.getId(), vehicle.getUnitCode(), typeName,
                 vehicle.getOperationalStatus(), vehicle.getLastLocation(), vehicle.getLastLocationAt(),
-                located ? PositionSource.SIMULATION : null);
+                located ? (latest == null ? PositionSource.SIMULATION : latest.getSource()) : null,
+                latest == null ? null : latest.getSpeedKmh(),
+                latest == null ? null : latest.getHeadingDegrees());
     }
 
     private TrackedMission toMission(EmergencyAssignment mission, Map<Long, Route> activeByVehicle) {

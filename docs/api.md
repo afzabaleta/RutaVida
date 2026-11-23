@@ -485,11 +485,23 @@ La web lo consulta **cada 5 segundos** (DT-07) mientras la página del mapa est�
 
 - `routesVersion` sube cada vez que el sistema recalcula las rutas de esa misión (CU-17). Si la web ve un número distinto al que tenía, pide `GET /api/dispatches/{id}/routes` y redibuja.
 - `unreadAlerts` permite mostrar el contador sin pedir la lista cada 5 segundos.
-- `source` es `"SIMULACION"` mientras no exista GPS real (`PositionSource`).
+- `source` es `"SIMULACION"` o `"GPS"` (`PositionSource`). Una posición GPS real conserva además `speedKmh` y `headingDegrees` cuando el teléfono los informa.
 - **Programado (A12e):** `LiveMapService` y `TrackingController`. `vehicleType` es el nombre del tipo (`AMBULANCIA`, `BOMBERO`, `POLICIA`), con el que la web elige el ícono. Una unidad sin posición trae `location`, `updatedAt` y `source` en `null`. `missions` trae solo las misiones abiertas de unidades `OCUPADO`; `activeRouteId` es `null` cuando la unidad ya llegó. `routesVersion` es cuántas rutas se han guardado para esa misión: crece cuando el sistema recalcula. `simulation.running` es `true` mientras corre la simulación (10.2); antes del primer inicio es `false`.
 - Las posiciones las escribe `TrackingService` cuando el motor de simulación (K9) mueve las unidades: sin K9, las unidades se quedan en su última posición.
 
-### 8.2 `GET /api/traffic/segments`
+### 8.2 GPS real de conductor
+
+Un usuario con el permiso `GPS/REPORTAR` entra a `conductor.html`. La asociación uno-a-uno entre ese conductor y su vehículo se guarda en `UNIDAD_CONDUCTOR`.
+
+| Método | Ruta | Permiso | Uso |
+|---|---|---|---|
+| `GET` | `/api/gps/unit` | `GPS/REPORTAR` | Unidad asociada al conductor autenticado. |
+| `POST` | `/api/gps/position` | `GPS/REPORTAR` | Guarda `{ location, speedKmh, headingDegrees }`, actualiza la unidad y la difunde al mapa. |
+| `WS` | `/ws/gps` | `EMERGENCIAS/CONSULTAR` | Actualizaciones instantáneas. El primer mensaje debe ser `{ "type": "auth", "token": "..." }`. |
+
+El navegador sigue haciendo la foto completa por `GET /api/tracking` cada cinco segundos como respaldo. Los clientes conectados reciben una posición GPS al instante por WebSocket y actualizan únicamente el marcador afectado.
+
+### 8.3 `GET /api/traffic/segments`
 
 Los tramos con tráfico `MODERADO` o `CONGESTIONADO` (la última medición de cada uno), para pintarlos en el mapa. Con `?level=CONGESTIONADO`, solo esos.
 

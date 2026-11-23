@@ -13,6 +13,8 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -32,6 +34,12 @@ public class JdbcVehicleLocationDAO extends AbstractJdbcDAO implements VehicleLo
             "SELECT id_ubicacion, id_vehiculo, fecha_hora, latitud, longitud, velocidad_kmh, direccion_grados,"
                     + " fuente FROM ubicacion_vehiculo WHERE id_vehiculo = ? AND fecha_hora BETWEEN ? AND ?"
                     + " ORDER BY fecha_hora, id_ubicacion";
+
+    private static final String SELECT_LATEST =
+            "SELECT id_ubicacion, id_vehiculo, fecha_hora, latitud, longitud, velocidad_kmh, direccion_grados, fuente "
+                    + "FROM (SELECT id_ubicacion, id_vehiculo, fecha_hora, latitud, longitud, velocidad_kmh, "
+                    + "direccion_grados, fuente, ROW_NUMBER() OVER (PARTITION BY id_vehiculo "
+                    + "ORDER BY fecha_hora DESC, id_ubicacion DESC) AS rn FROM ubicacion_vehiculo) WHERE rn = 1";
 
     private static final RowMapper<VehicleLocation> MAPPER = row -> new VehicleLocation(
             row.getLong("id_ubicacion"),
@@ -87,6 +95,15 @@ public class JdbcVehicleLocationDAO extends AbstractJdbcDAO implements VehicleLo
             throw new IllegalArgumentException("from must not be after to");
         }
         return queryList(SELECT_BY_VEHICLE, MAPPER, vehicleId, from, to);
+    }
+
+    @Override
+    public Map<Long, VehicleLocation> findLatestByVehicle() {
+        Map<Long, VehicleLocation> latest = new LinkedHashMap<>();
+        for (VehicleLocation location : queryList(SELECT_LATEST, MAPPER)) {
+            latest.put(location.getVehicleId(), location);
+        }
+        return latest;
     }
 
     private static void bindLocation(PreparedStatement statement, VehicleLocation location) throws SQLException {

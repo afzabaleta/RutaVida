@@ -10,6 +10,7 @@ import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.FleetController;
+import co.edu.unicesar.rutavida.controller.GpsController;
 import co.edu.unicesar.rutavida.controller.HospitalController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
@@ -49,6 +50,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleLocationDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcUnitDriverDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcCitizenSessionDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcReportDAO;
@@ -66,6 +68,7 @@ import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.FleetService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
+import co.edu.unicesar.rutavida.service.GpsTrackingService;
 import co.edu.unicesar.rutavida.service.HospitalService;
 import co.edu.unicesar.rutavida.service.IncidentService;
 import co.edu.unicesar.rutavida.service.LiveMapService;
@@ -142,6 +145,7 @@ public final class AppContext {
     private final HospitalController hospitalController;
     private final FleetController fleetController;
     private final TrackingController trackingController;
+    private final GpsController gpsController;
     private final AuditController auditController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
@@ -232,7 +236,11 @@ public final class AppContext {
         // (K9, simulationEngine()) gives the "running" flag through isSimulationRunning().
         this.trackingController = new TrackingController(new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
                 new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc),
-                new JdbcAlertDAO(jdbc), this::isSimulationRunning, clock), authService, session);
+                new JdbcAlertDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), this::isSimulationRunning, clock),
+                authService, session);
+        this.gpsController = new GpsController(new GpsTrackingService(new JdbcUnitDriverDAO(jdbc),
+                new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), jdbc, clock),
+                authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
 
         // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
@@ -342,6 +350,11 @@ public final class AppContext {
     /** Live map (docs/api.md 8.1, A12e). */
     public TrackingController trackingController() {
         return trackingController;
+    }
+
+    /** Phone GPS reporting for the driver explicitly assigned to a unit. */
+    public GpsController gpsController() {
+        return gpsController;
     }
 
     /**

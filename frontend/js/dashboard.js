@@ -412,7 +412,10 @@ async function initializeDashboard() {
       );
       const status = byId("live-status");
       if (status && !simulation) {
-        status.textContent = "Seguimiento activo · datos SIMULACIÓN";
+        const gps = (snapshot.units ?? []).filter((unit) => unit.source === "GPS").length;
+        status.textContent = gps > 0
+          ? `Seguimiento activo · ${gps} ${gps === 1 ? "unidad GPS" : "unidades GPS"}`
+          : "Seguimiento activo · datos SIMULACIÓN";
       }
 
       bell.setCount(snapshot.unreadAlerts ?? 0);
@@ -451,6 +454,10 @@ async function initializeDashboard() {
       if (status) {
         status.textContent = "Seguimiento no disponible";
       }
+    },
+    onConnection(text, state) {
+      const status = byId("live-status");
+      if (status && state !== "online") status.textContent = text;
     },
   });
 

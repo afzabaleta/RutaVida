@@ -7,7 +7,7 @@
 -- =====================================================================
 BEGIN
     FOR t IN (SELECT column_value AS nombre FROM TABLE(sys.odcivarchar2list(
-                'SESION_CIUDADANO', 'REPORTE_PANICO', 'AUDITORIA', 'NOTIFICACION', 'ALERTA', 'UBICACION_VEHICULO',
+                'UNIDAD_CONDUCTOR', 'SESION_CIUDADANO', 'REPORTE_PANICO', 'AUDITORIA', 'NOTIFICACION', 'ALERTA', 'UBICACION_VEHICULO',
                 'ASIGNACION_EMERGENCIA', 'RUTA_TRAMO', 'RUTA', 'INCIDENTE_VIAL',
                 'TRAFICO', 'SEMAFORO', 'TRAMO_VIAL', 'NODO_VIAL', 'EMERGENCIA',
                 'TIPO_EMERGENCIA', 'SERVICIO_HOSPITAL', 'HOSPITAL',
