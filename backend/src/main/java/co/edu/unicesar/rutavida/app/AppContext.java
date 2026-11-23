@@ -155,6 +155,7 @@ public final class AppContext {
     private final EmergencyService emergencyService;
     private RoadGraph roadGraph;
     private RouteService routeService;
+    private RouteMonitor gpsRouteMonitor;
     private SimulationEngine simulationEngine;
     private SimulationController simulationController;
     private DispatchService dispatchService;
@@ -236,10 +237,12 @@ public final class AppContext {
         // (K9, simulationEngine()) gives the "running" flag through isSimulationRunning().
         this.trackingController = new TrackingController(new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
                 new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc),
-                new JdbcAlertDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), this::isSimulationRunning, clock),
+                new JdbcAlertDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), routeService(),
+                this::isSimulationRunning, clock),
                 authService, session);
         this.gpsController = new GpsController(new GpsTrackingService(new JdbcUnitDriverDAO(jdbc),
-                new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), jdbc, clock),
+                new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), jdbc, clock,
+                gpsRouteMonitor()),
                 authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
 
@@ -383,6 +386,16 @@ public final class AppContext {
             routeService = new RouteService(roadGraph(), new JdbcRouteDAO(jdbc), jdbc, clock);
         }
         return routeService;
+    }
+
+    /** GPS uses the same monitor and existing RouteService as traffic-triggered recalculation. */
+    private synchronized RouteMonitor gpsRouteMonitor() {
+        if (gpsRouteMonitor == null) {
+            gpsRouteMonitor = new RouteMonitor(new JdbcRouteDAO(jdbc), routeService(),
+                    new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleTypeDAO(jdbc),
+                    new JdbcEmergencyAssignmentDAO(jdbc), alertService, jdbc);
+        }
+        return gpsRouteMonitor;
     }
 
     /**

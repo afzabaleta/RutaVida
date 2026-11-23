@@ -1886,6 +1886,11 @@ classDiagram
         +congestedSegments : int
         +explanation : String
     }
+    class RouteProgress {
+        <<record>>
+        +distanceKm : double
+        +etaMinutes : double
+    }
     class RoadConditionService {
         -graph : RoadGraph
         -incidentDao : RoadIncidentDAO
@@ -2000,6 +2005,7 @@ RoadConditionService ..> RoadIncidentDAO : lee los ACTIVO
     RouteService --> AlternativeRouteFinder
     RouteService --> RouteExplanationBuilder
     RouteService ..> RouteOption
+    RouteService ..> RouteProgress
 IncidentService ..> IncidentRequest
 RouteMonitor --> RouteService
 RouteMonitor ..> AlertService : avisa (S8)

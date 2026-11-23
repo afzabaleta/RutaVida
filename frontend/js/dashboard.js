@@ -434,7 +434,11 @@ async function initializeDashboard() {
           const card = makeDataCard({
             title: `Misión ${mission.assignmentId} · Emergencia #${mission.emergencyId}`,
             label: unit?.example ? "EJEMPLO" : "ORACLE",
-            description: `Unidad ${unit?.unitCode ?? mission.vehicleId ?? "Sin datos"}`,
+            description: [
+              `Unidad ${unit?.unitCode ?? mission.vehicleId ?? "Sin datos"}`,
+              Number.isFinite(mission.remainingDistanceKm) ? `Restan ${mission.remainingDistanceKm.toFixed(2)} km` : null,
+              Number.isFinite(mission.etaMinutes) ? `ETA ${Math.ceil(mission.etaMinutes)} min` : null,
+            ].filter(Boolean).join(" · "),
             status: mission.status ?? "En seguimiento",
             action: mission.activeRouteId != null
               ? () => live.showRoute(mission.assignmentId)

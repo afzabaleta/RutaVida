@@ -63,6 +63,7 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
   const iconKeys = new Map();
   const lines = new Map();
   const routeLayer = L.layerGroup().addTo(map);
+  const destinations = new Map();
 
   let timer = null;
   let stopped = false;
@@ -116,6 +117,8 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
     for (const [assignmentId, drawn] of lines) {
       if (!open.has(assignmentId)) {
         drawn.line?.remove();
+        destinations.get(assignmentId)?.remove();
+        destinations.delete(assignmentId);
         lines.delete(assignmentId);
       }
     }
@@ -127,15 +130,39 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
 
       if (mission.activeRouteId == null) {
         drawn?.line?.remove();
+        destinations.get(mission.assignmentId)?.remove();
+        destinations.delete(mission.assignmentId);
         lines.set(mission.assignmentId, {
           version: mission.routesVersion,
           line: null,
           route: null,
         });
+
+        const previousDestination = destinations.get(mission.assignmentId);
+        if (mission.destination) {
+          const text = [
+            `Emergencia #${mission.emergencyId}`,
+            Number.isFinite(mission.remainingDistanceKm) ? `Restan ${mission.remainingDistanceKm.toFixed(2)} km` : null,
+            Number.isFinite(mission.etaMinutes) ? `ETA ${Math.ceil(mission.etaMinutes)} min` : null,
+          ].filter(Boolean).join(" · ");
+          if (previousDestination) previousDestination.setLatLng(mission.destination).bindTooltip(text);
+          else destinations.set(mission.assignmentId, L.circleMarker(mission.destination, {
+            radius: 10, color: "#e91e3c", weight: 3, fillColor: "#ff5a70", fillOpacity: 0.85,
+          }).bindTooltip(text, { direction: "top" }).addTo(routeLayer));
+        }
         continue;
       }
 
       if (drawn && drawn.version === mission.routesVersion && drawn.line) {
+        const destination = destinations.get(mission.assignmentId);
+        if (destination && mission.destination) {
+          const text = [
+            `Emergencia #${mission.emergencyId}`,
+            Number.isFinite(mission.remainingDistanceKm) ? `Restan ${mission.remainingDistanceKm.toFixed(2)} km` : null,
+            Number.isFinite(mission.etaMinutes) ? `ETA ${Math.ceil(mission.etaMinutes)} min` : null,
+          ].filter(Boolean).join(" · ");
+          destination.setLatLng(mission.destination).bindTooltip(text);
+        }
         continue;
       }
 
@@ -225,6 +252,9 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
     unit.headingDegrees = position.headingDegrees;
     unit.source = position.source;
     drawUnits(lastSnapshot.units);
+    if (position.routeRecalculated) {
+      refresh();
+    }
     onSnapshot?.(lastSnapshot, new Map([...lines].map(([id, drawn]) => [id, drawn.route])));
   }
 

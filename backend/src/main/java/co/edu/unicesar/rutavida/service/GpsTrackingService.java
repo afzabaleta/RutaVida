@@ -19,6 +19,8 @@ import co.edu.unicesar.rutavida.util.ValidationUtil;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.Duration;
+import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 
@@ -29,12 +31,18 @@ import java.util.Objects;
 public final class GpsTrackingService {
 
     private static final double MAX_SPEED_KMH = 250;
+    /** GPS accuracy normally varies by several metres; recalculate only after a material deviation. */
+    public static final double DEVIATION_THRESHOLD_METERS = 40;
+    /** Prevent a noisy device from repeatedly replacing the same route. */
+    public static final Duration RECALCULATION_COOLDOWN = Duration.ofSeconds(20);
 
     private final UnitDriverDAO drivers;
     private final EmergencyVehicleDAO vehicles;
     private final VehicleLocationDAO locations;
     private final TransactionManager transactions;
     private final Clock clock;
+    private RouteMonitor routeMonitor;
+    private final Map<Long, LocalDateTime> lastRecalculation = new java.util.concurrent.ConcurrentHashMap<>();
 
     public GpsTrackingService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
                               VehicleLocationDAO locations,
@@ -44,6 +52,15 @@ public final class GpsTrackingService {
         this.locations = Objects.requireNonNull(locations, "locations");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.routeMonitor = null;
+    }
+
+    /** Enables deviation-aware recalculation while preserving the original GPS-only constructor for tests. */
+    public GpsTrackingService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
+                              VehicleLocationDAO locations, TransactionManager transactions, Clock clock,
+                              RouteMonitor routeMonitor) {
+        this(drivers, vehicles, locations, transactions, clock);
+        this.routeMonitor = Objects.requireNonNull(routeMonitor, "routeMonitor");
     }
 
     public DriverUnit unitOf(UserSession driver) {
@@ -60,15 +77,38 @@ public final class GpsTrackingService {
         EmergencyVehicle vehicle = assignedVehicle(driver);
         LocalDateTime now = LocalDateTime.now(clock).withNano(0);
 
-        return transactions.callInTransaction(() -> {
+        GpsPosition stored = transactions.callInTransaction(() -> {
             // Real GPS is observational data. It must never invoke route recalculation or mission changes.
             vehicle.setLastLocation(location);
             vehicle.setLastLocationAt(now);
             vehicles.updateLocation(vehicle.getId(), location, now);
             locations.insertBatch(List.of(new VehicleLocation(0, vehicle.getId(), now, location,
                     speed, heading, PositionSource.GPS)));
-            return new GpsPosition(vehicle.getId(), location, now, speed, heading, PositionSource.GPS);
+            return new GpsPosition(vehicle.getId(), location, now, speed, heading, PositionSource.GPS, false);
         });
+        boolean recalculated = recalculateIfNeeded(vehicle.getId(), location, now);
+        return recalculated
+                ? new GpsPosition(stored.vehicleId(), stored.location(), stored.updatedAt(), stored.speedKmh(),
+                stored.headingDegrees(), stored.source(), true)
+                : stored;
+    }
+
+    private boolean recalculateIfNeeded(long vehicleId, GeoPoint location, LocalDateTime now) {
+        if (routeMonitor == null) return false;
+        LocalDateTime previous = lastRecalculation.get(vehicleId);
+        if (previous != null && Duration.between(previous, now).compareTo(RECALCULATION_COOLDOWN) < 0) {
+            return false;
+        }
+        boolean recalculated;
+        try {
+            recalculated = routeMonitor.recalculateAfterGpsDeviation(vehicleId, location,
+                    DEVIATION_THRESHOLD_METERS).isPresent();
+        } catch (BusinessRuleException outsideNetwork) {
+            // The GPS history remains valid even when its point cannot be snapped to the road graph.
+            return false;
+        }
+        if (recalculated) lastRecalculation.put(vehicleId, now);
+        return recalculated;
     }
 
     private EmergencyVehicle assignedVehicle(UserSession driver) {
