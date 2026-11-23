@@ -159,7 +159,13 @@ async function initialize() {
 
   // Live positions when the role can follow the operation; otherwise the last known ones.
   const live = startLiveMap(map, session, {
-    onSnapshot: (snapshot) => applySnapshot(snapshot, map, live),
+    onSnapshot: (snapshot) => {
+      applySnapshot(snapshot, map, live);
+      const gps = (snapshot.units ?? []).filter((unit) => unit.source === "GPS").length;
+      byId("unit-live").textContent = gps > 0
+        ? `${gps} ${gps === 1 ? "unidad transmite" : "unidades transmiten"} GPS real; el mapa se actualiza al instante.`
+        : "Posiciones en vivo cada 5 segundos. SIMULACIÓN: las unidades todavía no transmiten GPS real.";
+    },
     onError: () => {
       byId("unit-live").textContent = "Seguimiento no disponible: posiciones de la última consulta";
     },

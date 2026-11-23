@@ -60,6 +60,11 @@ export function hasToken() {
   return Boolean(readToken());
 }
 
+/** Token for the same-origin GPS WebSocket. It is sent in the first frame, never in its URL. */
+export function gpsSocketToken() {
+  return readToken();
+}
+
 async function call(method, path, body) {
   const headers = { Accept: "application/json" };
   const token = readToken();
@@ -513,6 +518,22 @@ export async function getTracking() {
   };
 }
 
+// ------------------------------------------------------------------ real GPS of the assigned field driver
+
+/** The single emergency unit that the signed-in driver may publish from their phone. */
+export function getDriverUnit() {
+  return request("GET", "/api/gps/unit");
+}
+
+/** Sends one browser Geolocation reading. Browser speed is m/s; RutaVida stores km/h. */
+export function reportGpsPosition({ latitude, longitude, speedMps, headingDegrees }) {
+  return request("POST", "/api/gps/position", {
+    location: { latitude: round6(latitude), longitude: round6(longitude) },
+    speedKmh: Number.isFinite(speedMps) ? Math.round(speedMps * 3.6 * 10) / 10 : null,
+    headingDegrees: Number.isFinite(headingDegrees) ? Math.round(headingDegrees * 10) / 10 : null,
+  });
+}
+
 /** Lists alerts of the current user. */
 export function listAlerts(onlyUnread = false) {
   return request(
@@ -589,7 +610,9 @@ export async function registerCitizen(form) {
 
 /** Where a session starts working: the button for citizens and police, the panel for the staff. */
 export function homeOf(session) {
-  return hasPermission(session, "PANICO:REPORTAR") && !hasPermission(session, "DESPACHO:GESTIONAR")
+  return hasPermission(session, "GPS:REPORTAR")
+    ? "./conductor.html"
+    : hasPermission(session, "PANICO:REPORTAR") && !hasPermission(session, "DESPACHO:GESTIONAR")
     ? "./panico.html"
     : "./dashboard.html";
 }

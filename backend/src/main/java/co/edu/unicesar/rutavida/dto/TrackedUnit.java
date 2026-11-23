@@ -20,6 +20,8 @@ public record TrackedUnit(
         VehicleOperationalStatus operationalStatus,
         GeoPoint location,
         LocalDateTime updatedAt,
-        PositionSource source
+        PositionSource source,
+        Double speedKmh,
+        Double headingDegrees
 ) {
 }

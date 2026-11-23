@@ -11,6 +11,7 @@ import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.SimulationController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
+import co.edu.unicesar.rutavida.controller.GpsController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.AuditQuery;
@@ -20,6 +21,7 @@ import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.HospitalRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.IncidentRequest;
+import co.edu.unicesar.rutavida.dto.GpsPositionRequest;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.dto.PanicAlertRequest;
 import co.edu.unicesar.rutavida.dto.StationRequest;
@@ -159,6 +161,8 @@ public final class ApiServer {
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private SimulationController simulation;
+    private GpsController gps;
+    private GpsHub gpsHub;
     private Javalin app;
 
     /**
@@ -201,6 +205,16 @@ public final class ApiServer {
             throw new IllegalStateException("The server is already running");
         }
         this.simulation = Objects.requireNonNull(simulation, "simulation");
+        return this;
+    }
+
+    /** Adds real phone GPS reporting and the native WebSocket used by live-map viewers. */
+    public synchronized ApiServer withGps(GpsController gps, GpsHub gpsHub) {
+        if (app != null) {
+            throw new IllegalStateException("The server is already running");
+        }
+        this.gps = Objects.requireNonNull(gps, "gps");
+        this.gpsHub = Objects.requireNonNull(gpsHub, "gpsHub");
         return this;
     }
 
@@ -288,6 +302,22 @@ public final class ApiServer {
         // the session alive (DT-08).
         config.routes.get("/api/tracking", secured("EMERGENCIAS", "CONSULTAR", AUTOMATIC,
                 ctx -> send(ctx, tracking.snapshot(), ApiStatus.OK)));
+        if (gps != null) {
+            config.routes.get("/api/gps/unit", secured(GpsController.MODULE, GpsController.REPORT, USER_ACTION,
+                    ctx -> send(ctx, gps.myUnit(), ApiStatus.OK)));
+            config.routes.post("/api/gps/position", secured(GpsController.MODULE, GpsController.REPORT,
+                    AUTOMATIC, ctx -> {
+                        var result = gps.report(readBody(ctx, GpsPositionRequest.class));
+                        if (result.success()) {
+                            gpsHub.broadcast(result.value());
+                        }
+                        send(ctx, result, ApiStatus.OK);
+                    }));
+            config.routes.ws("/ws/gps", ws -> {
+                ws.onMessage(gpsHub::message);
+                ws.onClose(gpsHub::close);
+            });
+        }
         // The traffic layer (8.2): the map asks every 15 seconds by itself, like the tracking.
         config.routes.get("/api/traffic/segments", secured("TRAFICO", "CONSULTAR", AUTOMATIC,
                 ctx -> sendSimulation(ctx, controller -> controller.trafficSegments(levelParam(ctx)))));

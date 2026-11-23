@@ -2,6 +2,7 @@ package co.edu.unicesar.rutavida.app;
 
 import co.edu.unicesar.rutavida.api.AdminControllers;
 import co.edu.unicesar.rutavida.api.ApiServer;
+import co.edu.unicesar.rutavida.api.GpsHub;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.util.ErrorLog;
 
@@ -61,7 +62,8 @@ public final class WebServer {
                 new AdminControllers(context.userController(), context.fleetController(), context.hospitalController(),
                         context.auditController()),
                 context.trackingController(), context.panicController(), context.citizenController(), frontend)
-                .withSimulation(context.simulationController());
+                .withSimulation(context.simulationController())
+                .withGps(context.gpsController(), new GpsHub(context.webSessionController()));
         try {
             server.start(port);
         } catch (RuntimeException e) {
