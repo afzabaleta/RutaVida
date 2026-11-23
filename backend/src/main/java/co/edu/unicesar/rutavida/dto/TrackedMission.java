@@ -1,5 +1,6 @@
 package co.edu.unicesar.rutavida.dto;
 
+import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
 
 /**
@@ -15,6 +16,9 @@ public record TrackedMission(
         long vehicleId,
         AssignmentStatus status,
         Long activeRouteId,
-        int routesVersion
+        int routesVersion,
+        GeoPoint destination,
+        Double remainingDistanceKm,
+        Double etaMinutes
 ) {
 }

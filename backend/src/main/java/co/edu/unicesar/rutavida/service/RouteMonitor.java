@@ -134,6 +134,36 @@ public class RouteMonitor {
         }));
     }
 
+    /**
+     * Replaces a mission route only when its real GPS position is outside the route geometry.
+     * This keeps the existing router and destination; only the origin changes.
+     */
+    public Optional<Route> recalculateAfterGpsDeviation(long vehicleId, GeoPoint position, double thresholdMeters) {
+        if (thresholdMeters <= 0) {
+            throw new IllegalArgumentException("thresholdMeters must be positive");
+        }
+        Route active = routeDao.findActive().stream()
+                .filter(route -> route.getVehicleId() == vehicleId)
+                .findFirst().orElse(null);
+        if (active == null || routeService.distanceToRouteMeters(active, position) <= thresholdMeters) {
+            return Optional.empty();
+        }
+        EmergencyVehicle vehicle = vehicleDao.findById(vehicleId)
+                .orElseThrow(() -> new NotFoundException("Unidad", vehicleId));
+        VehicleProfile profile = VehicleProfile.forType(typeName(vehicle));
+        List<RouteOption> options = routeService.calculateOptions(position, routeService.destinationOf(active), profile);
+        return Optional.of(transactions.callInTransaction(() -> {
+            for (Route old : missionRoutes(active)) {
+                routeDao.updateStatus(old.getId(), RouteStatus.DISCARDED);
+            }
+            List<Route> saved = routeService.saveForMission(active.getEmergencyId(), vehicleId,
+                    active.getDestinationHospitalId(), profile, options);
+            missionOf(active).ifPresent(assignment ->
+                    alertService.routeRecalculated(assignment, vehicle.getUnitCode(), 0));
+            return saved.get(0);
+        }));
+    }
+
     /** RN-09: replace when the new route saves more than 15 % or more than 30 s. */
     static boolean shouldReplace(double remainingSeconds, double newSeconds) {
         double saved = remainingSeconds - newSeconds;

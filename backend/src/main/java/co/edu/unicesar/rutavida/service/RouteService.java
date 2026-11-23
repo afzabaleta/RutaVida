@@ -3,6 +3,7 @@ package co.edu.unicesar.rutavida.service;
 import co.edu.unicesar.rutavida.dao.RouteDAO;
 import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dto.RouteOption;
+import co.edu.unicesar.rutavida.dto.RouteProgress;
 import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.exception.ValidationException;
 import co.edu.unicesar.rutavida.graph.AStarRouter;
@@ -140,6 +141,68 @@ public class RouteService {
             seconds += part;
         }
         return OptionalDouble.of(seconds);
+    }
+
+    /** Remaining route metrics from the route segment nearest to the real GPS position. */
+    public Optional<RouteProgress> remainingProgress(Route route, GeoPoint position, VehicleProfile vehicle) {
+        ValidationUtil.requireNonNull(route, "ruta");
+        ValidationUtil.requireLocation(position);
+        List<RouteSegment> segments = route.getSegments();
+        if (segments.isEmpty()) return Optional.empty();
+        int start = nearestSegment(route, position);
+        double meters = 0;
+        double seconds = 0;
+        for (int i = start; i < segments.size(); i++) {
+            int edge = graph.edgeIndexOf(segments.get(i).segmentId());
+            if (edge < 0) return Optional.empty();
+            meters += graph.edge(edge).lengthM();
+            double part = cost.seconds(graph.edge(edge), graph.state(edge), vehicle);
+            if (Double.isInfinite(part)) return Optional.empty();
+            seconds += part;
+        }
+        return Optional.of(new RouteProgress(meters / 1000d, seconds / 60d));
+    }
+
+    /** Distance in metres from a GPS fix to the route geometry. */
+    public double distanceToRouteMeters(Route route, GeoPoint position) {
+        ValidationUtil.requireNonNull(route, "ruta");
+        ValidationUtil.requireLocation(position);
+        double nearest = Double.POSITIVE_INFINITY;
+        for (RouteSegment segment : route.getSegments()) {
+            int edge = graph.edgeIndexOf(segment.segmentId());
+            if (edge < 0) continue;
+            Node from = graph.node(graph.edge(edge).from());
+            Node to = graph.node(graph.edge(edge).to());
+            nearest = Math.min(nearest, distanceToSegmentMeters(position, from, to));
+        }
+        return nearest;
+    }
+
+    private int nearestSegment(Route route, GeoPoint position) {
+        int nearestIndex = 0;
+        double nearest = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < route.getSegments().size(); i++) {
+            int edge = graph.edgeIndexOf(route.getSegments().get(i).segmentId());
+            if (edge < 0) continue;
+            Node from = graph.node(graph.edge(edge).from());
+            Node to = graph.node(graph.edge(edge).to());
+            double meters = distanceToSegmentMeters(position, from, to);
+            if (meters < nearest) { nearest = meters; nearestIndex = i; }
+        }
+        return nearestIndex;
+    }
+
+    private static double distanceToSegmentMeters(GeoPoint point, Node from, Node to) {
+        double latitudeScale = 111_320d;
+        double longitudeScale = latitudeScale * Math.cos(Math.toRadians(point.latitude()));
+        double ax = (from.lon() - point.longitude()) * longitudeScale;
+        double ay = (from.lat() - point.latitude()) * latitudeScale;
+        double bx = (to.lon() - point.longitude()) * longitudeScale;
+        double by = (to.lat() - point.latitude()) * latitudeScale;
+        double dx = bx - ax, dy = by - ay;
+        double length2 = dx * dx + dy * dy;
+        double t = length2 == 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / length2));
+        return Math.hypot(ax + t * dx, ay + t * dy);
     }
 
     /** Where a saved route ends: the last node of its last segment (the emergency or the hospital). */
