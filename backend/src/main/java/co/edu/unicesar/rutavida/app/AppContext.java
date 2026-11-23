@@ -233,6 +233,10 @@ public final class AppContext {
                 new JdbcEmergencyStationDAO(jdbc), new JdbcVehicleTypeDAO(jdbc), alertService, auditService, jdbc),
                 authService, session);
 
+        // The GPS map needs RouteService metrics. Create the loader before those lazy services call roadGraph().
+        this.graphLoader = new GraphLoader(
+                new JdbcRoadNodeDAO(jdbc), new JdbcRoadSegmentDAO(jdbc), new JdbcTrafficLightDAO(jdbc));
+
         // Live map (A12e): positions, open missions and unread alerts. The simulation engine
         // (K9, simulationEngine()) gives the "running" flag through isSimulationRunning().
         this.trackingController = new TrackingController(new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
@@ -245,10 +249,6 @@ public final class AppContext {
                 gpsRouteMonitor()),
                 authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
-
-        // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
-        this.graphLoader = new GraphLoader(
-                new JdbcRoadNodeDAO(jdbc), new JdbcRoadSegmentDAO(jdbc), new JdbcTrafficLightDAO(jdbc));
     }
 
     /** Builds the application with the configuration in backend/db.properties. */
