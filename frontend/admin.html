@@ -96,7 +96,7 @@
         <h2 id="station-form-title">Nueva estación</h2>
         <form id="station-form" class="admin-form" novalidate>
           <input type="hidden" name="id">
-          <div class="form-field admin-wide"><label for="station-name">Nombre</label><input id="station-name" name="name" maxlength="100" required></div>
+          <div class="form-field admin-wide"><label for="station-name">Nombre</label><input id="station-name" name="name" maxlength="100" data-validate="place-name" required></div>
           <div class="form-field admin-wide"><label for="station-address">Dirección</label><input id="station-address" name="address" maxlength="180" required></div>
           <div class="form-field"><label for="station-neighborhood">Barrio (opcional)</label><input id="station-neighborhood" name="neighborhood" maxlength="100"></div>
           <div class="form-field"><label for="station-phone">Celular (opcional)</label><input id="station-phone" name="phone" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" data-validate="phone"></div>
@@ -122,7 +122,7 @@
         <h2 id="hospital-form-title">Nuevo hospital</h2>
         <form id="hospital-form" class="admin-form" novalidate>
           <input type="hidden" name="id">
-          <div class="form-field admin-wide"><label for="hospital-name">Nombre</label><input id="hospital-name" name="name" maxlength="150" required></div>
+          <div class="form-field admin-wide"><label for="hospital-name">Nombre</label><input id="hospital-name" name="name" maxlength="150" data-validate="place-name" required></div>
           <div class="form-field"><label for="hospital-level">Nivel</label><select id="hospital-level" name="level" required><option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="IV">IV</option></select></div>
           <div class="form-field"><label for="hospital-capacity">Capacidad de urgencias (opcional)</label><input id="hospital-capacity" name="emergencyCapacity" type="number" min="0" step="1"></div>
           <div class="form-field admin-wide"><label for="hospital-address">Dirección</label><input id="hospital-address" name="address" maxlength="180" required></div>

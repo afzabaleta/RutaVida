@@ -273,7 +273,7 @@ public class FleetService {
         ValidationUtil.requireNonNull(request, "estación");
         String phone = ValidationUtil.optionalMobilePhone(request.phone(), "teléfono");
         return new EmergencyStation(id,
-                ValidationUtil.requireText(request.name(), "nombre", 100),
+                ValidationUtil.requirePlaceName(request.name(), "nombre", 100),
                 ValidationUtil.requireText(request.address(), "dirección", 180),
                 ValidationUtil.optionalText(request.neighborhood(), "barrio", 100),
                 phone,

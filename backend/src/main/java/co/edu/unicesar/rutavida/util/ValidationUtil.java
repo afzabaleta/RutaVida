@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 public final class ValidationUtil {
 
     private static final Pattern PERSON_NAME = Pattern.compile("\\p{L}+(?:\\s+\\p{L}+)*");
+    private static final Pattern PLACE_NAME = Pattern.compile("\\p{L}+(?:[\\s-]+\\p{L}+)*");
     private static final Pattern DOCUMENT = Pattern.compile("\\d{10}");
     private static final Pattern PHONE = Pattern.compile("\\d{10}");
     private static final Pattern EMAIL = Pattern.compile("[^\\s@]+@[^\\s@]+\\.[^\\s@]+");
@@ -50,6 +51,16 @@ public final class ValidationUtil {
         if (!PERSON_NAME.matcher(text).matches()) {
             throw new ValidationException("El campo " + field
                     + " solo puede contener letras y espacios.");
+        }
+        return text;
+    }
+
+    /** A station or hospital name may contain words and the existing hyphenated place names, never digits. */
+    public static String requirePlaceName(String value, String field, int maxLength) {
+        String text = requireText(value, field, maxLength).replaceAll("\\s+", " ");
+        if (!PLACE_NAME.matcher(text).matches()) {
+            throw new ValidationException("El campo " + field
+                    + " solo puede contener letras, espacios o guiones; no se permiten números.");
         }
         return text;
     }

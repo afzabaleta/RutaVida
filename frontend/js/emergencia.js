@@ -46,6 +46,13 @@ function setPoint(map, latitude, longitude) {
 
   point = [latitude, longitude];
 
+  // Coordinates and the required reference come exclusively from the selected map point.
+  // This keeps the submitted location and the visible explanation in sync.
+  const coordinates = `${NUMBER.format(latitude)}, ${NUMBER.format(longitude)}`;
+  byId("emergency-latitude").value = String(latitude);
+  byId("emergency-longitude").value = String(longitude);
+  byId("address").value = `Punto seleccionado en el mapa: ${coordinates}`;
+
   if (map && pointMarker) {
     pointMarker.setLatLng(point);
   } else if (map) {
@@ -57,8 +64,7 @@ function setPoint(map, latitude, longitude) {
     );
   }
 
-  byId("point-text").textContent =
-    `Latitud ${NUMBER.format(latitude)}, longitud ${NUMBER.format(longitude)}`;
+  byId("point-text").textContent = `Latitud ${NUMBER.format(latitude)}, longitud ${NUMBER.format(longitude)}`;
 
   byId("form-message").hidden = true;
 }
@@ -109,16 +115,13 @@ function readForm(form) {
     return null;
   }
 
-  if (address.length < 5) {
-    showMessage(
-      "Escribe una dirección o referencia de al menos 5 caracteres.",
-      true,
-    );
+  if (!point) {
+    showMessage("Marca en el mapa el lugar de la emergencia.", true);
     return null;
   }
 
-  if (!point) {
-    showMessage("Marca en el mapa el lugar de la emergencia.", true);
+  if (address.length < 5) {
+    showMessage("La referencia se completa al marcar un punto válido en el mapa.", true);
     return null;
   }
 

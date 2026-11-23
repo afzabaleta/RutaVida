@@ -7,6 +7,7 @@ const PHONE = /^\d{10}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME = /^[a-z0-9._]{4,40}$/;
 const PLATE = /^[A-Z0-9-]{5,10}$/;
+const PLACE_NAME = /^\p{L}+(?:[\s-]+\p{L}+)*$/u;
 
 function messageFor(input) {
   const value = input.value.trim();
@@ -15,6 +16,9 @@ function messageFor(input) {
   if (!value) return "";
   if (rule === "name" && !NAME.test(value)) {
     return "Usa solo letras, espacios, tildes o ñ.";
+  }
+  if (rule === "place-name" && !PLACE_NAME.test(value)) {
+    return "El nombre solo puede contener letras, espacios o guiones; no se permiten números.";
   }
   if (rule === "document" && !DOCUMENT.test(value)) {
     return "La cédula debe tener exactamente 10 dígitos, sin espacios ni símbolos.";
@@ -41,6 +45,9 @@ function sanitize(input) {
     input.value = input.value.replace(/\D/g, "").slice(0, 10);
   } else if (input.dataset.validate === "plate") {
     input.value = input.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 10);
+  }
+  if (input.dataset.validate === "place-name") {
+    input.value = input.value.replace(/[^\p{L}\s-]/gu, "").replace(/\s+/g, " ");
   }
 }
 
