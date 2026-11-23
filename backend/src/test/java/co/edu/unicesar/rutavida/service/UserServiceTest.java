@@ -59,7 +59,7 @@ class UserServiceTest {
     private static UserRequest valid() {
         return request(
                 OPERATOR_ROLE,
-                "PRUEBAS903",
+                "1065000903",
                 "Laura.Prueba@Ejemplo.com",
                 "   Laura.Prueba ",
                 "Nueva-Clave22"
@@ -95,27 +95,27 @@ class UserServiceTest {
         var admin = support.sessionOf(ADMIN);
 
         assertThrows(ValidationException.class, () -> service.create(
-                request(OPERATOR_ROLE, "PRUEBAS903", "a@ejemplo.com",
+                request(OPERATOR_ROLE, "1065000903", "a@ejemplo.com",
                         "laura.prueba", "corta1"), admin));
 
         assertThrows(ValidationException.class, () -> service.create(
-                request(OPERATOR_ROLE, "PRUEBAS903", "a@ejemplo.com",
+                request(OPERATOR_ROLE, "1065000903", "a@ejemplo.com",
                         "laura.prueba", "SoloLetrasSinNumero"), admin));
 
         assertThrows(ValidationException.class, () -> service.create(
-                request(OPERATOR_ROLE, "PRUEBAS903", "no-es-un-correo",
+                request(OPERATOR_ROLE, "1065000903", "no-es-un-correo",
                         "laura.prueba", "Nueva-Clave22"), admin));
 
         assertThrows(ValidationException.class, () -> service.create(
-                request(OPERATOR_ROLE, "PRUEBAS903", "a@ejemplo.com",
+                request(OPERATOR_ROLE, "1065000903", "a@ejemplo.com",
                         "la", "Nueva-Clave22"), admin));
 
         assertThrows(NotFoundException.class, () -> service.create(
-                request(77, "PRUEBAS903", "a@ejemplo.com",
+                request(77, "1065000903", "a@ejemplo.com",
                         "laura.prueba", "Nueva-Clave22"), admin));
 
         assertThrows(BusinessRuleException.class, () -> service.create(
-                request(INACTIVE_ROLE, "PRUEBAS903", "a@ejemplo.com",
+                request(INACTIVE_ROLE, "1065000903", "a@ejemplo.com",
                         "laura.prueba", "Nueva-Clave22"), admin));
 
         assertEquals(2, support.userDao.findAll().size());
@@ -130,7 +130,7 @@ class UserServiceTest {
                 "Ya existe un usuario con ese nombre de usuario.",
                 assertThrows(BusinessRuleException.class,
                         () -> service.create(
-                                request(OPERATOR_ROLE, "PRUEBAS903",
+                                request(OPERATOR_ROLE, "1065000903",
                                         "a@ejemplo.com", "Operador.Prueba",
                                         "Nueva-Clave22"), admin
                         )).getMessage()
@@ -140,7 +140,7 @@ class UserServiceTest {
                 "Ya existe un usuario con ese documento.",
                 assertThrows(BusinessRuleException.class,
                         () -> service.create(
-                                request(OPERATOR_ROLE, "pruebas901",
+                                request(OPERATOR_ROLE, "1065000901",
                                         "a@ejemplo.com", "laura.prueba",
                                         "Nueva-Clave22"), admin
                         )).getMessage()
@@ -150,7 +150,7 @@ class UserServiceTest {
                 "Ya existe un usuario con ese correo.",
                 assertThrows(BusinessRuleException.class,
                         () -> service.create(
-                                request(OPERATOR_ROLE, "PRUEBAS903",
+                                request(OPERATOR_ROLE, "1065000903",
                                         "ADMIN.PRUEBA@ejemplo.com",
                                         "laura.prueba", "Nueva-Clave22"), admin
                         )).getMessage()
@@ -216,7 +216,7 @@ class UserServiceTest {
         );
 
         User second = service.create(
-                request(ADMIN_ROLE, "PRUEBAS904",
+                request(ADMIN_ROLE, "1065000904",
                         "otro.admin@ejemplo.com",
                         "otro.admin", "Nueva-Clave22"),
                 support.sessionOf(ADMIN)

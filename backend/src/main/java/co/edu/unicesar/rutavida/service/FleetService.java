@@ -40,7 +40,6 @@ public class FleetService {
 
     private static final String CODE_FORMAT = "[A-Z0-9-]{3,30}";
     private static final String PLATE_FORMAT = "[A-Z0-9-]{5,10}";
-    private static final String PHONE_FORMAT = "[0-9+() -]{7,20}";
 
     private final EmergencyVehicleDAO vehicleDao;
     private final EmergencyStationDAO stationDao;
@@ -272,10 +271,7 @@ public class FleetService {
     /** Checks the data of a station (the same limits as the ESTACION_EMERGENCIA table). */
     private static EmergencyStation buildStation(long id, StationRequest request, RecordStatus status) {
         ValidationUtil.requireNonNull(request, "estación");
-        String phone = ValidationUtil.optionalText(request.phone(), "teléfono", 20);
-        if (phone != null && !phone.matches(PHONE_FORMAT)) {
-            throw new ValidationException("El teléfono solo puede tener números, espacios y los signos + ( ) -.");
-        }
+        String phone = ValidationUtil.optionalMobilePhone(request.phone(), "teléfono");
         return new EmergencyStation(id,
                 ValidationUtil.requireText(request.name(), "nombre", 100),
                 ValidationUtil.requireText(request.address(), "dirección", 180),

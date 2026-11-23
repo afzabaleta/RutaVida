@@ -26,7 +26,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HexFormat;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -110,10 +109,10 @@ public class CitizenService {
             User user = new User(
                     0,
                     citizenRole().getId(),
-                    ValidationUtil.requireText(request.document(), "documento", 20),
-                    ValidationUtil.requireText(request.firstNames(), "nombres", 80),
-                    ValidationUtil.requireText(request.lastNames(), "apellidos", 80),
-                    ValidationUtil.requireText(request.email(), "correo", 120).toLowerCase(Locale.ROOT),
+                    ValidationUtil.requireDocument(request.document()),
+                    ValidationUtil.requirePersonName(request.firstNames(), "nombres", 80),
+                    ValidationUtil.requirePersonName(request.lastNames(), "apellidos", 80),
+                    ValidationUtil.requireEmail(request.email()),
                     AuthService.normalizeUsername(ValidationUtil.requireText(request.username(), "usuario", 40)),
                     passwordHasher.hash(request.password()),
                     RecordStatus.ACTIVE,
