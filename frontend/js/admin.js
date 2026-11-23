@@ -38,6 +38,29 @@ let stations = [];
 let users = [];
 let units = [];
 
+function codePrefix(typeName) {
+  const name = String(typeName ?? "").toUpperCase();
+  if (name.includes("AMBULANCIA")) return "AMB";
+  if (name.includes("BOMBERO")) return "BOM";
+  if (name.includes("POLIC")) return "POL";
+  return name.replace(/[^A-Z]/g, "").slice(0, 3) || "UNI";
+}
+
+/** Suggests the next code of the selected type without reserving or modifying existing units. */
+function suggestUnitCode() {
+  const form = $("unit-form");
+  if (form.elements.id.value) return;
+  const selected = vehicleTypes.find((type) => String(type.id) === $("unit-type").value);
+  if (!selected) return;
+  const prefix = codePrefix(selected.name);
+  const pattern = new RegExp(`^${prefix}-(\\d+)$`, "i");
+  const next = units.reduce((highest, unit) => {
+    const match = String(unit.unitCode ?? "").match(pattern);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0) + 1;
+  $("unit-code").value = `${prefix}-${String(next).padStart(2, "0")}`;
+}
+
 // ------------------------------------------------------------------ small helpers
 
 function say(text, ok = true) {
@@ -241,6 +264,7 @@ async function loadUnits() {
     fillSelect($("unit-type"), vehicleTypes, (type) => type.id, (type) => type.name);
     // A new unit can only go to an active station (15.6).
     fillSelect($("unit-station"), stations.filter((station) => station.status === "A"), (station) => station.id, (station) => station.name);
+    suggestUnitCode();
     const typeName = (id) => vehicleTypes.find((type) => type.id === id)?.name ?? `Tipo ${id}`;
     const stationName = (id) => stations.find((station) => station.id === id)?.name ?? `Estación ${id}`;
     if (units.length === 0) {
@@ -283,7 +307,11 @@ async function loadUnits() {
 function setUpUnitForm() {
   const form = $("unit-form");
   bindLiveValidation(form);
-  form.querySelector("[data-cancel]").addEventListener("click", () => editInForm(form, "unit-form-title", null, "Nueva unidad"));
+  form.querySelector("[data-cancel]").addEventListener("click", () => {
+    editInForm(form, "unit-form-title", null, "Nueva unidad");
+    suggestUnitCode();
+  });
+  $("unit-type").addEventListener("change", suggestUnitCode);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const invalid = validateForm(form);

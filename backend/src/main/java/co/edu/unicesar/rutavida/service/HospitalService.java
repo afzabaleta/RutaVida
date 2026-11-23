@@ -158,7 +158,7 @@ public class HospitalService {
 
         return new Hospital(
                 id,
-                ValidationUtil.requireText(request.name(), "nombre", 150),
+                ValidationUtil.requirePlaceName(request.name(), "nombre", 150),
                 ValidationUtil.requireNonNull(request.level(), "nivel"),
                 ValidationUtil.requireText(request.address(), "dirección", 180),
                 phone,
