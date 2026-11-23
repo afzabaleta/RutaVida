@@ -14,6 +14,7 @@ import {
   listVehicleTypes,
   saveRecord,
 } from "./api-client.js";
+import { bindLiveValidation, clearLiveValidation, validateForm } from "./form-validation.js";
 import { startPage } from "./page-session.js";
 
 const $ = (id) => document.getElementById(id);
@@ -34,6 +35,8 @@ let busy = false;
 let roles = [];
 let vehicleTypes = [];
 let stations = [];
+let users = [];
+let units = [];
 
 // ------------------------------------------------------------------ small helpers
 
@@ -126,6 +129,7 @@ function withLocation(data) {
 /** Puts a record in the form to edit it, or clears the form (record = null). */
 function editInForm(form, title, record, newTitle, editTitle) {
   form.reset();
+  clearLiveValidation(form);
   form.elements.id.value = record ? String(record.id) : "";
   $(title).textContent = record ? editTitle : newTitle;
   form.querySelector("[data-cancel]").hidden = !record;
@@ -166,8 +170,9 @@ async function loadUsers() {
   const body = $("users-rows");
   emptyRow(body, 6, "Cargando…");
   try {
-    const [allRoles, users] = await Promise.all([listRoles(), listUsers()]);
+    const [allRoles, loadedUsers] = await Promise.all([listRoles(), listUsers()]);
     roles = allRoles;
+    users = loadedUsers;
     fillSelect($("new-user-role"), roles, (role) => role.id, (role) => role.name, "Elija un rol");
     const roleName = (id) => roles.find((role) => role.id === id)?.name ?? `Rol ${id}`;
     if (users.length === 0) {
@@ -198,11 +203,23 @@ async function loadUsers() {
 }
 
 function setUpUserForm() {
-  $("user-form").addEventListener("submit", (event) => {
+  const form = $("user-form");
+  bindLiveValidation(form);
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const form = event.currentTarget;
-    if (!form.reportValidity()) return;
+    const invalid = validateForm(form);
+    if (invalid) {
+      say(invalid.message, false);
+      invalid.input.focus();
+      return;
+    }
     const user = readForm(form, ["roleId"]);
+    const duplicate = users.find((other) => other.username.toLowerCase() === user.username.toLowerCase()
+      || other.document === user.document || other.email.toLowerCase() === user.email.toLowerCase());
+    if (duplicate) {
+      say("Ya existe un usuario con ese nombre de usuario, cédula o correo.", false);
+      return;
+    }
     act(async () => {
       const created = await createUser(user);
       form.reset();
@@ -217,7 +234,8 @@ async function loadUnits() {
   const body = $("units-rows");
   emptyRow(body, 6, "Cargando…");
   try {
-    const [units, types, allStations] = await Promise.all([listUnitRecords(), listVehicleTypes(), listAllStations()]);
+    const [loadedUnits, types, allStations] = await Promise.all([listUnitRecords(), listVehicleTypes(), listAllStations()]);
+    units = loadedUnits;
     vehicleTypes = types;
     stations = allStations;
     fillSelect($("unit-type"), vehicleTypes, (type) => type.id, (type) => type.name);
@@ -264,11 +282,23 @@ async function loadUnits() {
 
 function setUpUnitForm() {
   const form = $("unit-form");
+  bindLiveValidation(form);
   form.querySelector("[data-cancel]").addEventListener("click", () => editInForm(form, "unit-form-title", null, "Nueva unidad"));
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!form.reportValidity()) return;
+    const invalid = validateForm(form);
+    if (invalid) {
+      say(invalid.message, false);
+      invalid.input.focus();
+      return;
+    }
     const { id, ...unit } = readForm(form, ["id", "vehicleTypeId", "stationId"]);
+    const duplicate = unit.plate && units.find((other) => other.id !== id
+      && other.plate?.toUpperCase() === unit.plate.toUpperCase());
+    if (duplicate) {
+      say("Ya existe una unidad con esa placa.", false);
+      return;
+    }
     act(async () => {
       const saved = await saveRecord("units", id, unit);
       editInForm(form, "unit-form-title", null, "Nueva unidad");
@@ -313,10 +343,16 @@ async function loadStations() {
 
 function setUpStationForm() {
   const form = $("station-form");
+  bindLiveValidation(form);
   form.querySelector("[data-cancel]").addEventListener("click", () => editInForm(form, "station-form-title", null, "Nueva estación"));
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!form.reportValidity()) return;
+    const invalid = validateForm(form);
+    if (invalid) {
+      say(invalid.message, false);
+      invalid.input.focus();
+      return;
+    }
     const { id, ...station } = withLocation(readForm(form, ["id", "latitude", "longitude"]));
     act(async () => {
       const saved = await saveRecord("stations", id, station);
@@ -363,10 +399,16 @@ async function loadHospitals() {
 
 function setUpHospitalForm() {
   const form = $("hospital-form");
+  bindLiveValidation(form);
   form.querySelector("[data-cancel]").addEventListener("click", () => editInForm(form, "hospital-form-title", null, "Nuevo hospital"));
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!form.reportValidity()) return;
+    const invalid = validateForm(form);
+    if (invalid) {
+      say(invalid.message, false);
+      invalid.input.focus();
+      return;
+    }
     const { id, ...hospital } = withLocation(readForm(form, ["id", "latitude", "longitude", "emergencyCapacity"]));
     act(async () => {
       const saved = await saveRecord("hospitals", id, hospital);

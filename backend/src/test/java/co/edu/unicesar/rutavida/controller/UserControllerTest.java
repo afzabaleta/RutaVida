@@ -43,7 +43,7 @@ class UserControllerTest {
         OperationResult<UserView> created = controller.create(
                 new UserRequest(
                         OPERATOR_ROLE,
-                        "PRUEBAS903",
+                        "1065000903",
                         "Laura",
                         "Prueba",
                         "laura@ejemplo.com",

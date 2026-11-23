@@ -81,7 +81,7 @@
               <label for="first-names">Nombres</label>
               <div class="register-input-wrap">
                 <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.6-4 3.3-6.5 7.5-6.5s6.9 2.5 7.5 6.5"/></svg>
-                <input id="first-names" name="firstNames" type="text" placeholder="Nombres" autocomplete="given-name" maxlength="80" required>
+                <input id="first-names" name="firstNames" type="text" placeholder="Nombres" autocomplete="given-name" maxlength="80" data-validate="name" required>
               </div>
             </div>
 
@@ -89,7 +89,7 @@
               <label for="last-names">Apellidos</label>
               <div class="register-input-wrap">
                 <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.6-4 3.3-6.5 7.5-6.5s6.9 2.5 7.5 6.5"/></svg>
-                <input id="last-names" name="lastNames" type="text" placeholder="Apellidos" autocomplete="family-name" maxlength="80" required>
+                <input id="last-names" name="lastNames" type="text" placeholder="Apellidos" autocomplete="family-name" maxlength="80" data-validate="name" required>
               </div>
             </div>
 
@@ -97,7 +97,7 @@
               <label for="document">Número de documento</label>
               <div class="register-input-wrap">
                 <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5.5 16c.5-1.5 1.3-2 2.5-2s2 .5 2.5 2M13 9h5M13 13h5"/></svg>
-                <input id="document" name="document" type="text" inputmode="numeric" placeholder="Número de documento" maxlength="20" required>
+                <input id="document" name="document" type="text" inputmode="numeric" placeholder="Número de documento" maxlength="10" pattern="[0-9]{10}" data-validate="document" required>
               </div>
             </div>
 
@@ -105,7 +105,7 @@
               <label for="email">Correo electrónico</label>
               <div class="register-input-wrap">
                 <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>
-                <input id="email" name="email" type="email" placeholder="Correo electrónico" autocomplete="email" maxlength="120" required>
+                <input id="email" name="email" type="email" placeholder="Correo electrónico" autocomplete="email" maxlength="120" data-validate="email" required>
               </div>
             </div>
 
@@ -113,7 +113,7 @@
               <label for="username">Usuario</label>
               <div class="register-input-wrap">
                 <svg class="register-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.6-4 3.3-6.5 7.5-6.5s6.9 2.5 7.5 6.5"/></svg>
-                <input id="username" name="username" type="text" placeholder="Usuario" autocomplete="username" maxlength="40" pattern="[a-z0-9._]{4,40}" required>
+                <input id="username" name="username" type="text" placeholder="Usuario" autocomplete="username" maxlength="40" pattern="[a-z0-9._]{4,40}" data-validate="username" required>
               </div>
               <p class="register-hint">Entre 4 y 40 letras minúsculas, números, punto o guion bajo.</p>
             </div>

@@ -68,4 +68,35 @@ class ValidationUtilTest {
         assertThrows(ValidationException.class, () ->
                 ValidationUtil.requireNonNull(null, "estado"));
     }
+
+    @Test
+    void personNamesAcceptSpanishLettersAndSpacesOnly() {
+        assertEquals("María José Ñúñez",
+                ValidationUtil.requirePersonName("  María   José Ñúñez  ", "nombres", 100));
+
+        assertThrows(ValidationException.class, () ->
+                ValidationUtil.requirePersonName("María2", "nombres", 100));
+        assertThrows(ValidationException.class, () ->
+                ValidationUtil.requirePersonName("María-José", "nombres", 100));
+    }
+
+    @Test
+    void documentsAndMobilePhonesMustContainExactlyTenDigits() {
+        assertEquals("1065000123", ValidationUtil.requireDocument("1065000123"));
+        assertEquals("3001234567", ValidationUtil.optionalMobilePhone("3001234567", "celular"));
+        assertNull(ValidationUtil.optionalMobilePhone("   ", "celular"));
+
+        assertThrows(ValidationException.class, () -> ValidationUtil.requireDocument("1065-000123"));
+        assertThrows(ValidationException.class, () -> ValidationUtil.requireDocument("106500123"));
+        assertThrows(ValidationException.class, () ->
+                ValidationUtil.optionalMobilePhone("300 1234567", "celular"));
+    }
+
+    @Test
+    void emailMustHaveAValidFormat() {
+        assertEquals("maria.nunez@ejemplo.com",
+                ValidationUtil.requireEmail("Maria.Nunez@Ejemplo.com"));
+
+        assertThrows(ValidationException.class, () -> ValidationUtil.requireEmail("maria.ejemplo.com"));
+    }
 }

@@ -381,6 +381,9 @@
 }
 .register-submit:disabled { opacity: .68; cursor: progress; }
 .register-submit:focus-visible { outline: 3px solid #182c4a; outline-offset: 3px; }
+.field-error { display: block; min-height: 1.1em; margin: 5px 2px 0; color: #b9152b; font-size: .78rem; font-weight: 650; line-height: 1.25; }
+.field-error[hidden] { display: none; }
+.register-field input[aria-invalid="true"] { border-color: #c81932; box-shadow: 0 0 0 3px rgb(200 25 50 / 14%); }
 @media (hover: hover) and (pointer: fine) {
   .register-submit:hover:not(:disabled) {
     filter: brightness(1.06);

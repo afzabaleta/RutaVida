@@ -115,9 +115,9 @@ class AdminApiTest {
         PasswordHasher hasher = new PasswordHasher(1_000);
         String hash = hasher.hash(PASSWORD.toCharArray());
         LocalDateTime registered = LocalDateTime.now(CLOCK);
-        userDao.insert(new User(0, 1, "PRUEBA0001", "Admin", "Prueba", "admin.prueba@ejemplo.com",
+        userDao.insert(new User(0, 1, "1065000001", "Admin", "Prueba", "admin.prueba@ejemplo.com",
                 "admin.prueba", hash, RecordStatus.ACTIVE, registered));
-        userDao.insert(new User(0, 2, "PRUEBA0002", "Operador", "Prueba", "operador.prueba@ejemplo.com",
+        userDao.insert(new User(0, 2, "1065000002", "Operador", "Prueba", "operador.prueba@ejemplo.com",
                 "operador.prueba", hash, RecordStatus.ACTIVE, registered));
 
         InMemoryEmergencyStationDAO stationDao = new InMemoryEmergencyStationDAO();
@@ -222,7 +222,7 @@ class AdminApiTest {
         assertEquals("ADMINISTRADOR", value(roles).get(0).get("name").asText());
 
         HttpResponse<String> created = send("POST", "/api/users", admin, """
-                {"roleId": 2, "document": "PRUEBA0003", "firstNames": "Nuevo", "lastNames": "Operador",
+                {"roleId": 2, "document": "1065000003", "firstNames": "Nuevo", "lastNames": "Operador",
                  "email": "Nuevo.Operador@ejemplo.com", "username": "nuevo.operador", "password": "Clave-Nueva22"}""");
         assertEquals(201, created.statusCode(), created.body());
         JsonNode user = value(created);
@@ -243,17 +243,17 @@ class AdminApiTest {
         String admin = login("admin.prueba", PASSWORD);
 
         HttpResponse<String> shortPassword = send("POST", "/api/users", admin, """
-                {"roleId": 2, "document": "PRUEBA0004", "firstNames": "A", "lastNames": "B",
+                {"roleId": 2, "document": "1065000004", "firstNames": "A", "lastNames": "B",
                  "email": "a.b@ejemplo.com", "username": "a.b", "password": "corta1"}""");
         assertEquals(400, shortPassword.statusCode(), shortPassword.body());
 
         HttpResponse<String> repeated = send("POST", "/api/users", admin, """
-                {"roleId": 2, "document": "PRUEBA0005", "firstNames": "Otro", "lastNames": "Operador",
+                {"roleId": 2, "document": "1065000005", "firstNames": "Otro", "lastNames": "Operador",
                  "email": "otro@ejemplo.com", "username": "operador.prueba", "password": "Clave-Nueva22"}""");
         assertEquals(409, repeated.statusCode(), repeated.body());
 
         HttpResponse<String> inactiveRole = send("POST", "/api/users", admin, """
-                {"roleId": 9, "document": "PRUEBA0006", "firstNames": "Otro", "lastNames": "Mas",
+                {"roleId": 9, "document": "1065000006", "firstNames": "Otro", "lastNames": "Mas",
                  "email": "otro.mas@ejemplo.com", "username": "otro.mas", "password": "Clave-Nueva22"}""");
         assertEquals(409, inactiveRole.statusCode(), inactiveRole.body());
 

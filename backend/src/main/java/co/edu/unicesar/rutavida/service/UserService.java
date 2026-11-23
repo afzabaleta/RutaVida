@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -81,11 +80,10 @@ public class UserService {
             User user = new User(
                     0,
                     role.getId(),
-                    ValidationUtil.requireText(request.document(), "documento", 20),
-                    ValidationUtil.requireText(request.firstNames(), "nombres", 80),
-                    ValidationUtil.requireText(request.lastNames(), "apellidos", 80),
-                    ValidationUtil.requireText(request.email(), "correo", 120)
-                            .toLowerCase(Locale.ROOT),
+                    ValidationUtil.requireDocument(request.document()),
+                    ValidationUtil.requirePersonName(request.firstNames(), "nombres", 80),
+                    ValidationUtil.requirePersonName(request.lastNames(), "apellidos", 80),
+                    ValidationUtil.requireEmail(request.email()),
                     AuthService.normalizeUsername(
                             ValidationUtil.requireText(request.username(), "usuario", 40)
                     ),

@@ -1,6 +1,7 @@
 // Citizen registration of the panic button (CU-23, DT-13). After creating the account the page
 // logs in once: the phone stays logged in for 30 days and goes straight to the button.
 import { login, registerCitizen } from "./api-client.js";
+import { bindLiveValidation, validateForm } from "./form-validation.js";
 
 const form = document.getElementById("register-form");
 const message = document.getElementById("register-message");
@@ -19,6 +20,8 @@ function say(text, isError) {
 
 /** The first problem a person can fix before asking the server, or null. */
 function problemOf() {
+  const invalid = validateForm(form);
+  if (invalid) return [invalid.input.id, invalid.message];
   const required = [
     ["first-names", "Escribe tus nombres."],
     ["last-names", "Escribe tus apellidos."],
@@ -40,6 +43,8 @@ function problemOf() {
   }
   return null;
 }
+
+bindLiveValidation(form);
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

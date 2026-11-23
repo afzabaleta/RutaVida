@@ -18,6 +18,9 @@
 .admin-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .admin-wide { grid-column: 1 / -1; }
 .admin-form small { font-size: .8125rem; }
+.admin-form .field-error { display: block; margin-top: 5px; color: var(--danger, #c81932); font-size: .8125rem; font-weight: 600; line-height: 1.3; }
+.admin-form .field-error[hidden] { display: none; }
+.admin-form input[aria-invalid="true"] { border-color: var(--danger, #c81932); box-shadow: 0 0 0 3px rgb(200 25 50 / 14%); }
 .admin-row-button { min-height: 34px; padding: 6px 12px; margin: 2px 6px 2px 0; font-size: .8125rem; }
 .admin-status-select { min-height: 34px; padding: 4px 8px; border: 1px solid var(--control-border); border-radius: 8px; background: var(--field-bg); color: var(--text); font: inherit; font-size: .8125rem; }
 #admin-message[hidden] { display: none; }

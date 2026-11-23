@@ -44,7 +44,7 @@ class CitizenServiceTest {
     }
 
     private static CitizenRequest request(String username, Boolean consent) {
-        return new CitizenRequest("1065" + username.length() + "0001", "Laura", "Prueba",
+        return new CitizenRequest(String.format("%010d", Math.abs(username.hashCode() % 1_000_000_000)), "Laura", "Prueba",
                 username + "@ejemplo.com", username, "Clave-Segura1".toCharArray(), consent);
     }
 
@@ -76,7 +76,7 @@ class CitizenServiceTest {
         service.register(request("laura.prueba", true));
         assertThrows(BusinessRuleException.class, () -> service.register(request("laura.prueba", true)),
                 "same username");
-        assertThrows(BusinessRuleException.class, () -> service.register(new CitizenRequest("OTRO000001",
+        assertThrows(BusinessRuleException.class, () -> service.register(new CitizenRequest("1065000999",
                 "Ana", "Prueba", "laura.prueba@ejemplo.com", "ana.prueba", "Clave-Segura1".toCharArray(), true)),
                 "same email");
     }
