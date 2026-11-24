@@ -41,7 +41,7 @@ No suba `backend/db.properties`, wallets, contraseñas ni `dist/` a Git.
 4. Descargue el wallet de Oracle y guárdelo solo en un equipo seguro.
 5. Si se habilita una ACL de Oracle, permita las IP de salida del servicio Render o una IP de salida dedicada. No abra la base a `0.0.0.0/0`.
 
-El wallet incluye archivos binarios como `cwallet.sso` y `ewallet.p12`. Render Secret Files acepta texto plano, por lo que RutaVida recibe el ZIP completo codificado en Base64 y lo extrae únicamente al iniciar el contenedor. La URL JDBC sigue apuntando a `/etc/secrets/`:
+El wallet incluye archivos binarios como `cwallet.sso` y `ewallet.p12`. Render Secret Files acepta texto plano, por lo que RutaVida recibe el ZIP completo codificado en Base64 y lo extrae únicamente al iniciar el contenedor en una carpeta temporal. La URL JDBC debe conservar `TNS_ADMIN=/etc/secrets`: el contenedor la reemplaza internamente por esa carpeta temporal antes de conectar:
 
 ```text
 jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=/etc/secrets
