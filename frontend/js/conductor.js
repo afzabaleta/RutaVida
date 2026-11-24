@@ -32,6 +32,9 @@ let ownMarker = null;
 let emergencyMarker = null;
 let routeLine = null;
 let hospitals = [];
+let resources = [];
+let resourceLayer = null;
+let selectedHospitalId = null;
 let mapFitted = false;
 let completedMission = null;
 
@@ -109,6 +112,107 @@ function emergencyIcon() {
   return L.divIcon({ html: '<div class="driver-map-emergency">!</div>', className: "", iconSize: [33, 33], iconAnchor: [16, 16] });
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  })[character]);
+}
+
+function resourceKind(resource) {
+  if (resource.kind === "base") return "base";
+  const name = String(resource.name ?? "");
+  if (/cl[ií]nica/i.test(name)) return "clinic";
+  if (/centro\s+(m[eé]dico|de salud|asistencial)|ips\b/i.test(name)) return "medical";
+  return "hospital";
+}
+
+function resourceLabel(kind) {
+  return {
+    hospital: "Hospital", clinic: "Clínica", medical: "Centro médico", base: "Base operativa",
+  }[kind];
+}
+
+function resourceGlyph(kind) {
+  return { hospital: "+", clinic: "✚", medical: "♥", base: "▰" }[kind];
+}
+
+function isAmbulanceBase(station) {
+  return !/bomberos?|polic[ií]a|defensa\s+civil/i.test(String(station.name ?? ""));
+}
+
+function secondaryIcon(kind, selected = false) {
+  const size = map && map.getZoom() < 14 ? 11 : 15;
+  return L.divIcon({
+    html: `<span class="driver-map-place-icon driver-map-place-icon--${kind}${selected ? " is-selected" : ""}" aria-hidden="true">${resourceGlyph(kind)}</span>`,
+    className: "driver-map-resource-icon",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
+
+function clusterIcon(count) {
+  return L.divIcon({
+    html: `<span class="driver-map-resource-cluster" aria-label="${count} referencias médicas">${count}</span>`,
+    className: "driver-map-resource-icon",
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
+
+function resourcePopup(resource) {
+  const kind = resourceKind(resource);
+  return `<strong>${escapeHtml(resource.name)}</strong><br><small>${resourceLabel(kind)}</small>${resource.address ? `<br>${escapeHtml(resource.address)}` : ""}${resource.level ? `<br>Nivel ${escapeHtml(resource.level)}` : ""}`;
+}
+
+function markerPoint(resource) {
+  return resource.location;
+}
+
+function renderResources() {
+  if (!map) return;
+  if (!resourceLayer) resourceLayer = L.layerGroup().addTo(map);
+  resourceLayer.clearLayers();
+
+  const located = resources.filter((resource) => Array.isArray(resource.location));
+  const showIndividuals = map.getZoom() >= 14 || located.length <= 6;
+  if (showIndividuals) {
+    for (const resource of located) {
+      const marker = L.marker(markerPoint(resource), {
+        icon: secondaryIcon(resourceKind(resource), resource.kind !== "base" && resource.id === selectedHospitalId),
+        keyboard: false,
+        zIndexOffset: resource.id === selectedHospitalId ? 450 : 120,
+      }).bindPopup(resourcePopup(resource));
+      marker.addTo(resourceLayer);
+    }
+    return;
+  }
+
+  const groups = new Map();
+  for (const resource of located) {
+    // A lightweight Leaflet-only cluster: it keeps the map legible without adding a dependency.
+    const precision = map.getZoom() <= 11 ? 50 : 120;
+    const key = `${Math.round(resource.location[0] * precision)}:${Math.round(resource.location[1] * precision)}`;
+    const group = groups.get(key) ?? [];
+    group.push(resource);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      const resource = group[0];
+      L.marker(markerPoint(resource), { icon: secondaryIcon(resourceKind(resource)), keyboard: false, zIndexOffset: 120 })
+        .bindPopup(resourcePopup(resource)).addTo(resourceLayer);
+      continue;
+    }
+    const latitude = group.reduce((sum, resource) => sum + resource.location[0], 0) / group.length;
+    const longitude = group.reduce((sum, resource) => sum + resource.location[1], 0) / group.length;
+    L.marker([latitude, longitude], { icon: clusterIcon(group.length), keyboard: false, zIndexOffset: 130 })
+      .bindTooltip(`${group.length} referencias médicas`, { direction: "top" })
+      .on("click", () => map.setView([latitude, longitude], Math.max(map.getZoom() + 2, 14)))
+      .addTo(resourceLayer);
+  }
+}
+
 function createMap() {
   if (typeof L === "undefined") {
     $("driver-map").textContent = "No se pudo cargar el mapa.";
@@ -116,6 +220,7 @@ function createMap() {
   }
   map = L.map("driver-map", { zoomControl: true }).setView(VALLEDUPAR, 13);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+  map.on("zoomend", renderResources);
 }
 
 function updateOwnMarker(location, focus = false) {
@@ -169,12 +274,12 @@ async function loadResources() {
   try {
     const [loadedHospitals, stations] = await Promise.all([listHospitals(), listStations()]);
     hospitals = loadedHospitals.filter((hospital) => hospital.location);
-    for (const hospital of hospitals) {
-      L.circleMarker(hospital.location, { radius: 7, color: "#fff", weight: 2, fillColor: "#3b82f6", fillOpacity: 1 }).addTo(map).bindTooltip(hospital.name);
-    }
-    for (const station of stations.filter((station) => station.location)) {
-      L.circleMarker(station.location, { radius: 6, color: "#fff", weight: 2, fillColor: "#18a865", fillOpacity: 1 }).addTo(map).bindTooltip(station.name);
-    }
+    resources = [
+      ...hospitals,
+      ...stations.filter((station) => station.location && isAmbulanceBase(station))
+        .map((station) => ({ ...station, kind: "base" })),
+    ];
+    renderResources();
   } catch (error) {
     console.warn("No se pudieron cargar todos los recursos operativos", error);
   }
@@ -244,6 +349,21 @@ async function refreshMission() {
   }
 }
 
+function estimatedHospitalMinutes(kilometers) {
+  const speedKmh = Number.isFinite(latest?.coords?.speed) && latest.coords.speed > 1
+    ? latest.coords.speed * 3.6
+    : 35;
+  return Math.max(1, Math.round(kilometers / speedKmh * 60));
+}
+
+function selectHospital(hospital) {
+  selectedHospitalId = hospital.id;
+  renderResources();
+  map?.setView(hospital.location, Math.max(map.getZoom(), 16));
+  message(`${hospital.name} seleccionado como destino de referencia. Coordinación confirma el traslado antes de cambiar la ruta.`);
+  if (!$('nearby-hospitals-list').hidden) renderNearbyHospitals();
+}
+
 function renderNearbyHospitals() {
   const list = $("nearby-hospitals-list");
   const point = latest ? [latest.coords.latitude, latest.coords.longitude]
@@ -256,18 +376,19 @@ function renderNearbyHospitals() {
     return;
   }
   hospitals.map((hospital) => ({ ...hospital, km: distanceKm(point, hospital.location) }))
-    .sort((a, b) => a.km - b.km).slice(0, 5).forEach((hospital) => {
+    .sort((a, b) => a.km - b.km).forEach((hospital) => {
       const item = document.createElement("li");
       const text = document.createElement("span");
       const name = document.createElement("strong");
       name.textContent = hospital.name;
       const detail = document.createElement("small");
-      detail.textContent = `${hospital.km.toFixed(1)} km · ${Math.max(1, Math.round(hospital.km / 35 * 60))} min aprox.`;
+      detail.textContent = `${hospital.km.toFixed(1)} km · ${estimatedHospitalMinutes(hospital.km)} min aprox.`;
       text.append(name, detail);
       const show = document.createElement("button");
       show.type = "button";
-      show.textContent = "Ver mapa";
-      show.addEventListener("click", () => map?.setView(hospital.location, 16));
+      show.textContent = hospital.id === selectedHospitalId ? "Seleccionado" : "Seleccionar";
+      show.disabled = hospital.id === selectedHospitalId;
+      show.addEventListener("click", () => selectHospital(hospital));
       item.append(text, show);
       list.append(item);
     });
