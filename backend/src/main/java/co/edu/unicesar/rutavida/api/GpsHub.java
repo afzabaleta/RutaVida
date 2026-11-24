@@ -70,6 +70,18 @@ public final class GpsHub {
         }
     }
 
+    /** Tells viewers to refresh mission state immediately after arrival or finalization. */
+    public void broadcastMission(long vehicleId) {
+        Map<String, Object> event = Map.of("type", "mission", "vehicleId", vehicleId);
+        for (WsContext viewer : viewers.values()) {
+            try {
+                send(viewer, event);
+            } catch (RuntimeException ignored) {
+                viewers.remove(viewer.sessionId(), viewer);
+            }
+        }
+    }
+
     private void send(WsContext context, Object payload) {
         try {
             context.send(json.writeValueAsString(payload));

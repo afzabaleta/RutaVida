@@ -421,6 +421,7 @@ CREATE TABLE asignacion_emergencia (
     fecha_asignacion       TIMESTAMP    DEFAULT SYSTIMESTAMP NOT NULL,
     hora_salida            TIMESTAMP,
     hora_llegada           TIMESTAMP,
+    hora_finalizacion      TIMESTAMP,
     estado                 VARCHAR2(30) DEFAULT 'ASIGNADA' NOT NULL,
     CONSTRAINT pk_asignacion_emergencia PRIMARY KEY (id_asignacion),
     CONSTRAINT fk_asignacion_emergencia FOREIGN KEY (id_emergencia)          REFERENCES emergencia (id_emergencia),
@@ -429,7 +430,8 @@ CREATE TABLE asignacion_emergencia (
     CONSTRAINT ck_asignacion_estado     CHECK (estado IN ('ASIGNADA', 'EN_RUTA', 'EN_SITIO',
                                                           'TRASLADANDO', 'FINALIZADA', 'CANCELADA')),
     CONSTRAINT ck_asignacion_salida     CHECK (hora_salida  IS NULL OR hora_salida  >= fecha_asignacion),
-    CONSTRAINT ck_asignacion_llegada    CHECK (hora_llegada IS NULL OR (hora_salida IS NOT NULL AND hora_llegada >= hora_salida))
+    CONSTRAINT ck_asignacion_llegada    CHECK (hora_llegada IS NULL OR (hora_salida IS NOT NULL AND hora_llegada >= hora_salida)),
+    CONSTRAINT ck_asignacion_finalizacion CHECK (hora_finalizacion IS NULL OR (hora_llegada IS NOT NULL AND hora_finalizacion >= hora_llegada))
 );
 
 -- 20. UBICACION_VEHICULO  (historial; se guarda por lotes, no en cada tick)

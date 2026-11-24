@@ -497,9 +497,16 @@ Un usuario con el permiso `GPS/REPORTAR` entra a `conductor.html`. La asociació
 |---|---|---|---|
 | `GET` | `/api/gps/unit` | `GPS/REPORTAR` | Unidad asociada al conductor autenticado. |
 | `POST` | `/api/gps/position` | `GPS/REPORTAR` | Guarda `{ location, speedKmh, headingDegrees }`, actualiza la unidad y la difunde al mapa. |
+| `GET` | `/api/gps/mission` | `GPS/REPORTAR` | Contexto de la única unidad y misión abierta del conductor; nunca expone la flota. |
+| `POST` | `/api/gps/session/start` | `GPS/OPERAR` | Audita el inicio de la sesión GPS y pasa una misión `ASIGNADA` a `EN_RUTA`. |
+| `POST` | `/api/gps/session/stop` | `GPS/OPERAR` | Audita la detención manual; no cambia la misión ni la ruta. |
+| `POST` | `/api/gps/mission/arrival` | `GPS/OPERAR` | Guarda llegada, cambia a `EN_SITIO`, audita y avisa al coordinador. El GPS continúa. |
+| `POST` | `/api/gps/mission/finish` | `GPS/OPERAR` | Guarda finalización, libera la unidad, cierra la emergencia si no quedan asignaciones abiertas y avisa al coordinador. El GPS continúa. |
 | `WS` | `/ws/gps` | `EMERGENCIAS/CONSULTAR` | Actualizaciones instantáneas. El primer mensaje debe ser `{ "type": "auth", "token": "..." }`. |
 
 El navegador sigue haciendo la foto completa por `GET /api/tracking` cada cinco segundos como respaldo. Los clientes conectados reciben una posición GPS al instante por WebSocket y actualizan únicamente el marcador afectado.
+
+`POST /api/gps/mission/arrival` y `POST /api/gps/mission/finish` envían además el evento nativo WebSocket `{ "type": "mission", "vehicleId": ... }`, para que el mapa de coordinación consulte de inmediato el estado y la ruta actualizados. No se añade Socket.IO: RutaVida usa el WebSocket nativo de Javalin de forma consistente con el resto de la aplicación.
 
 ### 8.3 `GET /api/traffic/segments`
 

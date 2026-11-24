@@ -7,6 +7,7 @@ import co.edu.unicesar.rutavida.controller.CitizenController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
+import co.edu.unicesar.rutavida.controller.DriverOperationController;
 import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.FleetController;
@@ -64,6 +65,7 @@ import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.CitizenService;
 import co.edu.unicesar.rutavida.service.DashboardService;
+import co.edu.unicesar.rutavida.service.DriverOperationService;
 import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.FleetService;
@@ -150,6 +152,7 @@ public final class AppContext {
     private final FleetController fleetController;
     private final TrackingController trackingController;
     private final GpsController gpsController;
+    private final DriverOperationController driverOperationController;
     private final AuditController auditController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
@@ -252,6 +255,10 @@ public final class AppContext {
                 new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), jdbc, clock,
                 gpsRouteMonitor(), gpsDeviationMeters()),
                 authService, session);
+        this.driverOperationController = new DriverOperationController(new DriverOperationService(
+                new JdbcUnitDriverDAO(jdbc), new JdbcEmergencyVehicleDAO(jdbc),
+                new JdbcEmergencyAssignmentDAO(jdbc), new JdbcEmergencyDAO(jdbc), dispatchService(),
+                alertService, auditService, jdbc, clock), authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
     }
 
@@ -362,6 +369,11 @@ public final class AppContext {
     /** Phone GPS reporting for the driver explicitly assigned to a unit. */
     public GpsController gpsController() {
         return gpsController;
+    }
+
+    /** Field actions of the driver: start/stop evidence, arrival and finalization. */
+    public DriverOperationController driverOperationController() {
+        return driverOperationController;
     }
 
     /**
