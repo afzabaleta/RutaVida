@@ -412,7 +412,10 @@ async function initializeDashboard() {
       );
       const status = byId("live-status");
       if (status && !simulation) {
-        status.textContent = "Seguimiento activo · datos SIMULACIÓN";
+        const gps = (snapshot.units ?? []).filter((unit) => unit.source === "GPS").length;
+        status.textContent = gps > 0
+          ? `Seguimiento activo · ${gps} ${gps === 1 ? "unidad GPS" : "unidades GPS"}`
+          : "Seguimiento activo · datos SIMULACIÓN";
       }
 
       bell.setCount(snapshot.unreadAlerts ?? 0);
@@ -431,7 +434,11 @@ async function initializeDashboard() {
           const card = makeDataCard({
             title: `Misión ${mission.assignmentId} · Emergencia #${mission.emergencyId}`,
             label: unit?.example ? "EJEMPLO" : "ORACLE",
-            description: `Unidad ${unit?.unitCode ?? mission.vehicleId ?? "Sin datos"}`,
+            description: [
+              `Unidad ${unit?.unitCode ?? mission.vehicleId ?? "Sin datos"}`,
+              Number.isFinite(mission.remainingDistanceKm) ? `Restan ${mission.remainingDistanceKm.toFixed(2)} km` : null,
+              Number.isFinite(mission.etaMinutes) ? `ETA ${Math.ceil(mission.etaMinutes)} min` : null,
+            ].filter(Boolean).join(" · "),
             status: mission.status ?? "En seguimiento",
             action: mission.activeRouteId != null
               ? () => live.showRoute(mission.assignmentId)
@@ -451,6 +458,10 @@ async function initializeDashboard() {
       if (status) {
         status.textContent = "Seguimiento no disponible";
       }
+    },
+    onConnection(text, state) {
+      const status = byId("live-status");
+      if (status && state !== "online") status.textContent = text;
     },
   });
 

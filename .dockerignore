@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.tools
+.worktrees
+**/target
+**/logs
+backend/db.properties
+database/osm/*.osm
+dist
+*.env
+.env
+Wallet_*.zip
+**/wallet
+**/Wallet_*

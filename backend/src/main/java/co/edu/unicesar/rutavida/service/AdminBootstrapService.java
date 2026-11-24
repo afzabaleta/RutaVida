@@ -13,7 +13,6 @@ import co.edu.unicesar.rutavida.model.enums.RecordStatus;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
 import co.edu.unicesar.rutavida.util.ValidationUtil;
 
-import java.util.Locale;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -71,10 +70,10 @@ public class AdminBootstrapService {
             throw new BusinessRuleException("El rol ADMINISTRADOR está inactivo.");
         }
         User admin = new User(0, role.getId(),
-                ValidationUtil.requireText(document, "documento", 20),
-                ValidationUtil.requireText(firstNames, "nombres", 80),
-                ValidationUtil.requireText(lastNames, "apellidos", 80),
-                ValidationUtil.requireText(email, "correo", 120).toLowerCase(Locale.ROOT),
+                ValidationUtil.requireDocument(document),
+                ValidationUtil.requirePersonName(firstNames, "nombres", 80),
+                ValidationUtil.requirePersonName(lastNames, "apellidos", 80),
+                ValidationUtil.requireEmail(email),
                 AuthService.normalizeUsername(ValidationUtil.requireText(username, "usuario", 40)),
                 passwordHasher.hash(password), RecordStatus.ACTIVE, LocalDateTime.now(clock));
         validateFormats(admin);
@@ -91,12 +90,10 @@ public class AdminBootstrapService {
 
     /** Format rules of a user (the same ones the USUARIO table expects). */
     static void validateFormats(User user) {
-        if (!user.getDocument().matches("[a-zA-Z0-9]{5,20}")) {
-            throw new ValidationException("El documento debe tener entre 5 y 20 letras o números.");
-        }
-        if (!user.getEmail().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) {
-            throw new ValidationException("El correo electrónico no tiene un formato válido.");
-        }
+        ValidationUtil.requireDocument(user.getDocument());
+        ValidationUtil.requirePersonName(user.getFirstNames(), "nombres", 80);
+        ValidationUtil.requirePersonName(user.getLastNames(), "apellidos", 80);
+        ValidationUtil.requireEmail(user.getEmail());
         if (!user.getUsername().matches("[a-z0-9._]{4,40}")) {
             throw new ValidationException("El usuario debe tener entre 4 y 40 caracteres válidos.");
         }

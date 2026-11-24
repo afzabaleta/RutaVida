@@ -47,6 +47,13 @@ const MENU = [
     permission: "UNIDADES:CONSULTAR",
   },
   {
+    group: "OPERACIÓN",
+    label: "Mi GPS de unidad",
+    icon: "unit",
+    href: "./conductor.html",
+    permission: "GPS:REPORTAR",
+  },
+  {
     group: "ANÁLISIS",
     label: "Historial y reportes",
     icon: "chart",

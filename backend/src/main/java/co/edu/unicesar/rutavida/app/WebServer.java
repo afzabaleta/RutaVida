@@ -2,6 +2,7 @@ package co.edu.unicesar.rutavida.app;
 
 import co.edu.unicesar.rutavida.api.AdminControllers;
 import co.edu.unicesar.rutavida.api.ApiServer;
+import co.edu.unicesar.rutavida.api.GpsHub;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.util.ErrorLog;
 
@@ -24,12 +25,13 @@ public final class WebServer {
 
     /** Relative to the working folder, backend/ (IntelliJ and iniciar-servidor.bat / .sh). */
     static final String LOG_FOLDER = "logs";
+    static final String PORT_ENV = "PORT";
 
     private WebServer() {
     }
 
     public static void main(String[] args) {
-        int port = args.length > 0 ? Integer.parseInt(args[0]) : ApiServer.DEFAULT_PORT;
+        int port = port(args, System.getenv(PORT_ENV));
         try {
             Path errors = ErrorLog.install(Path.of(LOG_FOLDER));
             System.out.println("[OK] Los errores también se guardan en " + errors);
@@ -61,7 +63,8 @@ public final class WebServer {
                 new AdminControllers(context.userController(), context.fleetController(), context.hospitalController(),
                         context.auditController()),
                 context.trackingController(), context.panicController(), context.citizenController(), frontend)
-                .withSimulation(context.simulationController());
+                .withSimulation(context.simulationController())
+                .withGps(context.gpsController(), new GpsHub(context.webSessionController()));
         try {
             server.start(port);
         } catch (RuntimeException e) {
@@ -76,5 +79,22 @@ public final class WebServer {
         }, "rutavida-stop"));
         System.out.println("[OK] RutaVida está en http://localhost:" + port + "  (API en /api)");
         System.out.println("     Para detenerlo, use el botón Stop de IntelliJ.");
+    }
+
+    /** An explicit local argument wins; Render provides PORT as an environment variable. */
+    static int port(String[] args, String configuredPort) {
+        String value = args.length > 0 ? args[0] : configuredPort;
+        if (value == null || value.isBlank()) {
+            return ApiServer.DEFAULT_PORT;
+        }
+        try {
+            int port = Integer.parseInt(value.trim());
+            if (port < 1 || port > 65535) {
+                throw new NumberFormatException();
+            }
+            return port;
+        } catch (NumberFormatException error) {
+            throw new IllegalArgumentException("" + PORT_ENV + " debe ser un puerto entre 1 y 65535.");
+        }
     }
 }

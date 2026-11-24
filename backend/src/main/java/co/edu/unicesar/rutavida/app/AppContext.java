@@ -10,6 +10,7 @@ import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.FleetController;
+import co.edu.unicesar.rutavida.controller.GpsController;
 import co.edu.unicesar.rutavida.controller.HospitalController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.LoginController;
@@ -49,6 +50,7 @@ import co.edu.unicesar.rutavida.dao.jdbc.JdbcTransactionManager;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcUserDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleLocationDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcVehicleTypeDAO;
+import co.edu.unicesar.rutavida.dao.jdbc.JdbcUnitDriverDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcCitizenSessionDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcDashboardDAO;
 import co.edu.unicesar.rutavida.dao.jdbc.JdbcReportDAO;
@@ -66,6 +68,7 @@ import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.FleetService;
 import co.edu.unicesar.rutavida.service.GraphLoader;
+import co.edu.unicesar.rutavida.service.GpsTrackingService;
 import co.edu.unicesar.rutavida.service.HospitalService;
 import co.edu.unicesar.rutavida.service.IncidentService;
 import co.edu.unicesar.rutavida.service.LiveMapService;
@@ -142,6 +145,7 @@ public final class AppContext {
     private final HospitalController hospitalController;
     private final FleetController fleetController;
     private final TrackingController trackingController;
+    private final GpsController gpsController;
     private final AuditController auditController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
@@ -151,6 +155,7 @@ public final class AppContext {
     private final EmergencyService emergencyService;
     private RoadGraph roadGraph;
     private RouteService routeService;
+    private RouteMonitor gpsRouteMonitor;
     private SimulationEngine simulationEngine;
     private SimulationController simulationController;
     private DispatchService dispatchService;
@@ -228,16 +233,22 @@ public final class AppContext {
                 new JdbcEmergencyStationDAO(jdbc), new JdbcVehicleTypeDAO(jdbc), alertService, auditService, jdbc),
                 authService, session);
 
+        // The GPS map needs RouteService metrics. Create the loader before those lazy services call roadGraph().
+        this.graphLoader = new GraphLoader(
+                new JdbcRoadNodeDAO(jdbc), new JdbcRoadSegmentDAO(jdbc), new JdbcTrafficLightDAO(jdbc));
+
         // Live map (A12e): positions, open missions and unread alerts. The simulation engine
         // (K9, simulationEngine()) gives the "running" flag through isSimulationRunning().
         this.trackingController = new TrackingController(new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
                 new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc),
-                new JdbcAlertDAO(jdbc), this::isSimulationRunning, clock), authService, session);
+                new JdbcAlertDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), routeService(),
+                this::isSimulationRunning, clock),
+                authService, session);
+        this.gpsController = new GpsController(new GpsTrackingService(new JdbcUnitDriverDAO(jdbc),
+                new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), jdbc, clock,
+                gpsRouteMonitor()),
+                authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
-
-        // Road network (A4 + K5). The graph is not loaded here: graphLoader().load() reads Oracle.
-        this.graphLoader = new GraphLoader(
-                new JdbcRoadNodeDAO(jdbc), new JdbcRoadSegmentDAO(jdbc), new JdbcTrafficLightDAO(jdbc));
     }
 
     /** Builds the application with the configuration in backend/db.properties. */
@@ -344,6 +355,11 @@ public final class AppContext {
         return trackingController;
     }
 
+    /** Phone GPS reporting for the driver explicitly assigned to a unit. */
+    public GpsController gpsController() {
+        return gpsController;
+    }
+
     /**
      * True while the simulation moves the units. It does not create the engine: before the
      * first start the answer is false without loading the road graph.
@@ -370,6 +386,16 @@ public final class AppContext {
             routeService = new RouteService(roadGraph(), new JdbcRouteDAO(jdbc), jdbc, clock);
         }
         return routeService;
+    }
+
+    /** GPS uses the same monitor and existing RouteService as traffic-triggered recalculation. */
+    private synchronized RouteMonitor gpsRouteMonitor() {
+        if (gpsRouteMonitor == null) {
+            gpsRouteMonitor = new RouteMonitor(new JdbcRouteDAO(jdbc), routeService(),
+                    new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleTypeDAO(jdbc),
+                    new JdbcEmergencyAssignmentDAO(jdbc), alertService, jdbc);
+        }
+        return gpsRouteMonitor;
     }
 
     /**

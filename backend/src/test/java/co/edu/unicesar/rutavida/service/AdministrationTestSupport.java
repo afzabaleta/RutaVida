@@ -87,13 +87,13 @@ public final class AdministrationTestSupport {
         LocalDateTime registered = LocalDateTime.now(CLOCK);
 
         userDao.insert(new User(
-                0, ADMIN_ROLE, "PRUEBAS901", "Admin", "Prueba",
+                0, ADMIN_ROLE, "1065000901", "Admin", "Prueba",
                 "admin.prueba@ejemplo.com",
                 "admin.prueba", hash, RecordStatus.ACTIVE, registered
         ));
 
         userDao.insert(new User(
-                0, OPERATOR_ROLE, "PRUEBAS902", "Operador", "Prueba",
+                0, OPERATOR_ROLE, "1065000902", "Operador", "Prueba",
                 "operador.prueba@ejemplo.com",
                 "operador.prueba", hash, RecordStatus.ACTIVE, registered
         ));

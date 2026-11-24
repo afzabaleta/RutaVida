@@ -11,6 +11,7 @@ import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.SimulationController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
+import co.edu.unicesar.rutavida.controller.GpsController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.AuditQuery;
@@ -20,6 +21,7 @@ import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.HospitalRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.IncidentRequest;
+import co.edu.unicesar.rutavida.dto.GpsPositionRequest;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.dto.PanicAlertRequest;
 import co.edu.unicesar.rutavida.dto.StationRequest;
@@ -43,8 +45,11 @@ import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
 import io.javalin.http.Handler;
 import io.javalin.http.staticfiles.Location;
+import io.javalin.plugin.bundled.GlobalHeadersConfig.ReferrerPolicy;
 
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -52,6 +57,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -78,6 +85,9 @@ import java.util.logging.Logger;
 public final class ApiServer {
 
     public static final int DEFAULT_PORT = 8080;
+    static final String CORS_ORIGINS_ENV = "RUTAVIDA_CORS_ORIGINS";
+    private static final List<String> LOCAL_CORS_ORIGINS = List.of(
+            "http://localhost:8080", "http://127.0.0.1:8080");
 
     private static final Logger LOG = Logger.getLogger(ApiServer.class.getName());
     private static final String JSON = "application/json; charset=utf-8";
@@ -159,6 +169,8 @@ public final class ApiServer {
     private final Path frontendDirectory;
     private final ObjectMapper json = JsonMapperFactory.create();
     private SimulationController simulation;
+    private GpsController gps;
+    private GpsHub gpsHub;
     private Javalin app;
 
     /**
@@ -204,11 +216,22 @@ public final class ApiServer {
         return this;
     }
 
+    /** Adds real phone GPS reporting and the native WebSocket used by live-map viewers. */
+    public synchronized ApiServer withGps(GpsController gps, GpsHub gpsHub) {
+        if (app != null) {
+            throw new IllegalStateException("The server is already running");
+        }
+        this.gps = Objects.requireNonNull(gps, "gps");
+        this.gpsHub = Objects.requireNonNull(gpsHub, "gpsHub");
+        return this;
+    }
+
     public synchronized ApiServer start(int port) {
         if (app != null) {
             throw new IllegalStateException("The server is already running");
         }
-        app = Javalin.create(this::configure).start(port);
+        // Render requires the web service to listen on all network interfaces.
+        app = Javalin.create(this::configure).start("0.0.0.0", port);
         return this;
     }
 
@@ -221,6 +244,13 @@ public final class ApiServer {
 
     private void configure(JavalinConfig config) {
         config.startup.showJavalinBanner = false;
+        configureCors(config);
+        config.bundledPlugins.enableGlobalHeaders(headers -> {
+            headers.xContentTypeOptionsNoSniff();
+            headers.xFrameOptions("DENY");
+            headers.referrerPolicy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN);
+            headers.getHeaders().put("Permissions-Policy", "geolocation=(self)");
+        });
         if (frontendDirectory != null) {
             config.staticFiles.add(files -> {
                 files.hostedPath = "/";
@@ -228,6 +258,13 @@ public final class ApiServer {
                 files.location = Location.EXTERNAL;
             });
         }
+
+        // Health check for Render. The full application only starts after Oracle and the road graph load.
+        config.routes.get("/health", ctx -> {
+            ctx.contentType(JSON);
+            ctx.header("Cache-Control", "no-store");
+            ctx.result("{\"status\":\"ok\"}");
+        });
 
         // 4. Session (no permission: login is the only route without token)
         config.routes.post("/api/auth/login", this::login);
@@ -288,6 +325,28 @@ public final class ApiServer {
         // the session alive (DT-08).
         config.routes.get("/api/tracking", secured("EMERGENCIAS", "CONSULTAR", AUTOMATIC,
                 ctx -> send(ctx, tracking.snapshot(), ApiStatus.OK)));
+        if (gps != null) {
+            config.routes.get("/api/gps/unit", secured(GpsController.MODULE, GpsController.REPORT, USER_ACTION,
+                    ctx -> send(ctx, gps.myUnit(), ApiStatus.OK)));
+            config.routes.post("/api/gps/position", secured(GpsController.MODULE, GpsController.REPORT,
+                    AUTOMATIC, ctx -> {
+                        var result = gps.report(readBody(ctx, GpsPositionRequest.class));
+                        if (result.success()) {
+                            gpsHub.broadcast(result.value());
+                        }
+                        send(ctx, result, ApiStatus.OK);
+                    }));
+            config.routes.ws("/ws/gps", ws -> {
+                ws.onConnect(context -> {
+                    String origin = context.header("Origin");
+                    if (origin != null && !corsOrigins(System.getenv(CORS_ORIGINS_ENV)).contains(origin)) {
+                        context.closeSession(1008, "Origen no autorizado");
+                    }
+                });
+                ws.onMessage(gpsHub::message);
+                ws.onClose(gpsHub::close);
+            });
+        }
         // The traffic layer (8.2): the map asks every 15 seconds by itself, like the tracking.
         config.routes.get("/api/traffic/segments", secured("TRAFICO", "CONSULTAR", AUTOMATIC,
                 ctx -> sendSimulation(ctx, controller -> controller.trafficSegments(levelParam(ctx)))));
@@ -393,6 +452,55 @@ public final class ApiServer {
         }));
 
         config.routes.exception(Exception.class, this::onError);
+    }
+
+    /**
+     * Enables cross-origin API calls only from the configured frontend origins. The browser sends
+     * bearer tokens explicitly, so the API never enables credentialed wildcard CORS.
+     */
+    private static void configureCors(JavalinConfig config) {
+        List<String> origins = corsOrigins(System.getenv(CORS_ORIGINS_ENV));
+        config.bundledPlugins.enableCors(cors -> cors.addRule(rule -> {
+            rule.path = "/api/*";
+            rule.maxAge = 600;
+            origins.forEach(rule::allowHost);
+        }));
+    }
+
+    /** Parses the comma-separated production allow-list, or local origins when it is not set. */
+    static List<String> corsOrigins(String configured) {
+        if (configured == null || configured.isBlank()) {
+            return LOCAL_CORS_ORIGINS;
+        }
+        List<String> origins = new ArrayList<>();
+        for (String candidate : configured.split(",")) {
+            String origin = normalizeOrigin(candidate.trim());
+            if (!origins.contains(origin)) {
+                origins.add(origin);
+            }
+        }
+        if (origins.isEmpty()) {
+            throw new IllegalArgumentException(CORS_ORIGINS_ENV + " must contain at least one HTTPS origin.");
+        }
+        return Collections.unmodifiableList(origins);
+    }
+
+    private static String normalizeOrigin(String candidate) {
+        try {
+            URI uri = new URI(candidate);
+            boolean http = "http".equalsIgnoreCase(uri.getScheme());
+            boolean https = "https".equalsIgnoreCase(uri.getScheme());
+            if ((!http && !https) || uri.getHost() == null || uri.getUserInfo() != null
+                    || (uri.getRawPath() != null && !uri.getRawPath().isEmpty())
+                    || uri.getRawQuery() != null || uri.getRawFragment() != null) {
+                throw new IllegalArgumentException();
+            }
+            return new URI(uri.getScheme().toLowerCase(Locale.ROOT), null, uri.getHost().toLowerCase(Locale.ROOT),
+                    uri.getPort(), null, null, null).toString();
+        } catch (URISyntaxException | IllegalArgumentException error) {
+            throw new IllegalArgumentException("Invalid origin in " + CORS_ORIGINS_ENV
+                    + ": use an exact http(s) origin without a path, for example https://rutavida.vercel.app.");
+        }
     }
 
     /**

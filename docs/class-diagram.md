@@ -1886,6 +1886,11 @@ classDiagram
         +congestedSegments : int
         +explanation : String
     }
+    class RouteProgress {
+        <<record>>
+        +distanceKm : double
+        +etaMinutes : double
+    }
     class RoadConditionService {
         -graph : RoadGraph
         -incidentDao : RoadIncidentDAO
@@ -2000,6 +2005,7 @@ RoadConditionService ..> RoadIncidentDAO : lee los ACTIVO
     RouteService --> AlternativeRouteFinder
     RouteService --> RouteExplanationBuilder
     RouteService ..> RouteOption
+    RouteService ..> RouteProgress
 IncidentService ..> IncidentRequest
 RouteMonitor --> RouteService
 RouteMonitor ..> AlertService : avisa (S8)
@@ -2095,6 +2101,36 @@ classDiagram
         <<fase 2>>
         +poll() List~VehicleLocation~
     }
+    class GpsTrackingService {
+        -drivers : UnitDriverDAO
+        -vehicles : EmergencyVehicleDAO
+        -locations : VehicleLocationDAO
+        +unitOf(driver: UserSession) DriverUnit
+        +record(driver: UserSession, request: GpsPositionRequest) GpsPosition
+    }
+    class GpsController {
+        +myUnit() OperationResult~DriverUnit~
+        +report(request: GpsPositionRequest) OperationResult~GpsPosition~
+    }
+    class GpsHub {
+        +message(context: WsMessageContext) void
+        +broadcast(position: GpsPosition) void
+    }
+    class UnitDriverDAO {
+        <<interface>>
+        +findVehicleIdByUser(userId: long) OptionalLong
+        +assign(userId: long, vehicleId: long) void
+    }
+    class JdbcUnitDriverDAO
+    class DriverUnit {
+        <<record>>
+    }
+    class GpsPosition {
+        <<record>>
+    }
+    class GpsPositionRequest {
+        <<record>>
+    }
     class DemoScenario {
         <<interface>>
         +name() String
@@ -2121,6 +2157,10 @@ classDiagram
 
     VehiclePositionSource <|.. VehicleMovementSimulator
     VehiclePositionSource <|.. GpsPositionSource
+    UnitDriverDAO <|.. JdbcUnitDriverDAO
+    GpsTrackingService --> UnitDriverDAO
+    GpsController --> GpsTrackingService
+    GpsHub ..> GpsPosition : WebSocket
     DemoScenario <|.. RoadClosureScenario
     DemoScenario <|.. RushHourScenario
     TrackingService --> VehiclePositionSource

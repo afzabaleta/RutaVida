@@ -168,11 +168,11 @@ class FleetServiceTest {
                 station(" EJEMPLO - Base norte ", null), coordinator);
 
         EmergencyStation edited = service.updateStation(created.getId(),
-                station("EJEMPLO - Base norte", "605 5700000"), coordinator);
+                station("EJEMPLO - Base norte", "6055700000"), coordinator);
 
         assertEquals("EJEMPLO - Base norte", created.getName(), "trimmed");
         assertEquals(RecordStatus.ACTIVE, edited.getStatus());
-        assertEquals("605 5700000", service.findStation(created.getId()).getPhone());
+        assertEquals("6055700000", service.findStation(created.getId()).getPhone());
 
         assertEquals("Ya existe una estación con ese nombre.",
                 assertThrows(BusinessRuleException.class,

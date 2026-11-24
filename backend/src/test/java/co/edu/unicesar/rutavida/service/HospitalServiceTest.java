@@ -49,7 +49,7 @@ class HospitalServiceTest {
     void registersAnActiveHospitalAndAudits() {
         Hospital hospital = service.register(
                 request(" HOSPITAL EJEMPLO DOS ",
-                        "605 5700000", VALLEDUPAR, 20),
+                        "6055700000", VALLEDUPAR, 20),
                 support.sessionOf(ADMIN)
         );
 

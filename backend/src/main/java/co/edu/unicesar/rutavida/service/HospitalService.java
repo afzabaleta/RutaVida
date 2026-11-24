@@ -146,13 +146,7 @@ public class HospitalService {
     private static Hospital build(long id, HospitalRequest request, RecordStatus status) {
         ValidationUtil.requireNonNull(request, "hospital");
 
-        String phone = ValidationUtil.optionalText(request.phone(), "teléfono", 20);
-
-        if (phone != null && !phone.matches("[0-9+() -]{7,20}")) {
-            throw new ValidationException(
-                    "El teléfono solo puede tener números, espacios y los signos + ( ) -."
-            );
-        }
+        String phone = ValidationUtil.optionalMobilePhone(request.phone(), "teléfono");
 
         Integer capacity = request.emergencyCapacity();
 
@@ -164,7 +158,7 @@ public class HospitalService {
 
         return new Hospital(
                 id,
-                ValidationUtil.requireText(request.name(), "nombre", 150),
+                ValidationUtil.requirePlaceName(request.name(), "nombre", 150),
                 ValidationUtil.requireNonNull(request.level(), "nivel"),
                 ValidationUtil.requireText(request.address(), "dirección", 180),
                 phone,

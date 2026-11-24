@@ -5,15 +5,19 @@ import co.edu.unicesar.rutavida.dao.EmergencyAssignmentDAO;
 import co.edu.unicesar.rutavida.dao.EmergencyVehicleDAO;
 import co.edu.unicesar.rutavida.dao.RouteDAO;
 import co.edu.unicesar.rutavida.dao.VehicleTypeDAO;
+import co.edu.unicesar.rutavida.dao.VehicleLocationDAO;
 import co.edu.unicesar.rutavida.dto.SimulationState;
 import co.edu.unicesar.rutavida.dto.TrackedMission;
 import co.edu.unicesar.rutavida.dto.TrackedUnit;
 import co.edu.unicesar.rutavida.dto.TrackingSnapshot;
+import co.edu.unicesar.rutavida.dto.RouteProgress;
+import co.edu.unicesar.rutavida.graph.VehicleProfile;
 import co.edu.unicesar.rutavida.model.EmergencyAssignment;
 import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.VehicleType;
+import co.edu.unicesar.rutavida.model.VehicleLocation;
 import co.edu.unicesar.rutavida.model.enums.PositionSource;
 import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import co.edu.unicesar.rutavida.util.ValidationUtil;
@@ -45,6 +49,8 @@ public class LiveMapService {
     private final EmergencyAssignmentDAO assignmentDao;
     private final RouteDAO routeDao;
     private final AlertDAO alertDao;
+    private final VehicleLocationDAO locationDao;
+    private final RouteService routeService;
     private final BooleanSupplier simulationRunning;
     private final Clock clock;
 
@@ -55,11 +61,36 @@ public class LiveMapService {
     public LiveMapService(EmergencyVehicleDAO vehicleDao, VehicleTypeDAO vehicleTypeDao,
                           EmergencyAssignmentDAO assignmentDao, RouteDAO routeDao, AlertDAO alertDao,
                           BooleanSupplier simulationRunning, Clock clock) {
+        this(vehicleDao, vehicleTypeDao, assignmentDao, routeDao, alertDao, null, simulationRunning, clock);
+    }
+
+    /** With the history DAO, the map distinguishes real GPS from simulation and exposes its telemetry. */
+    public LiveMapService(EmergencyVehicleDAO vehicleDao, VehicleTypeDAO vehicleTypeDao,
+                          EmergencyAssignmentDAO assignmentDao, RouteDAO routeDao, AlertDAO alertDao,
+                          VehicleLocationDAO locationDao, BooleanSupplier simulationRunning, Clock clock) {
         this.vehicleDao = Objects.requireNonNull(vehicleDao, "vehicleDao");
         this.vehicleTypeDao = Objects.requireNonNull(vehicleTypeDao, "vehicleTypeDao");
         this.assignmentDao = Objects.requireNonNull(assignmentDao, "assignmentDao");
         this.routeDao = Objects.requireNonNull(routeDao, "routeDao");
         this.alertDao = Objects.requireNonNull(alertDao, "alertDao");
+        this.locationDao = locationDao;
+        this.routeService = null;
+        this.simulationRunning = Objects.requireNonNull(simulationRunning, "simulationRunning");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    /** Enables remaining GPS distance/ETA without changing legacy map construction. */
+    public LiveMapService(EmergencyVehicleDAO vehicleDao, VehicleTypeDAO vehicleTypeDao,
+                          EmergencyAssignmentDAO assignmentDao, RouteDAO routeDao, AlertDAO alertDao,
+                          VehicleLocationDAO locationDao, RouteService routeService,
+                          BooleanSupplier simulationRunning, Clock clock) {
+        this.vehicleDao = Objects.requireNonNull(vehicleDao, "vehicleDao");
+        this.vehicleTypeDao = Objects.requireNonNull(vehicleTypeDao, "vehicleTypeDao");
+        this.assignmentDao = Objects.requireNonNull(assignmentDao, "assignmentDao");
+        this.routeDao = Objects.requireNonNull(routeDao, "routeDao");
+        this.alertDao = Objects.requireNonNull(alertDao, "alertDao");
+        this.locationDao = Objects.requireNonNull(locationDao, "locationDao");
+        this.routeService = Objects.requireNonNull(routeService, "routeService");
         this.simulationRunning = Objects.requireNonNull(simulationRunning, "simulationRunning");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -71,10 +102,12 @@ public class LiveMapService {
         Map<Long, String> typeNames = vehicleTypeDao.findAll().stream()
                 .collect(Collectors.toMap(VehicleType::getId, VehicleType::getName));
         List<EmergencyVehicle> vehicles = vehicleDao.findAll();
+        Map<Long, VehicleLocation> latest = locationDao == null ? Map.of() : locationDao.findLatestByVehicle();
 
         List<TrackedUnit> units = new ArrayList<>();
         for (EmergencyVehicle vehicle : vehicles) {
-            units.add(toUnit(vehicle, typeNames.getOrDefault(vehicle.getVehicleTypeId(), "UNIDAD")));
+            units.add(toUnit(vehicle, typeNames.getOrDefault(vehicle.getVehicleTypeId(), "UNIDAD"),
+                    latest.get(vehicle.getId())));
         }
 
         Map<Long, Route> activeByVehicle = routeDao.findActive().stream()
@@ -83,7 +116,7 @@ public class LiveMapService {
         for (EmergencyVehicle vehicle : vehicles) {
             if (vehicle.getOperationalStatus() == VehicleOperationalStatus.BUSY) {
                 assignmentDao.findOpenByVehicle(vehicle.getId())
-                        .ifPresent(mission -> missions.add(toMission(mission, activeByVehicle)));
+                        .ifPresent(mission -> missions.add(toMission(mission, vehicle, typeNames, activeByVehicle)));
             }
         }
 
@@ -93,22 +126,38 @@ public class LiveMapService {
                 units, missions, unread);
     }
 
-    private static TrackedUnit toUnit(EmergencyVehicle vehicle, String typeName) {
+    private static TrackedUnit toUnit(EmergencyVehicle vehicle, String typeName, VehicleLocation latest) {
         boolean located = vehicle.getLastLocation() != null;
         return new TrackedUnit(vehicle.getId(), vehicle.getUnitCode(), typeName,
                 vehicle.getOperationalStatus(), vehicle.getLastLocation(), vehicle.getLastLocationAt(),
-                located ? PositionSource.SIMULATION : null);
+                located ? (latest == null ? PositionSource.SIMULATION : latest.getSource()) : null,
+                latest == null ? null : latest.getSpeedKmh(),
+                latest == null ? null : latest.getHeadingDegrees());
     }
 
-    private TrackedMission toMission(EmergencyAssignment mission, Map<Long, Route> activeByVehicle) {
-        Long activeRouteId = Optional.ofNullable(activeByVehicle.get(mission.getVehicleId()))
-                .filter(route -> route.getEmergencyId() == mission.getEmergencyId())
-                .map(Route::getId)
-                .orElse(null);
+    private TrackedMission toMission(EmergencyAssignment mission, EmergencyVehicle vehicle,
+                                     Map<Long, String> typeNames, Map<Long, Route> activeByVehicle) {
+        Route active = Optional.ofNullable(activeByVehicle.get(mission.getVehicleId()))
+                .filter(route -> route.getEmergencyId() == mission.getEmergencyId()).orElse(null);
+        Long activeRouteId = active == null ? null : active.getId();
         int version = (int) routeDao.findByEmergency(mission.getEmergencyId()).stream()
                 .filter(route -> route.getVehicleId() == mission.getVehicleId())
                 .count();
+        co.edu.unicesar.rutavida.model.GeoPoint destination = null;
+        Double distance = null;
+        Double eta = null;
+        if (active != null && routeService != null && vehicle.getLastLocation() != null) {
+            try {
+                destination = routeService.destinationOf(active);
+                RouteProgress progress = routeService.remainingProgress(active, vehicle.getLastLocation(),
+                        VehicleProfile.forType(typeNames.getOrDefault(vehicle.getVehicleTypeId(), "UNIDAD")))
+                        .orElse(null);
+                if (progress != null) { distance = progress.distanceKm(); eta = progress.etaMinutes(); }
+            } catch (RuntimeException ignored) {
+                // A map metric must not hide the rest of the live map if an old route is incomplete.
+            }
+        }
         return new TrackedMission(mission.getId(), mission.getEmergencyId(), mission.getVehicleId(),
-                mission.getStatus(), activeRouteId, version);
+                mission.getStatus(), activeRouteId, version, destination, distance, eta);
     }
 }

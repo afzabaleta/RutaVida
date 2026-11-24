@@ -77,6 +77,7 @@ SPOOL instalacion.log
 @11_patrullas_ejemplo.sql
 @12_bases_sobre_la_via.sql
 @13_hora_auditoria.sql
+@14_gps_conductor.sql
 @98_verificar.sql
 SPOOL OFF
 exit
@@ -90,6 +91,7 @@ exit
 - `11_patrullas_ejemplo.sql` (DT-10) crea 6 patrullas de policía de **EJEMPLO** (`EJEMPLO-POL-01` a `06`) **repartidas por la ciudad**, cada una en una esquina distinta (a más de 1,8 km entre sí y lejos de las bases y los hospitales). Mientras la simulación está en marcha recorren la ciudad solas: cada una va a un punto al azar a 0,8–3 km, a más de 1 km de las demás, y al llegar elige otro. Sus posiciones son SIMULACION y no se despachan a emergencias. Para el usuario de policía (su reporte de pánico valida la alerta solo), créelo con el rol `POLICIA` desde Administración.
 - `12_bases_sobre_la_via.sql` mueve las 5 bases de **EJEMPLO** del centro de los hospitales a la esquina con nombre más cercana (a 40–115 m), para que las ambulancias aparezcan y salgan **sobre la calle** y no dentro del edificio. También pone ahí sus unidades libres.
 - `13_hora_auditoria.sql` pone la **hora de Colombia** en los registros de auditoría que escriben los *triggers* de cambio de estado (emergencias, despacho e incidentes). En Oracle Cloud el servidor está en UTC y esos registros salían 5 horas adelante. En la nube, además, corrige una sola vez los registros que ya quedaron mal y deja constancia en la auditoría (`SISTEMA` / `CORREGIR_HORA`). En Oracle local dice que no hay nada que corregir. Se detiene `WebServer` antes de ejecutarlo.
+- `14_gps_conductor.sql` instala la asociación segura entre un conductor y una unidad, y el permiso `GPS/REPORTAR`. Después de registrar ambos en Administración, asócielos con los dos `DELETE`/`INSERT` comentados al final del script. El conductor inicia sesión y abre **Mi GPS de unidad** desde el teléfono.
 - En `98_verificar.sql` todas las columnas `OK` deben decir `SI`, y cada línea de la prueba 8 (PL/SQL) debe terminar en `SI`. Las dos pruebas marcadas "DEBE FALLAR" deben mostrar `ORA-02290`: eso es correcto.
 - También sirve SQL Developer (host `localhost`, puerto `1521`, servicio `XEPDB1`, ejecutar cada archivo con F5).
 - En los scripts, un comentario nunca va después del `;` en la misma línea: SQL*Plus lo envía como parte de la sentencia. `SqlScriptStyleTest` lo verifica.
@@ -203,6 +205,7 @@ Invoke-RestMethod -Uri http://localhost:8080/api/units -Headers $auth | ConvertT
 
 - **Cómo trabajar con Git, ramas y Pull Requests:** [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - **Tareas de cada integrante:** [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
+- **Despliegue Vercel + Render + Oracle:** [`docs/despliegue-produccion.md`](docs/despliegue-produccion.md).
 
 ## Convenciones
 

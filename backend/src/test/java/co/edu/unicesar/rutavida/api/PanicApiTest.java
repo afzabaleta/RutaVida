@@ -350,7 +350,8 @@ class PanicApiTest {
 
     /** Body of a citizen registration (CU-23) with the password of these tests. */
     private static String registration(String username, boolean consent) {
-        return "{\"document\": \"DOC" + Math.abs(username.hashCode()) + "\", \"firstNames\": \"Laura\","
+        return "{\"document\": \"" + String.format("%010d", Math.abs(username.hashCode() % 1_000_000_000))
+                + "\", \"firstNames\": \"Laura\","
                 + " \"lastNames\": \"Prueba\", \"email\": \"" + username + "@ejemplo.com\","
                 + " \"username\": \"" + username + "\", \"password\": \"" + PASSWORD + "\","
                 + " \"dataConsent\": " + consent + "}";
