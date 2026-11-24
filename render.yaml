@@ -2,7 +2,7 @@ services:
   - type: web
     name: rutavida-api
     runtime: docker
-    plan: starter
+    plan: free
     numInstances: 1
     healthCheckPath: /health
     dockerfilePath: ./Dockerfile
