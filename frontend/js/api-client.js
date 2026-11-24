@@ -3,6 +3,29 @@
 
 const TOKEN_KEY = "rutavida.token";
 
+/*
+ * Local development is same-origin: WebServer serves both the pages and /api.
+ * The Vercel build injects the Render origin in a meta tag, keeping an API URL
+ * (and any credentials) out of the source repository.
+ */
+function configuredApiBaseUrl() {
+  const configured = document.querySelector('meta[name="rutavida-api-base"]')?.content?.trim();
+  return configured ? configured.replace(/\/+$/, "") : "";
+}
+
+const API_BASE_URL = configuredApiBaseUrl();
+
+function apiUrl(path) {
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+}
+
+/** Returns the matching secure WebSocket URL for the deployed API. */
+export function apiWebSocketUrl(path) {
+  const url = new URL(path, API_BASE_URL || window.location.origin);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
+}
+
 const GENERIC_ERROR = "Ocurrió un error inesperado. Intente de nuevo.";
 const NO_SERVER = "No se pudo conectar con el servidor de RutaVida. Revisa que WebServer esté encendido.";
 
@@ -80,7 +103,7 @@ async function call(method, path, body) {
   let response;
 
   try {
-    response = await fetch(path, {
+    response = await fetch(apiUrl(path), {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),

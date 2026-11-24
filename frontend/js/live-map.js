@@ -1,5 +1,5 @@
 // Live map D7: positions come from the server, not the browser.
-import { ApiError, getTracking, gpsSocketToken, hasPermission, listMissionRoutes } from "./api-client.js";
+import { ApiError, apiWebSocketUrl, getTracking, gpsSocketToken, hasPermission, listMissionRoutes } from "./api-client.js";
 import { UNIT_Z, unitIcon, unitSlots, vehicleLabel } from "./map-icons.js";
 
 const REFRESH_MS = 5000;
@@ -262,8 +262,7 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
     const token = gpsSocketToken();
     if (stopped || !token || !window.WebSocket) return;
     clearTimeout(reconnectTimer);
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    socket = new WebSocket(`${protocol}//${window.location.host}/ws/gps`);
+    socket = new WebSocket(apiWebSocketUrl("/ws/gps"));
     onConnection?.("Conectando seguimiento en tiempo real…", "connecting");
     socket.addEventListener("open", () => socket?.send(JSON.stringify({ type: "auth", token })));
     socket.addEventListener("message", (event) => {

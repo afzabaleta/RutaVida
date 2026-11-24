@@ -205,6 +205,7 @@ Invoke-RestMethod -Uri http://localhost:8080/api/units -Headers $auth | ConvertT
 
 - **Cómo trabajar con Git, ramas y Pull Requests:** [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - **Tareas de cada integrante:** [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
+- **Despliegue Vercel + Render + Oracle:** [`docs/despliegue-produccion.md`](docs/despliegue-produccion.md).
 
 ## Convenciones
 
