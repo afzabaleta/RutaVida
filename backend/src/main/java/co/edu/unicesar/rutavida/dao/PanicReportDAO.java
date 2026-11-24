@@ -11,6 +11,9 @@ import java.util.Optional;
 /** Reports of the panic button (table REPORTE_PANICO, CU-22). */
 public interface PanicReportDAO {
 
+    /** Serialize panic validation on the existing system account for the current transaction. */
+    void lockValidation(long systemUserId);
+
     /** Saves a new report (id 0), assigns the generated id with {@code setId} and returns it. */
     long insert(PanicReport report);
 

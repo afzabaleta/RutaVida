@@ -18,6 +18,10 @@ import java.util.Optional;
  * It keeps copies, like a database.
  */
 public class InMemoryPanicReportDAO implements PanicReportDAO {
+    @Override
+    public void lockValidation(long systemUserId) {
+        // The in-memory transaction manager owns the fixture's concurrency.
+    }
 
     private static final Comparator<PanicReport> OLDEST_FIRST =
             Comparator.comparing(PanicReport::getReportedAt).thenComparing(PanicReport::getId);

@@ -562,6 +562,12 @@ export function getDriverMission() {
   return request("GET", "/api/gps/mission");
 }
 
+/** The active or proposed routes of the authenticated driver's own open mission. */
+export async function listDriverMissionRoutes() {
+  const routes = await request("GET", "/api/gps/mission/routes");
+  return routes.map(toRoute);
+}
+
 /** Registers the first confirmed GPS reading of a sharing session. */
 export function startDriverGpsSession() {
   return request("POST", "/api/gps/session/start");
@@ -658,6 +664,7 @@ export async function registerCitizen(form) {
 
 /** Where a session starts working: the button for citizens and police, the panel for the staff. */
 export function homeOf(session) {
+  if (session?.role === "ADMINISTRADOR") return "./dashboard.html";
   return hasPermission(session, "GPS:REPORTAR")
     ? "./conductor.html"
     : hasPermission(session, "PANICO:REPORTAR") && !hasPermission(session, "DESPACHO:GESTIONAR")

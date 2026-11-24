@@ -53,7 +53,7 @@ function unitPopup(unit) {
   return box;
 }
 
-export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged, onConnection } = {}) {
+export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged, onConnection, onPanic } = {}) {
   if (!map || !hasPermission(session, "EMERGENCIAS:CONSULTAR")) {
     return null;
   }
@@ -294,6 +294,10 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
         if (data.type === "ready") onConnection?.("Seguimiento en tiempo real conectado", "online");
         if (data.type === "position") applyGpsPosition(data.position);
         if (data.type === "mission") queueRefresh();
+        if (data.type === "panic") {
+          onPanic?.();
+          queueRefresh();
+        }
       } catch {
         // A malformed socket frame never interrupts the five-second REST fallback.
       }

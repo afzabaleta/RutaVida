@@ -312,10 +312,10 @@ El frontend envía los reportes al backend. No decide
 si un reporte es válido ni crea emergencias directamente.
 
 La lógica de validación corresponde a `PanicService`.
-El servidor puede validar un reporte mediante la
-confirmación de tres personas (cuentas) distintas,
-próximos entre sí, dentro de la ventana temporal
-definida, o mediante un reporte policial autorizado.
+Una cuenta autenticada con permiso de reporte valida la alerta.
+El backend reutiliza el incidente abierto si coincide el tipo, la
+cercanía y la ventana temporal. Entre las ambulancias elegibles con GPS activo,
+selecciona la que tiene el menor ETA de ruta. Consulte [la guía del GPS](../docs/gps-en-vivo.md).
 
 ### Visualización en el dashboard
 

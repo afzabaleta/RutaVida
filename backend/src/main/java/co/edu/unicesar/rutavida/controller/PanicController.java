@@ -20,8 +20,8 @@ import java.util.logging.Logger;
 
 /**
  * Panic button (CU-22, DT-13). Reporting needs a session with PANICO/REPORTAR: a registered
- * citizen (whose phone stays logged in), a police officer, whose report validates the alert
- * alone, or an administrator. Listing needs PANICO/CONSULTAR and discarding PANICO/GESTIONAR.
+ * citizen (whose phone stays logged in), a police officer or an administrator. Listing
+ * needs PANICO/CONSULTAR and discarding PANICO/GESTIONAR.
  */
 public class PanicController {
 
@@ -34,9 +34,7 @@ public class PanicController {
 
     static final String HELP_ON_ITS_WAY = "Su alerta fue validada: la ayuda va en camino.";
     static final String WAITING_FOR_DISPATCH =
-            "Su alerta fue validada. Un coordinador enviará una unidad.";
-    static final String WAITING_FOR_OTHERS =
-            "Su reporte quedó registrado. Esperamos la confirmación de otras personas cercanas.";
+            "Su alerta fue validada. No hay ambulancias elegibles con GPS activo. Quedó pendiente para coordinación.";
 
     private final PanicService panicService;
     private final AuthService authService;
@@ -69,8 +67,8 @@ public class PanicController {
 
     /** What the page tells the person after pressing. */
     static String messageFor(PanicResult result) {
-        if (result.status() == PanicReportStatus.PENDING) {
-            return WAITING_FOR_OTHERS;
+        if (!result.createdEmergency()) {
+            return "Su reporte se vinculó a una emergencia abierta.";
         }
         return result.dispatchedUnit() == null ? WAITING_FOR_DISPATCH : HELP_ON_ITS_WAY;
     }

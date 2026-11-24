@@ -21,9 +21,9 @@ public record PanicReportView(
         Long emergencyId
 ) {
 
-    public static PanicReportView of(PanicReport report) {
+    public static PanicReportView of(PanicReport report, boolean byPolice) {
         return new PanicReportView(report.getId(), report.getLocation(), report.getReportedAt(),
-                report.getUserId() != null, report.getEmergencyTypeId(), report.getDescription(),
+                byPolice, report.getEmergencyTypeId(), report.getDescription(),
                 report.getStatus(), report.getEmergencyId());
     }
 }

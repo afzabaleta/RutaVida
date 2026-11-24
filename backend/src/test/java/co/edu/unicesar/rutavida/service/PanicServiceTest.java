@@ -18,7 +18,10 @@ import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
+import java.time.Duration;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static co.edu.unicesar.rutavida.service.PanicTestSupport.COORDINATOR;
 import static co.edu.unicesar.rutavida.service.PanicTestSupport.POLICE;
@@ -44,24 +47,30 @@ class PanicServiceTest {
     }
 
     @Test
-    void oneReportWaitsForOtherPeople() {
+    void oneAuthenticatedReportValidatesAndStaysReportedWithoutGps() {
         PanicResult result = service.report(press("celular-1", 0), support.citizen(1));
 
-        assertEquals(PanicReportStatus.PENDING, result.status());
-        assertNull(result.emergencyId());
+        assertEquals(PanicReportStatus.VALIDATED, result.status());
+        assertTrue(result.createdEmergency());
         assertEquals(1, result.reportsNearby());
-        assertEquals(3, result.reportsNeeded());
-        assertTrue(support.city.emergencies.findActive().isEmpty());
+        assertEquals(1, result.reportsNeeded());
+        assertEquals(EmergencyStatus.REPORTED, support.city.emergencies.findById(result.emergencyId()).orElseThrow().getStatus());
     }
 
     @Test
-    void threePeopleCloseTogetherValidateTheAlertAndTheFastestUnitIsSent() {
-        service.report(press("celular-1", 0), support.citizen(1));
-        service.report(press("celular-2", 80), support.citizen(2));
-        PanicResult result = service.report(press("celular-3", -60), support.citizen(3));
+    void firstCitizenDispatchesOnlyTheAmbulanceWithLowestRouteEtaAndDuplicatesJoin() {
+        addAmbulance("AMB-LEJANA", 0, 0, VehicleOperationalStatus.AVAILABLE, RecordStatus.ACTIVE, true);
+        long fastest = addAmbulance("AMB-RAPIDA", 1, 1, VehicleOperationalStatus.AVAILABLE, RecordStatus.ACTIVE, true);
+        PanicResult result = service.report(press("celular-1", 0), support.citizen(1));
+        PanicResult duplicate = service.report(press("celular-2", 60), support.citizen(2));
 
         assertEquals(PanicReportStatus.VALIDATED, result.status());
-        assertEquals("EJEMPLO-AMB-01", result.dispatchedUnit());
+        assertEquals("AMB-RAPIDA", result.dispatchedUnit());
+        assertEquals(fastest, result.dispatchedVehicleId());
+        assertEquals(result.emergencyId(), duplicate.emergencyId());
+        assertFalse(duplicate.createdEmergency());
+        assertNull(duplicate.dispatchedVehicleId());
+        assertEquals(1, support.city.assignments.findByEmergency(result.emergencyId()).size());
 
         Emergency emergency = support.city.emergencies.findById(result.emergencyId()).orElseThrow();
 
@@ -81,12 +90,12 @@ class PanicServiceTest {
     }
 
     @Test
-    void theSamePersonNeverValidatesAnAlertEvenFromOtherPhonesAndIsStoppedAtTheFourthReport() {
+    void theFourthReportIsRejectedAcrossDevicesForTheSameUser() {
         for (int i = 0; i < 3; i++) {
             PanicResult result = service.report(press("otro-celular-" + i, i * 10), support.citizen(1));
 
-            assertEquals(PanicReportStatus.PENDING, result.status());
-            assertEquals(1, result.reportsNearby(), "one person, whatever phone it uses (DT-13)");
+            assertEquals(PanicReportStatus.VALIDATED, result.status());
+            assertEquals(i == 0, result.createdEmergency());
         }
 
         BusinessRuleException tooMany = assertThrows(
@@ -94,7 +103,7 @@ class PanicServiceTest {
                 () -> service.report(press("celular-1", 0), support.citizen(1)));
 
         assertTrue(tooMany.getMessage().contains("123"));
-        assertTrue(support.city.emergencies.findActive().isEmpty());
+        assertEquals(1, support.city.emergencies.findActive().size());
     }
 
     @Test
@@ -104,14 +113,14 @@ class PanicServiceTest {
     }
 
     @Test
-    void reportsFartherThan300MetersDoNotCount() {
-        service.report(press("celular-1", 0), support.citizen(1));
+    void incidentsFartherThan300MetersAreIndependent() {
+        PanicResult first = service.report(press("celular-1", 0), support.citizen(1));
         service.report(press("celular-2", 350), support.citizen(2));
         PanicResult result = service.report(press("celular-3", -250), support.citizen(3));
 
-        assertEquals(PanicReportStatus.PENDING, result.status());
-        assertEquals(2, result.reportsNearby(),
-                "the third one and the one at the scene; the one 600 m away does not count");
+        assertEquals(PanicReportStatus.VALIDATED, result.status());
+        assertEquals(first.emergencyId(), result.emergencyId());
+        assertEquals(2, support.city.emergencies.findActive().size());
     }
 
     @Test
@@ -121,7 +130,7 @@ class PanicServiceTest {
 
         PanicResult result = service.report(press("celular-3", 0), support.citizen(3));
 
-        assertEquals(PanicReportStatus.PENDING, result.status());
+        assertEquals(PanicReportStatus.VALIDATED, result.status());
         assertEquals(PanicReportStatus.EXPIRED,
                 support.reports.findById(old1).orElseThrow().getStatus());
         assertEquals(PanicReportStatus.EXPIRED,
@@ -134,7 +143,7 @@ class PanicServiceTest {
                 press("celular-policia", 0), support.sessionOf(POLICE));
 
         assertEquals(PanicReportStatus.VALIDATED, result.status());
-        assertEquals("EJEMPLO-AMB-01", result.dispatchedUnit());
+        assertNull(result.dispatchedUnit());
         assertTrue(service.listRecent(null).get(0).byPolice());
     }
 
@@ -154,9 +163,14 @@ class PanicServiceTest {
 
     @Test
     void withoutAvailableUnitsTheEmergencyWaitsForAManualDispatch() {
-        for (long id = 1; id <= 5; id++) {
-            support.city.vehicles.updateStatus(id, VehicleOperationalStatus.MAINTENANCE);
-        }
+        support.ambulance("AMB-SIN-CONDUCTOR", PanicTestSupport.SCENE, VehicleOperationalStatus.AVAILABLE);
+        addAmbulance("AMB-GPS-VENCIDO", 1, 1, VehicleOperationalStatus.AVAILABLE, RecordStatus.ACTIVE, true);
+        support.gpsClock.advance(Duration.ofSeconds(16));
+        addAmbulance("AMB-OCUPADA", 1, 1, VehicleOperationalStatus.BUSY, RecordStatus.ACTIVE, true);
+        addAmbulance("AMB-MANTENIMIENTO", 1, 1, VehicleOperationalStatus.MAINTENANCE, RecordStatus.ACTIVE, true);
+        addAmbulance("AMB-CONDUCTOR-INACTIVO", 1, 1, VehicleOperationalStatus.AVAILABLE, RecordStatus.INACTIVE, true);
+        addAmbulance("AMB-SIN-SENAL", 1, 1, VehicleOperationalStatus.AVAILABLE, RecordStatus.ACTIVE, false);
+        addAmbulance("EJEMPLO-AMB-GPS", 1, 1, VehicleOperationalStatus.AVAILABLE, RecordStatus.ACTIVE, true);
 
         PanicResult result = service.report(
                 press("celular-policia", 0), support.sessionOf(POLICE));
@@ -167,7 +181,31 @@ class PanicServiceTest {
         assertEquals(EmergencyStatus.REPORTED,
                 support.city.emergencies.findById(result.emergencyId()).orElseThrow().getStatus());
 
-        assertTrue(support.alerts.all().get(0).getMessage().contains("despache a mano"));
+        assertTrue(support.alerts.all().get(0).getMessage().contains("GPS activo"));
+    }
+
+    @Test
+    void simultaneousReportsCannotDispatchTheSameAmbulanceTwice() throws Exception {
+        long vehicle = addAmbulance("AMB-UNICA", 1, 1, VehicleOperationalStatus.AVAILABLE, RecordStatus.ACTIVE, true);
+        var first = support.citizen(1);
+        var second = support.citizen(2);
+        var start = new CyclicBarrier(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var a = pool.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return service.report(press("concurrente-a", 0), first);
+            });
+            var b = pool.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return service.report(new PanicAlertRequest("concurrente-b",
+                        DispatchTestSupport.at(0, 0), null, null), second);
+            });
+            PanicResult left = a.get(10, TimeUnit.SECONDS);
+            PanicResult right = b.get(10, TimeUnit.SECONDS);
+            assertNotEquals(left.emergencyId(), right.emergencyId());
+            assertTrue((left.dispatchedVehicleId() == null) ^ (right.dispatchedVehicleId() == null));
+            assertEquals(vehicle, support.city.assignments.findOpenByVehicle(vehicle).orElseThrow().getVehicleId());
+        }
     }
 
     @Test
@@ -198,8 +236,8 @@ class PanicServiceTest {
 
     @Test
     void discardingAPendingAlertDiscardsTheReportsNearItAndAValidatedOneIsNotDiscarded() {
-        long first = service.report(press("celular-1", 0), support.citizen(1)).reportId();
-        service.report(press("celular-2", 40), support.citizen(2));
+        long first = support.oldReport(1, 1);
+        support.oldReport(2, 1);
 
         PanicReportView discarded = service.discard(
                 first, support.sessionOf(COORDINATOR));
@@ -207,7 +245,7 @@ class PanicServiceTest {
         assertEquals(PanicReportStatus.DISCARDED, discarded.status());
         assertTrue(service.listRecent(PanicReportStatus.PENDING).isEmpty());
 
-        assertEquals(PanicReportStatus.PENDING,
+        assertEquals(PanicReportStatus.VALIDATED,
                 service.report(press("celular-3", 0), support.citizen(3)).status(),
                 "the discarded reports do not count");
 
@@ -219,22 +257,14 @@ class PanicServiceTest {
     }
 
     @Test
-    void onlyAnActiveUserWithPanicValidateCanValidateAlone() {
-        assertTrue(PanicService.canValidateAlone(support.sessionOf(POLICE)));
-        assertFalse(PanicService.canValidateAlone(support.sessionOf(COORDINATOR)));
-        assertFalse(PanicService.canValidateAlone(null));
-        assertFalse(PanicService.canValidateAlone(support.sessionOf(SYSTEM)), "inactive user");
+    void aCitizenReportIsNotLabeledAsAPoliceReport() {
+        service.report(press("celular-1", 0), support.citizen(1));
+        assertFalse(service.listRecent(null).getFirst().byPolice());
     }
 
     @Test
-    void theEmergencyGoesToTheMiddleOfTheReportsWithTheTypeMostPeopleChose() {
-        GeoPoint center = PanicService.center(List.of(
-                report(PanicTestSupport.north(0)),
-                report(PanicTestSupport.north(100))));
-
-        assertEquals(PanicTestSupport.north(50).latitude(), center.latitude(), 1e-9);
-
-        service.report(new PanicAlertRequest(
+    void reportUsesItsLocationAndKeepsSeparateIncidentTypes() {
+        PanicResult first = service.report(new PanicAlertRequest(
                 "celular-1", PanicTestSupport.SCENE, 3L, "Choque de dos motos"), support.citizen(1));
 
         service.report(new PanicAlertRequest(
@@ -243,9 +273,11 @@ class PanicServiceTest {
         long emergencyId = service.report(new PanicAlertRequest(
                 "celular-3", PanicTestSupport.SCENE, 1L, null), support.citizen(3)).emergencyId();
 
-        Emergency emergency = support.city.emergencies.findById(emergencyId).orElseThrow();
+        Emergency emergency = support.city.emergencies.findById(first.emergencyId()).orElseThrow();
 
-        assertEquals(3L, emergency.getEmergencyTypeId(), "ACCIDENTE_VIAL: 2 of 3");
+        assertNotEquals(emergencyId, emergency.getId());
+        assertEquals(3L, emergency.getEmergencyTypeId());
+        assertEquals(PanicTestSupport.SCENE, emergency.getLocation());
         assertTrue(emergency.getDescription().contains("Choque de dos motos"));
     }
 
@@ -256,15 +288,17 @@ class PanicServiceTest {
         UserSession joker = support.citizen(1);
         String phone = support.citizenService().startSession(joker).token();
 
-        long first = service.report(press("celular-1", 0), joker).reportId();
-        service.discard(first, support.sessionOf(COORDINATOR));
+        var first = service.report(press("celular-1", 0), joker);
+        support.city.service().closeEmergency(first.emergencyId(), support.sessionOf(COORDINATOR));
+        service.discard(first.reportId(), support.sessionOf(COORDINATOR));
 
         assertEquals(RecordStatus.ACTIVE, support.users.findById(joker.user().getId()).orElseThrow().getStatus(),
                 "one false alarm is a warning, not a block");
         assertTrue(support.citizenService().findSession(phone).isPresent());
 
-        long second = service.report(press("celular-1", 0), joker).reportId();
-        service.discard(second, support.sessionOf(COORDINATOR));
+        var second = service.report(press("celular-1", 0), joker);
+        support.city.service().closeEmergency(second.emergencyId(), support.sessionOf(COORDINATOR));
+        service.discard(second.reportId(), support.sessionOf(COORDINATOR));
 
         assertEquals(RecordStatus.INACTIVE, support.users.findById(joker.user().getId()).orElseThrow().getStatus());
         assertTrue(support.citizenService().findSession(phone).isEmpty(), "the phone is logged out");
@@ -280,11 +314,11 @@ class PanicServiceTest {
         UserSession repeater = support.citizen(1);
         UserSession firstTimer = support.citizen(2);
 
-        service.discard(service.report(press("celular-1", 0), repeater).reportId(),
+        service.discard(support.oldReport(1, 1),
                 support.sessionOf(COORDINATOR));
 
-        long together = service.report(press("celular-1", 0), repeater).reportId();
-        service.report(press("celular-2", 30), firstTimer);
+        long together = support.oldReport(1, 1);
+        support.oldReport(2, 1);
         service.discard(together, support.sessionOf(COORDINATOR));
 
         assertEquals(RecordStatus.INACTIVE, support.users.findById(repeater.user().getId()).orElseThrow().getStatus());
@@ -299,14 +333,18 @@ class PanicServiceTest {
                 java.time.LocalDateTime.now(EmergencyTestSupport.CLOCK).minusDays(31), "x",
                 citizen.user().getId(), null, null, PanicReportStatus.DISCARDED, null));
 
-        service.discard(service.report(press("celular-1", 0), citizen).reportId(),
+        service.discard(support.oldReport(1, 1),
                 support.sessionOf(COORDINATOR));
 
         assertEquals(RecordStatus.ACTIVE, support.users.findById(citizen.user().getId()).orElseThrow().getStatus());
     }
 
-    private static PanicReport report(GeoPoint where) {
-        return new PanicReport(
-                1, where, null, "x", null, null, null, PanicReportStatus.PENDING, null);
+    private long addAmbulance(String code, int row, int column,
+                              VehicleOperationalStatus status, RecordStatus driverStatus, boolean transmit) {
+        GeoPoint location = DispatchTestSupport.at(row, column);
+        long vehicleId = support.ambulance(code, location, status);
+        var driver = support.bindDriver(code.toLowerCase(java.util.Locale.ROOT), vehicleId, driverStatus);
+        if (transmit) support.transmit(driver, location);
+        return vehicleId;
     }
 }

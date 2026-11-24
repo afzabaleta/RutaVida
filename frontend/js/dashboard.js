@@ -29,6 +29,7 @@ import { startPage } from "./page-session.js";
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 const byId = (id) => document.getElementById(id);
+const emergencyMarkers = new Set();
 
 function addText(parent, tag, text, className = "") {
   const element = document.createElement(tag);
@@ -260,6 +261,8 @@ function renderPlaces(map, stations, hospitals) {
 }
 
 function renderEmergencies(map, emergencies) {
+  for (const marker of emergencyMarkers) marker.remove();
+  emergencyMarkers.clear();
   const list = byId("emergency-list");
   list.replaceChildren();
 
@@ -289,6 +292,7 @@ if (!usesSummary) {
       ),
     );
 
+    if (marker) emergencyMarkers.add(marker);
     list.appendChild(
       makeDataCard({
         title,
@@ -389,8 +393,21 @@ async function initializeDashboard() {
   });
 
   let unitCodes = new Map();
+  let emergencyRefreshVersion = 0;
+  let nextEmergencyRefresh = Date.now() + 20000;
+  async function refreshEmergencies() {
+    const version = ++emergencyRefreshVersion;
+    nextEmergencyRefresh = Date.now() + 20000;
+    try {
+      const active = await listEmergencies();
+      if (version === emergencyRefreshVersion) renderEmergencies(map, active);
+    } catch (error) {
+      console.warn("No se pudo actualizar la lista de emergencias", error);
+    }
+  }
 
   const live = startLiveMap(map, session, {
+    onPanic: refreshEmergencies,
     onRouteChanged(mission, route) {
       const unit = unitCodes.get(mission.vehicleId)
         ?? `la unidad ${mission.vehicleId}`;
@@ -404,6 +421,7 @@ async function initializeDashboard() {
     },
 
     onSnapshot(snapshot) {
+      if (Date.now() >= nextEmergencyRefresh) refreshEmergencies();
       unitCodes = new Map(
         (snapshot.units ?? []).map((unit) => [
           unit.vehicleId,
@@ -439,7 +457,9 @@ async function initializeDashboard() {
               Number.isFinite(mission.remainingDistanceKm) ? `Restan ${mission.remainingDistanceKm.toFixed(2)} km` : null,
               Number.isFinite(mission.etaMinutes) ? `ETA ${Math.ceil(mission.etaMinutes)} min` : null,
             ].filter(Boolean).join(" · "),
-            status: mission.status ?? "En seguimiento",
+            status: mission.routeUnavailable
+              ? mission.status + " · Ruta anterior: recálculo no disponible"
+              : mission.status ?? "En seguimiento",
             action: mission.activeRouteId != null
               ? () => live.showRoute(mission.assignmentId)
               : null,
@@ -522,7 +542,9 @@ startIncidentForm(map, session, {
     hospitals,
   ] = results;
 
-  if (emergencies.status === "fulfilled") {
+  if (emergencyRefreshVersion > 0) {
+    // A more recent socket-triggered read owns the emergency list.
+  } else if (emergencies.status === "fulfilled") {
     renderEmergencies(
       map,
       emergencies.value,
