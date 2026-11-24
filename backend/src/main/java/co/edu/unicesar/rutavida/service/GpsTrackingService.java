@@ -17,16 +17,17 @@ import co.edu.unicesar.rutavida.model.VehicleLocation;
 import co.edu.unicesar.rutavida.model.enums.PositionSource;
 import co.edu.unicesar.rutavida.util.ValidationUtil;
 
+import java.time.Duration;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.Duration;
 import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 
 /**
  * Saves a real phone location only for the unit explicitly assigned to the signed-in driver.
- * Route calculation is not involved: a GPS fix only updates the operational position.
+ * A GPS fix preserves the existing routing engine, but it may ask the route monitor to replace
+ * an active mission route when the phone is materially outside its geometry.
  */
 public final class GpsTrackingService {
 
@@ -41,17 +42,35 @@ public final class GpsTrackingService {
     private final VehicleLocationDAO locations;
     private final TransactionManager transactions;
     private final Clock clock;
+    private final double deviationThresholdMeters;
+    private final Duration recalculationCooldown;
     private RouteMonitor routeMonitor;
     private final Map<Long, LocalDateTime> lastRecalculation = new java.util.concurrent.ConcurrentHashMap<>();
 
     public GpsTrackingService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
                               VehicleLocationDAO locations,
                               TransactionManager transactions, Clock clock) {
+        this(drivers, vehicles, locations, transactions, clock,
+                DEVIATION_THRESHOLD_METERS, RECALCULATION_COOLDOWN);
+    }
+
+    private GpsTrackingService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
+                               VehicleLocationDAO locations,
+                               TransactionManager transactions, Clock clock,
+                               double deviationThresholdMeters, Duration recalculationCooldown) {
         this.drivers = Objects.requireNonNull(drivers, "drivers");
         this.vehicles = Objects.requireNonNull(vehicles, "vehicles");
         this.locations = Objects.requireNonNull(locations, "locations");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
         this.clock = Objects.requireNonNull(clock, "clock");
+        if (!Double.isFinite(deviationThresholdMeters) || deviationThresholdMeters <= 0) {
+            throw new IllegalArgumentException("deviationThresholdMeters must be positive");
+        }
+        this.deviationThresholdMeters = deviationThresholdMeters;
+        this.recalculationCooldown = Objects.requireNonNull(recalculationCooldown, "recalculationCooldown");
+        if (recalculationCooldown.isNegative() || recalculationCooldown.isZero()) {
+            throw new IllegalArgumentException("recalculationCooldown must be positive");
+        }
         this.routeMonitor = null;
     }
 
@@ -59,7 +78,24 @@ public final class GpsTrackingService {
     public GpsTrackingService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
                               VehicleLocationDAO locations, TransactionManager transactions, Clock clock,
                               RouteMonitor routeMonitor) {
-        this(drivers, vehicles, locations, transactions, clock);
+        this(drivers, vehicles, locations, transactions, clock, routeMonitor,
+                DEVIATION_THRESHOLD_METERS, RECALCULATION_COOLDOWN);
+    }
+
+    /** Uses a threshold supplied by the deployment configuration (30–50 m in RutaVida). */
+    public GpsTrackingService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
+                              VehicleLocationDAO locations, TransactionManager transactions, Clock clock,
+                              RouteMonitor routeMonitor, double deviationThresholdMeters) {
+        this(drivers, vehicles, locations, transactions, clock, routeMonitor,
+                deviationThresholdMeters, RECALCULATION_COOLDOWN);
+    }
+
+    private GpsTrackingService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
+                               VehicleLocationDAO locations, TransactionManager transactions, Clock clock,
+                               RouteMonitor routeMonitor, double deviationThresholdMeters,
+                               Duration recalculationCooldown) {
+        this(drivers, vehicles, locations, transactions, clock,
+                deviationThresholdMeters, recalculationCooldown);
         this.routeMonitor = Objects.requireNonNull(routeMonitor, "routeMonitor");
     }
 
@@ -96,13 +132,13 @@ public final class GpsTrackingService {
     private boolean recalculateIfNeeded(long vehicleId, GeoPoint location, LocalDateTime now) {
         if (routeMonitor == null) return false;
         LocalDateTime previous = lastRecalculation.get(vehicleId);
-        if (previous != null && Duration.between(previous, now).compareTo(RECALCULATION_COOLDOWN) < 0) {
+        if (previous != null && Duration.between(previous, now).compareTo(recalculationCooldown) < 0) {
             return false;
         }
         boolean recalculated;
         try {
             recalculated = routeMonitor.recalculateAfterGpsDeviation(vehicleId, location,
-                    DEVIATION_THRESHOLD_METERS).isPresent();
+                    deviationThresholdMeters).isPresent();
         } catch (BusinessRuleException outsideNetwork) {
             // The GPS history remains valid even when its point cannot be snapped to the road graph.
             return false;

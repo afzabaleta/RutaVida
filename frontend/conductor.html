@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://nominatim.openstreetmap.org ws: wss:">
   <meta name="theme-color" content="#101923">
   <title>RutaVida | GPS de unidad</title>
   <script src="./js/theme-boot.js"></script>
@@ -27,7 +27,8 @@
         <div><dt>Estado</dt><dd id="gps-status" data-state="idle">Sin iniciar</dd></div>
         <div><dt>Última actualización</dt><dd id="gps-updated">—</dd></div>
         <div><dt>Velocidad</dt><dd id="gps-speed">—</dd></div>
-        <div><dt>Dirección</dt><dd id="gps-heading">—</dd></div>
+        <div><dt>Rumbo</dt><dd id="gps-heading">—</dd></div>
+        <div class="driver-address"><dt>Dirección</dt><dd id="gps-address">—</dd></div>
       </dl>
 
       <p id="gps-message" class="driver-message" role="status"></p>

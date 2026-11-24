@@ -71,6 +71,7 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
   let socket = null;
   let reconnectTimer = null;
   let lastSnapshot = null;
+  let refreshQueued = false;
 
   function drawUnits(units) {
     const slots = unitSlots(units);
@@ -111,6 +112,33 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
     }
   }
 
+  function missionTooltip(mission) {
+    return [
+      `Emergencia #${mission.emergencyId}`,
+      Number.isFinite(mission.remainingDistanceKm) ? `Restan ${mission.remainingDistanceKm.toFixed(2)} km` : null,
+      Number.isFinite(mission.etaMinutes) ? `ETA ${Math.ceil(mission.etaMinutes)} min` : null,
+    ].filter(Boolean).join(" · ");
+  }
+
+  function drawDestination(mission) {
+    const previous = destinations.get(mission.assignmentId);
+    if (!mission.destination) {
+      previous?.remove();
+      destinations.delete(mission.assignmentId);
+      return;
+    }
+
+    const text = missionTooltip(mission);
+    if (previous) {
+      previous.setLatLng(mission.destination).bindTooltip(text);
+      return;
+    }
+
+    destinations.set(mission.assignmentId, L.circleMarker(mission.destination, {
+      radius: 10, color: "#e91e3c", weight: 3, fillColor: "#ff5a70", fillOpacity: 0.85,
+    }).bindTooltip(text, { direction: "top" }).addTo(routeLayer));
+  }
+
   async function drawMissionRoutes(missions) {
     const open = new Set(missions.map((mission) => mission.assignmentId));
 
@@ -127,42 +155,20 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
 
     for (const mission of missions) {
       const drawn = lines.get(mission.assignmentId);
+      // The destination stays visible both while the route is active and after the unit arrives.
+      drawDestination(mission);
 
       if (mission.activeRouteId == null) {
         drawn?.line?.remove();
-        destinations.get(mission.assignmentId)?.remove();
-        destinations.delete(mission.assignmentId);
         lines.set(mission.assignmentId, {
           version: mission.routesVersion,
           line: null,
           route: null,
         });
-
-        const previousDestination = destinations.get(mission.assignmentId);
-        if (mission.destination) {
-          const text = [
-            `Emergencia #${mission.emergencyId}`,
-            Number.isFinite(mission.remainingDistanceKm) ? `Restan ${mission.remainingDistanceKm.toFixed(2)} km` : null,
-            Number.isFinite(mission.etaMinutes) ? `ETA ${Math.ceil(mission.etaMinutes)} min` : null,
-          ].filter(Boolean).join(" · ");
-          if (previousDestination) previousDestination.setLatLng(mission.destination).bindTooltip(text);
-          else destinations.set(mission.assignmentId, L.circleMarker(mission.destination, {
-            radius: 10, color: "#e91e3c", weight: 3, fillColor: "#ff5a70", fillOpacity: 0.85,
-          }).bindTooltip(text, { direction: "top" }).addTo(routeLayer));
-        }
         continue;
       }
 
       if (drawn && drawn.version === mission.routesVersion && drawn.line) {
-        const destination = destinations.get(mission.assignmentId);
-        if (destination && mission.destination) {
-          const text = [
-            `Emergencia #${mission.emergencyId}`,
-            Number.isFinite(mission.remainingDistanceKm) ? `Restan ${mission.remainingDistanceKm.toFixed(2)} km` : null,
-            Number.isFinite(mission.etaMinutes) ? `ETA ${Math.ceil(mission.etaMinutes)} min` : null,
-          ].filter(Boolean).join(" · ");
-          destination.setLatLng(mission.destination).bindTooltip(text);
-        }
         continue;
       }
 
@@ -225,8 +231,23 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
       onError?.(error);
     } finally {
       refreshing = false;
-      schedule();
+      if (refreshQueued) {
+        refreshQueued = false;
+        refresh();
+      } else {
+        schedule();
+      }
     }
+  }
+
+  /** Refresh route progress after a confirmed GPS point without stacking requests. */
+  function queueRefresh() {
+    clearTimeout(timer);
+    if (refreshing) {
+      refreshQueued = true;
+      return;
+    }
+    refresh();
   }
 
   function schedule() {
@@ -252,8 +273,10 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
     unit.headingDegrees = position.headingDegrees;
     unit.source = position.source;
     drawUnits(lastSnapshot.units);
-    if (position.routeRecalculated) {
-      refresh();
+    // Distance and ETA are calculated on the same existing route service. Read a fresh snapshot
+    // as soon as the GPS arrives, including when a deviation replaced the active route.
+    if (lastSnapshot.missions?.some((mission) => mission.vehicleId === position.vehicleId)) {
+      queueRefresh();
     }
     onSnapshot?.(lastSnapshot, new Map([...lines].map(([id, drawn]) => [id, drawn.route])));
   }
