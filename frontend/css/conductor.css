@@ -8,8 +8,13 @@
 .driver-data div { padding: 14px; border: 1px solid var(--control-border); border-radius: 12px; background: var(--field-bg); }
 .driver-data dt { color: var(--muted); font-size: .8rem; }
 .driver-data dd { margin: 5px 0 0; color: var(--heading); font-weight: 750; }
+.driver-address { grid-column: 1 / -1; }
+#gps-address { white-space: pre-line; line-height: 1.45; }
+#gps-status::before { content: ""; display: inline-block; width: .58rem; height: .58rem; margin-right: .42rem; border-radius: 50%; background: #94a3b8; vertical-align: .02rem; }
 #gps-status[data-state="online"] { color: #168a54; }
+#gps-status[data-state="online"]::before { background: #20b26b; }
 #gps-status[data-state="error"], #gps-status[data-state="offline"] { color: var(--danger, #c81932); }
+#gps-status[data-state="error"]::before, #gps-status[data-state="offline"]::before { background: var(--danger, #c81932); }
 .driver-message { min-height: 1.5em; margin: 10px 0; color: var(--muted); }
 .driver-message.is-error { color: var(--danger, #c81932); font-weight: 650; }
 .driver-actions { display: flex; gap: 12px; margin: 20px 0; }

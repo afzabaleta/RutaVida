@@ -60,6 +60,7 @@ jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=/etc/secrets
    | `RUTAVIDA_DB_PASSWORD` | contraseña secreta de Oracle |
    | `RUTAVIDA_ORACLE_WALLET_B64` | Base64 del ZIP completo del wallet; no del texto de un archivo individual |
    | `RUTAVIDA_CORS_ORIGINS` | `https://rutavida.vercel.app` |
+   | `RUTAVIDA_GPS_DEVIATION_METERS` | opcional; entre `30` y `50`, por defecto `40` |
 
    Para varios frontends, use URLs exactas separadas por coma. No use `*`, rutas ni barra final.
 

@@ -2,11 +2,19 @@ import { getDriverUnit, hasPermission, reportGpsPosition } from "./api-client.js
 import { startPage } from "./page-session.js";
 
 const EVERY_MS = 5000;
+const REVERSE_GEOCODE_MS = 20000;
+const ADDRESS_MOVE_METERS = 35;
+const NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse";
 const $ = (id) => document.getElementById(id);
 let watchId = null;
 let timer = null;
 let latest = null;
 let sending = false;
+let tracking = false;
+let trackingVersion = 0;
+let addressAt = 0;
+let addressPosition = null;
+let addressRequest = 0;
 
 function status(text, state = "idle") {
   $("gps-status").textContent = text;
@@ -24,14 +32,76 @@ function compass(degrees) {
   return `${names[Math.round(degrees / 45) % 8]} (${Math.round(degrees)}°)`;
 }
 
+function distanceMeters(a, b) {
+  if (!a || !b) return Number.POSITIVE_INFINITY;
+  const radius = 6371000;
+  const radians = (degrees) => degrees * Math.PI / 180;
+  const dLat = radians(b.latitude - a.latitude);
+  const dLng = radians(b.longitude - a.longitude);
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(radians(a.latitude)) * Math.cos(radians(b.latitude))
+    * Math.sin(dLng / 2) ** 2;
+  return 2 * radius * Math.asin(Math.sqrt(h));
+}
+
+function displayAddress(result) {
+  const address = result?.address ?? {};
+  const road = String(address.road ?? address.pedestrian ?? address.footway ?? address.path ?? "")
+    .replace(/^carrera\s+/i, "Cra. ")
+    .replace(/^calle\s+/i, "Cl. ");
+  const number = address.house_number;
+  const line = [road || null, number ? `#${number}` : null].filter(Boolean).join(" ");
+  const city = address.city ?? address.town ?? address.village ?? address.municipality ?? "Valledupar";
+  const region = address.state ?? address.county ?? "Cesar";
+  return line ? `${line}\n${city}, ${region}` : `${city}, ${region}`;
+}
+
+async function updateAddress(position) {
+  const point = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+  const now = Date.now();
+  if (now - addressAt < REVERSE_GEOCODE_MS
+      && distanceMeters(addressPosition, point) < ADDRESS_MOVE_METERS) {
+    return;
+  }
+
+  addressAt = now;
+  addressPosition = point;
+  const request = ++addressRequest;
+  try {
+    const query = new URLSearchParams({
+      format: "jsonv2",
+      lat: String(point.latitude),
+      lon: String(point.longitude),
+      zoom: "18",
+      addressdetails: "1",
+      "accept-language": "es",
+    });
+    const response = await fetch(`${NOMINATIM_REVERSE}?${query}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error("No se pudo consultar la dirección.");
+    const result = await response.json();
+    if (request === addressRequest) {
+      $("gps-address").textContent = displayAddress(result);
+    }
+  } catch {
+    // An address is supplementary: GPS transmission must continue if the public geocoder is unavailable.
+    const visibleAddress = $("gps-address").textContent.trim();
+    if (request === addressRequest && (!visibleAddress || visibleAddress === "—")) {
+      $("gps-address").textContent = "Dirección no disponible";
+    }
+  }
+}
+
 function applyTelemetry(position) {
   $("gps-speed").textContent = Number.isFinite(position.coords.speed)
     ? `${Math.round(position.coords.speed * 3.6)} km/h` : "No disponible";
   $("gps-heading").textContent = compass(position.coords.heading);
+  updateAddress(position);
 }
 
-async function publish() {
-  if (!latest || sending || !navigator.onLine) return;
+async function publish(version = trackingVersion) {
+  if (!tracking || version !== trackingVersion || !latest || sending || !navigator.onLine) return;
   sending = true;
   try {
     const saved = await reportGpsPosition({
@@ -40,26 +110,32 @@ async function publish() {
       speedMps: latest.coords.speed,
       headingDegrees: latest.coords.heading,
     });
-    $("gps-updated").textContent = new Date(saved.updatedAt).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    status("Transmitiendo", "online");
-    message("Ubicación enviada al mapa en vivo.");
+    if (tracking && version === trackingVersion) {
+      $("gps-updated").textContent = new Date(saved.updatedAt).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      status("Transmitiendo", "online");
+      message("Ubicación enviada al mapa en vivo.");
+    }
   } catch (error) {
-    status("Sin conexión", "offline");
-    message(error.message, true);
+    if (tracking && version === trackingVersion) {
+      status("Sin conexión", "offline");
+      message(error.message, true);
+    }
   } finally {
     sending = false;
   }
 }
 
 function stop() {
+  tracking = false;
+  trackingVersion += 1;
   if (watchId != null) navigator.geolocation.clearWatch(watchId);
   clearInterval(timer);
   watchId = null;
   timer = null;
   $("gps-start").disabled = false;
   $("gps-stop").disabled = true;
-  status("Detenido");
-  message("El teléfono dejó de compartir la ubicación.");
+  status("Desconectado", "offline");
+  message("GPS detenido.");
 }
 
 function start() {
@@ -75,19 +151,21 @@ function start() {
   }
   $("gps-start").disabled = true;
   $("gps-stop").disabled = false;
-  status("Buscando señal…");
+  tracking = true;
+  const version = ++trackingVersion;
+  status("Buscando señal…", "idle");
   message("Permite la ubicación precisa cuando el teléfono la solicite.");
   watchId = navigator.geolocation.watchPosition((position) => {
     latest = position;
     applyTelemetry(position);
-    publish();
+    publish(version);
   }, (error) => {
     const text = error.code === error.PERMISSION_DENIED ? "Debes permitir la ubicación para compartirla."
       : error.code === error.POSITION_UNAVAILABLE ? "El teléfono no pudo obtener una ubicación." : "Se agotó el tiempo para obtener la ubicación.";
     status("GPS no disponible", "error");
     message(text, true);
   }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
-  timer = setInterval(publish, EVERY_MS);
+  timer = setInterval(() => publish(version), EVERY_MS);
 }
 
 async function initialize() {
@@ -109,7 +187,7 @@ async function initialize() {
   }
   $("gps-start").addEventListener("click", start);
   $("gps-stop").addEventListener("click", stop);
-  window.addEventListener("online", () => { if (watchId != null) { status("Transmitiendo", "online"); publish(); } });
+  window.addEventListener("online", () => { if (tracking) { status("Buscando señal…", "idle"); publish(); } });
   window.addEventListener("offline", () => status("Sin conexión", "offline"));
   window.addEventListener("pagehide", stop);
 }
