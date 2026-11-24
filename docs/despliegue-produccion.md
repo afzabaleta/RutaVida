@@ -41,19 +41,7 @@ No suba `backend/db.properties`, wallets, contraseñas ni `dist/` a Git.
 4. Descargue el wallet de Oracle y guárdelo solo en un equipo seguro.
 5. Si se habilita una ACL de Oracle, permita las IP de salida del servicio Render o una IP de salida dedicada. No abra la base a `0.0.0.0/0`.
 
-En Render, cargue los archivos descomprimidos del wallet como **Secret Files** con sus nombres originales. Los principales son:
-
-```text
-tnsnames.ora
-sqlnet.ora
-cwallet.sso
-ewallet.p12
-keystore.jks
-truststore.jks
-ojdbc.properties
-```
-
-Render los monta en `/etc/secrets/`. La URL JDBC debe apuntar allí, por ejemplo:
+El wallet incluye archivos binarios como `cwallet.sso` y `ewallet.p12`. Render Secret Files acepta texto plano, por lo que RutaVida recibe el ZIP completo codificado en Base64 y lo extrae únicamente al iniciar el contenedor en una carpeta temporal. La URL JDBC debe conservar `TNS_ADMIN=/etc/secrets`: el contenedor la reemplaza internamente por esa carpeta temporal antes de conectar:
 
 ```text
 jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=/etc/secrets
@@ -70,11 +58,21 @@ jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=/etc/secrets
    | `RUTAVIDA_DB_URL` | `jdbc:oracle:thin:@rutavida_low?TNS_ADMIN=/etc/secrets` |
    | `RUTAVIDA_DB_USER` | `rutavida` |
    | `RUTAVIDA_DB_PASSWORD` | contraseña secreta de Oracle |
+   | `RUTAVIDA_ORACLE_WALLET_B64` | Base64 del ZIP completo del wallet; no del texto de un archivo individual |
    | `RUTAVIDA_CORS_ORIGINS` | `https://rutavida.vercel.app` |
 
    Para varios frontends, use URLs exactas separadas por coma. No use `*`, rutas ni barra final.
 
-4. Cargue los archivos del wallet como Secret Files y haga Deploy.
+4. En PowerShell, cree una copia ZIP temporal del **contenido** de la carpeta del wallet y cópiela codificada en Base64. Sustituya la ruta por la de su wallet; no ejecute esto dentro del repositorio:
+
+   ```powershell
+   $walletDir = 'C:\oracle\wallet\Wallet_rutavida'
+   $walletZip = Join-Path $env:TEMP 'rutavida-oracle-wallet.zip'
+   Compress-Archive -Path "$walletDir\*" -DestinationPath $walletZip -Force
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes($walletZip)) | Set-Clipboard
+   ```
+
+   Pegue el contenido del portapapeles como valor de `RUTAVIDA_ORACLE_WALLET_B64` en Render y elija **Save and deploy**. No suba el ZIP ni su Base64 a GitHub, chat, Vercel ni a Secret Files.
 5. Render entrega una URL como `https://rutavida-api.onrender.com`. El backend lee automáticamente `PORT`, escucha en `0.0.0.0` y usa `/health` como comprobación.
 6. Compruebe que inició correctamente:
 
