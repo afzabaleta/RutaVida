@@ -399,7 +399,7 @@ async function initializeDashboard() {
       const minutes = route.estimatedMinutes.toLocaleString("es-CO", { maximumFractionDigits: 1 });
 
       simulation?.routeChanged(
-        `Ruta recalculada: ${unit} toma un camino nuevo (${km} km, ${minutes} min). Tráfico SIMULADO.`
+        `Ruta recalculada: ${unit} toma un camino nuevo (${km} km, ${minutes} min).`
       );
     },
 

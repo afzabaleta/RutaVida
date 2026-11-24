@@ -94,6 +94,6 @@ public class InMemoryEmergencyAssignmentDAO implements EmergencyAssignmentDAO {
     private static EmergencyAssignment copy(EmergencyAssignment source) {
         return new EmergencyAssignment(source.getId(), source.getEmergencyId(), source.getVehicleId(),
                 source.getCoordinatorUserId(), source.getAssignedAt(), source.getDepartedAt(),
-                source.getArrivedAt(), source.getStatus());
+                source.getArrivedAt(), source.getFinishedAt(), source.getStatus());
     }
 }

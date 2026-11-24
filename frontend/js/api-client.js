@@ -557,6 +557,31 @@ export function reportGpsPosition({ latitude, longitude, speedMps, headingDegree
   });
 }
 
+/** The driver's own open mission and its emergency, never the rest of the fleet. */
+export function getDriverMission() {
+  return request("GET", "/api/gps/mission");
+}
+
+/** Registers the first confirmed GPS reading of a sharing session. */
+export function startDriverGpsSession() {
+  return request("POST", "/api/gps/session/start");
+}
+
+/** Registers a manual GPS stop; it never changes the mission state. */
+export function stopDriverGpsSession() {
+  return request("POST", "/api/gps/session/stop");
+}
+
+/** Confirms arrival of the unit assigned to the logged-in driver. */
+export function confirmDriverArrival() {
+  return request("POST", "/api/gps/mission/arrival");
+}
+
+/** Finishes attention for the driver's assigned mission without stopping GPS. */
+export function finishDriverAttention() {
+  return request("POST", "/api/gps/mission/finish");
+}
+
 /** Lists alerts of the current user. */
 export function listAlerts(onlyUnread = false) {
   return request(

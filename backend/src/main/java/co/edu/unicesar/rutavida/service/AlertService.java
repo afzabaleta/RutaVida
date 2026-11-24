@@ -112,6 +112,11 @@ public class AlertService {
         );
     }
 
+    /** Notifies the coordinator about a field action (arrival or end of attention). */
+    public Alert driverOperation(EmergencyAssignment assignment, AlertType type, String message) {
+        return forMission(assignment, type, message);
+    }
+
     public List<Alert> availabilityChanged(
             EmergencyVehicle vehicle,
             VehicleOperationalStatus before) {

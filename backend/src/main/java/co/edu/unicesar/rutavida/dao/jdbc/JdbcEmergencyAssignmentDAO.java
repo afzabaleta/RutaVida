@@ -16,7 +16,7 @@ public class JdbcEmergencyAssignmentDAO extends AbstractJdbcDAO implements Emerg
 
     private static final String SELECT =
             "SELECT id_asignacion, id_emergencia, id_vehiculo, id_usuario_coordinador,"
-                    + " fecha_asignacion, hora_salida, hora_llegada, estado FROM asignacion_emergencia";
+                    + " fecha_asignacion, hora_salida, hora_llegada, hora_finalizacion, estado FROM asignacion_emergencia";
 
     /** Same rule as AssignmentStatus.isOpen() and the unique index ux_asignacion_vehiculo_abierta. */
     private static final String OPEN = " estado NOT IN ('FINALIZADA', 'CANCELADA')";
@@ -24,7 +24,7 @@ public class JdbcEmergencyAssignmentDAO extends AbstractJdbcDAO implements Emerg
     private static final String OLDEST_FIRST = " ORDER BY fecha_asignacion, id_asignacion";
 
     private static final String UPDATE =
-            "UPDATE asignacion_emergencia SET estado = ?, hora_salida = ?, hora_llegada = ?"
+            "UPDATE asignacion_emergencia SET estado = ?, hora_salida = ?, hora_llegada = ?, hora_finalizacion = ?"
                     + " WHERE id_asignacion = ?";
 
     private static final RowMapper<EmergencyAssignment> MAPPER = row -> new EmergencyAssignment(
@@ -35,6 +35,7 @@ public class JdbcEmergencyAssignmentDAO extends AbstractJdbcDAO implements Emerg
             getLocalDateTime(row, "fecha_asignacion"),
             getLocalDateTime(row, "hora_salida"),
             getLocalDateTime(row, "hora_llegada"),
+            getLocalDateTime(row, "hora_finalizacion"),
             AssignmentStatus.fromCode(row.getString("estado")));
 
     public JdbcEmergencyAssignmentDAO(JdbcTransactionManager connections) {
@@ -84,7 +85,7 @@ public class JdbcEmergencyAssignmentDAO extends AbstractJdbcDAO implements Emerg
             throw new IllegalArgumentException("Only a saved assignment can be updated");
         }
         int rows = execute(UPDATE, assignment.getStatus(), assignment.getDepartedAt(),
-                assignment.getArrivedAt(), assignment.getId());
+                assignment.getArrivedAt(), assignment.getFinishedAt(), assignment.getId());
         if (rows == 0) {
             throw new NotFoundException("Asignación", assignment.getId());
         }

@@ -149,6 +149,28 @@ class RouteMonitorTest {
     }
 
     @Test
+    void gpsDeviationBeyondThresholdReplacesOnlyTheMissionRoute() {
+        Route old = dispatched(AMBULANCE);
+
+        Optional<Route> replacement = monitor.recalculateAfterGpsDeviation(
+                AMBULANCE, DispatchTestSupport.at(0, 1), 40);
+
+        assertTrue(replacement.isPresent());
+        assertEquals(RouteStatus.ACTIVE, replacement.orElseThrow().getStatus());
+        assertEquals(1, withStatus(RouteStatus.ACTIVE).size());
+        assertTrue(withStatus(RouteStatus.DISCARDED).stream().anyMatch(route -> route.getId() == old.getId()));
+    }
+
+    @Test
+    void gpsPositionOnTheRouteDoesNotRecalculateIt() {
+        Route old = dispatched(AMBULANCE);
+
+        assertTrue(monitor.recalculateAfterGpsDeviation(AMBULANCE, DispatchTestSupport.at(1, 1), 40).isEmpty());
+        assertEquals(RouteStatus.ACTIVE, old.getStatus());
+        assertEquals(1, withStatus(RouteStatus.ACTIVE).size());
+    }
+
+    @Test
     void theRuleOfRn09() {
         assertTrue(RouteMonitor.shouldReplace(100, 84), "saves 16 %");
         assertFalse(RouteMonitor.shouldReplace(100, 86), "saves 14 % and 14 s");

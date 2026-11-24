@@ -7,6 +7,7 @@ import co.edu.unicesar.rutavida.controller.CitizenController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
+import co.edu.unicesar.rutavida.controller.DriverOperationController;
 import co.edu.unicesar.rutavida.service.DispatchService;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.FleetController;
@@ -64,6 +65,7 @@ import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.CatalogService;
 import co.edu.unicesar.rutavida.service.CitizenService;
 import co.edu.unicesar.rutavida.service.DashboardService;
+import co.edu.unicesar.rutavida.service.DriverOperationService;
 import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.FleetService;
@@ -120,6 +122,10 @@ import java.util.Random;
  */
 public final class AppContext {
 
+    private static final String GPS_DEVIATION_METERS_ENV = "RUTAVIDA_GPS_DEVIATION_METERS";
+    private static final double MIN_GPS_DEVIATION_METERS = 30;
+    private static final double MAX_GPS_DEVIATION_METERS = 50;
+
     /** Seed of the simulated traffic: the same demo gives the same traffic every time (K2). */
     static final long TRAFFIC_SEED = 2026L;
     /** Seed of the rounds of the patrols: the same demo every time (DT-10). */
@@ -146,6 +152,7 @@ public final class AppContext {
     private final FleetController fleetController;
     private final TrackingController trackingController;
     private final GpsController gpsController;
+    private final DriverOperationController driverOperationController;
     private final AuditController auditController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
@@ -246,8 +253,12 @@ public final class AppContext {
                 authService, session);
         this.gpsController = new GpsController(new GpsTrackingService(new JdbcUnitDriverDAO(jdbc),
                 new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), jdbc, clock,
-                gpsRouteMonitor()),
+                gpsRouteMonitor(), gpsDeviationMeters()),
                 authService, session);
+        this.driverOperationController = new DriverOperationController(new DriverOperationService(
+                new JdbcUnitDriverDAO(jdbc), new JdbcEmergencyVehicleDAO(jdbc),
+                new JdbcEmergencyAssignmentDAO(jdbc), new JdbcEmergencyDAO(jdbc), dispatchService(),
+                alertService, auditService, jdbc, clock), authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
     }
 
@@ -360,6 +371,11 @@ public final class AppContext {
         return gpsController;
     }
 
+    /** Field actions of the driver: start/stop evidence, arrival and finalization. */
+    public DriverOperationController driverOperationController() {
+        return driverOperationController;
+    }
+
     /**
      * True while the simulation moves the units. It does not create the engine: before the
      * first start the answer is false without loading the road graph.
@@ -396,6 +412,24 @@ public final class AppContext {
                     new JdbcEmergencyAssignmentDAO(jdbc), alertService, jdbc);
         }
         return gpsRouteMonitor;
+    }
+
+    /** GPS deviations are configurable without changing routing; values outside 30–50 m are unsafe. */
+    static double gpsDeviationMeters() {
+        String configured = System.getenv(GPS_DEVIATION_METERS_ENV);
+        if (configured == null || configured.isBlank()) {
+            return GpsTrackingService.DEVIATION_THRESHOLD_METERS;
+        }
+        final double meters;
+        try {
+            meters = Double.parseDouble(configured.trim());
+        } catch (NumberFormatException error) {
+            throw new IllegalStateException(GPS_DEVIATION_METERS_ENV + " debe ser un número entre 30 y 50.", error);
+        }
+        if (!Double.isFinite(meters) || meters < MIN_GPS_DEVIATION_METERS || meters > MAX_GPS_DEVIATION_METERS) {
+            throw new IllegalStateException(GPS_DEVIATION_METERS_ENV + " debe estar entre 30 y 50 metros.");
+        }
+        return meters;
     }
 
     /**

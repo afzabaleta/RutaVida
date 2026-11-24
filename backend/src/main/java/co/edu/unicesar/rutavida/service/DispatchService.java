@@ -243,7 +243,11 @@ public class DispatchService {
 
         return transactions.callInTransaction(() -> {
             EmergencyAssignment assignment = findAssignment(assignmentId);
-            changeStatus(assignment, next, LocalDateTime.now(clock));
+            LocalDateTime changedAt = LocalDateTime.now(clock);
+            changeStatus(assignment, next, changedAt);
+            if (next == AssignmentStatus.FINISHED) {
+                assignment.setFinishedAt(changedAt);
+            }
             assignmentDao.update(assignment);
 
             Emergency emergency = findEmergency(assignment.getEmergencyId());

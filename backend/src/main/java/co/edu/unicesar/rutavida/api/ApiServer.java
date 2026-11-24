@@ -12,11 +12,13 @@ import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.SimulationController;
 import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.GpsController;
+import co.edu.unicesar.rutavida.controller.DriverOperationController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.controller.DashboardController;
 import co.edu.unicesar.rutavida.dto.AuditQuery;
 import co.edu.unicesar.rutavida.dto.CitizenRequest;
 import co.edu.unicesar.rutavida.dto.DispatchResult;
+import co.edu.unicesar.rutavida.dto.DriverMission;
 import co.edu.unicesar.rutavida.dto.EmergencyRequest;
 import co.edu.unicesar.rutavida.dto.HospitalRequest;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
@@ -171,6 +173,7 @@ public final class ApiServer {
     private SimulationController simulation;
     private GpsController gps;
     private GpsHub gpsHub;
+    private DriverOperationController driverOperations;
     private Javalin app;
 
     /**
@@ -223,6 +226,15 @@ public final class ApiServer {
         }
         this.gps = Objects.requireNonNull(gps, "gps");
         this.gpsHub = Objects.requireNonNull(gpsHub, "gpsHub");
+        return this;
+    }
+
+    /** Adds the driver-only arrival and attention actions used by Compartir ubicación. */
+    public synchronized ApiServer withDriverOperations(DriverOperationController driverOperations) {
+        if (app != null) {
+            throw new IllegalStateException("The server is already running");
+        }
+        this.driverOperations = Objects.requireNonNull(driverOperations, "driverOperations");
         return this;
     }
 
@@ -336,6 +348,22 @@ public final class ApiServer {
                         }
                         send(ctx, result, ApiStatus.OK);
                     }));
+            if (driverOperations != null) {
+                config.routes.get("/api/gps/mission", secured(GpsController.MODULE, GpsController.REPORT,
+                        USER_ACTION, ctx -> send(ctx, driverOperations.current(), ApiStatus.OK)));
+                config.routes.post("/api/gps/session/start", secured(DriverOperationController.MODULE,
+                        DriverOperationController.OPERATE, USER_ACTION,
+                        ctx -> sendDriverMission(ctx, driverOperations.startGps())));
+                config.routes.post("/api/gps/session/stop", secured(DriverOperationController.MODULE,
+                        DriverOperationController.OPERATE, USER_ACTION,
+                        ctx -> sendDriverMission(ctx, driverOperations.stopGps())));
+                config.routes.post("/api/gps/mission/arrival", secured(DriverOperationController.MODULE,
+                        DriverOperationController.OPERATE, USER_ACTION,
+                        ctx -> sendDriverMission(ctx, driverOperations.confirmArrival())));
+                config.routes.post("/api/gps/mission/finish", secured(DriverOperationController.MODULE,
+                        DriverOperationController.OPERATE, USER_ACTION,
+                        ctx -> sendDriverMission(ctx, driverOperations.finishAttention())));
+            }
             config.routes.ws("/ws/gps", ws -> {
                 ws.onConnect(context -> {
                     String origin = context.header("Origin");
@@ -760,6 +788,14 @@ public final class ApiServer {
      * transfer (CU-11): the routes to the hospital are saved and the web reads them with 6.4.
      * Every other status goes without a hospital. The answer is always the assignment.
      */
+    /** Sends an operation result and wakes WebSocket maps as soon as its mission changed. */
+    private void sendDriverMission(Context ctx, OperationResult<DriverMission> result) {
+        if (result.success() && gpsHub != null) {
+            gpsHub.broadcastMission(result.value().unit().vehicleId());
+        }
+        send(ctx, result, ApiStatus.OK);
+    }
+
     private OperationResult<EmergencyAssignment> advanceMission(long assignmentId, AssignmentStatusRequest request) {
         AssignmentStatus status = request.status();
         if (status == null) {

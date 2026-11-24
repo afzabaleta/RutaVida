@@ -3,16 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self' https://nominatim.openstreetmap.org ws: wss:">
   <meta name="theme-color" content="#101923">
-  <title>RutaVida | GPS de unidad</title>
+  <title>RutaVida | Compartir ubicación</title>
   <script src="./js/theme-boot.js"></script>
   <link rel="icon" href="./img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./vendor/leaflet-1.9.4/leaflet.css">
   <link rel="stylesheet" href="./css/rutavida.css">
   <link rel="stylesheet" href="./css/dashboard.css">
   <link rel="stylesheet" href="./css/app-shell.css">
+  <link rel="stylesheet" href="./css/map-icons.css">
   <link rel="stylesheet" href="./css/conductor.css">
   <link rel="stylesheet" href="./css/theme.css">
+  <script src="./vendor/leaflet-1.9.4/leaflet.js"></script>
   <script type="module" src="./js/conductor.js"></script>
 </head>
 <body class="dashboard-body">
@@ -23,20 +26,75 @@
       <p id="driver-unit" class="driver-unit">Consultando tu unidad…</p>
       <p class="driver-copy">RutaVida enviará la ubicación real de este teléfono cada 5 segundos mientras mantengas esta pantalla abierta.</p>
 
-      <dl class="driver-data" aria-label="Estado del GPS">
-        <div><dt>Estado</dt><dd id="gps-status" data-state="idle">Sin iniciar</dd></div>
-        <div><dt>Última actualización</dt><dd id="gps-updated">—</dd></div>
-        <div><dt>Velocidad</dt><dd id="gps-speed">—</dd></div>
-        <div><dt>Dirección</dt><dd id="gps-heading">—</dd></div>
+      <section class="driver-map-card" aria-label="Mapa operativo de la unidad">
+        <div id="driver-map" class="driver-map" aria-label="Mapa de operación"></div>
+        <p id="driver-map-state" class="driver-map-state">GPS detenido</p>
+      </section>
+
+      <dl class="driver-data" aria-label="Estado operativo y GPS">
+        <div class="driver-stat driver-stat-gps"><dt>Estado</dt><dd id="gps-status" data-state="idle">Sin iniciar</dd></div>
+        <div class="driver-stat"><dt>Última actualización</dt><dd id="gps-updated">—</dd></div>
+        <div class="driver-stat"><dt>Velocidad</dt><dd id="gps-speed">—</dd></div>
+        <div class="driver-stat driver-address"><dt>Dirección</dt><dd id="gps-address">—</dd></div>
       </dl>
 
+      <section id="driver-route" class="driver-route" hidden aria-label="Ruta activa">
+        <div><span>Distancia restante</span><strong id="route-distance">—</strong></div>
+        <div><span>Tiempo estimado</span><strong id="route-eta">—</strong></div>
+      </section>
+
+      <section id="driver-finished" class="driver-finished" hidden aria-live="polite" aria-label="Resumen de atención finalizada">
+        <div class="driver-finished-title"><span aria-hidden="true">✓</span><div><strong>Atención finalizada</strong><small>La unidad quedó disponible. El GPS sigue activo si no lo detienes.</small></div></div>
+        <dl>
+          <div><dt>Llegada al sitio</dt><dd id="finished-arrival">—</dd></div>
+          <div><dt>Finalización</dt><dd id="finished-at">—</dd></div>
+          <div><dt>Tiempo de atención</dt><dd id="finished-duration">—</dd></div>
+          <div><dt>Estado de la unidad</dt><dd>Disponible</dd></div>
+        </dl>
+      </section>
+
+      <button id="driver-emergency" class="driver-emergency" type="button" hidden>
+        <span class="driver-emergency-icon" aria-hidden="true">!</span>
+        <span><strong>Emergencia asignada</strong><small id="driver-emergency-detail">—</small></span>
+        <span aria-hidden="true">›</span>
+      </button>
+
+      <section class="driver-hospitals" aria-labelledby="hospitals-title">
+        <div class="driver-section-head">
+          <h2 id="hospitals-title">Hospitales</h2>
+          <button id="nearby-hospitals" class="driver-link" type="button">Hospitales más cercanos</button>
+        </div>
+        <ol id="nearby-hospitals-list" class="nearby-hospitals" hidden></ol>
+      </section>
+
       <p id="gps-message" class="driver-message" role="status"></p>
-      <div class="driver-actions">
-        <button id="gps-start" class="button" type="button">Iniciar GPS</button>
-        <button id="gps-stop" class="button button-secondary" type="button" disabled>Detener</button>
+      <div class="driver-actions" aria-label="Acciones de la unidad">
+        <button id="gps-start" class="driver-action driver-action-start" type="button"><span aria-hidden="true">▷</span>Iniciar GPS</button>
+        <button id="gps-stop" class="driver-action driver-action-stop" type="button" disabled><span aria-hidden="true">□</span>Detener GPS</button>
+        <button id="mission-arrival" class="driver-action driver-action-arrival" type="button" disabled><span aria-hidden="true">●</span>Confirmar llegada al sitio</button>
+        <button id="mission-finish" class="driver-action driver-action-finish" type="button" disabled><span aria-hidden="true">⚑</span>Finalizar atención</button>
       </div>
-      <p class="driver-note">Por seguridad, solo puedes transmitir para la unidad que te asignó la coordinación. El navegador debe mostrar una conexión segura (HTTPS) para usar el GPS del teléfono.</p>
+      <p class="driver-note">La llegada y la finalización no apagan tu GPS. Solo el botón “Detener GPS” deja de compartir la ubicación.</p>
     </section>
   </main>
+
+  <div id="finish-modal" class="driver-modal" hidden role="dialog" aria-modal="true" aria-labelledby="finish-title">
+    <div class="driver-modal-panel">
+      <button id="finish-cancel-top" class="driver-modal-close" type="button" aria-label="Cerrar">×</button>
+      <p class="driver-modal-icon" aria-hidden="true">⚑</p>
+      <h2 id="finish-title">Finalizar atención</h2>
+      <p>¿Confirmas que la atención de la emergencia ha finalizado?</p>
+      <ul>
+        <li>Se registrará la hora de finalización.</li>
+        <li>Se actualizará el estado de la emergencia.</li>
+        <li>La unidad quedará disponible para nuevas emergencias.</li>
+        <li>El GPS seguirá transmitiendo si no lo detienes manualmente.</li>
+      </ul>
+      <div class="driver-modal-actions">
+        <button id="finish-cancel" class="button button-secondary" type="button">Cancelar</button>
+        <button id="finish-confirm" class="driver-action driver-action-finish" type="button">Confirmar finalización</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
