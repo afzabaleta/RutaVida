@@ -293,6 +293,7 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
         const data = JSON.parse(event.data);
         if (data.type === "ready") onConnection?.("Seguimiento en tiempo real conectado", "online");
         if (data.type === "position") applyGpsPosition(data.position);
+        if (data.type === "mission") queueRefresh();
       } catch {
         // A malformed socket frame never interrupts the five-second REST fallback.
       }

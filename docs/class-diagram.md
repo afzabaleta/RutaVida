@@ -2115,6 +2115,24 @@ classDiagram
     class GpsHub {
         +message(context: WsMessageContext) void
         +broadcast(position: GpsPosition) void
+        +broadcastMission(vehicleId: long) void
+    }
+    class DriverOperationService {
+        -drivers : UnitDriverDAO
+        -assignments : EmergencyAssignmentDAO
+        -dispatch : DispatchService
+        +current(driver: UserSession) DriverMission
+        +startGps(driver: UserSession) DriverMission
+        +stopGps(driver: UserSession) DriverMission
+        +confirmArrival(driver: UserSession) DriverMission
+        +finishAttention(driver: UserSession) DriverMission
+    }
+    class DriverOperationController {
+        +current() OperationResult~DriverMission~
+        +startGps() OperationResult~DriverMission~
+        +stopGps() OperationResult~DriverMission~
+        +confirmArrival() OperationResult~DriverMission~
+        +finishAttention() OperationResult~DriverMission~
     }
     class UnitDriverDAO {
         <<interface>>
@@ -2124,6 +2142,15 @@ classDiagram
     class JdbcUnitDriverDAO
     class DriverUnit {
         <<record>>
+    }
+    class DriverMission {
+        <<record>>
+        +unit : DriverUnit
+        +assignmentId : Long
+        +emergencyId : Long
+        +status : AssignmentStatus
+        +arrivedAt : LocalDateTime
+        +finishedAt : LocalDateTime
     }
     class GpsPosition {
         <<record>>
@@ -2161,6 +2188,10 @@ classDiagram
     GpsTrackingService --> UnitDriverDAO
     GpsController --> GpsTrackingService
     GpsHub ..> GpsPosition : WebSocket
+    DriverOperationController --> DriverOperationService
+    DriverOperationService --> UnitDriverDAO
+    DriverOperationService --> DispatchService
+    DriverOperationService --> DriverMission
     DemoScenario <|.. RoadClosureScenario
     DemoScenario <|.. RushHourScenario
     TrackingService --> VehiclePositionSource
