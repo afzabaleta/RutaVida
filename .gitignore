@@ -2,6 +2,7 @@
 backend/db.properties
 *.env
 .env
+dist/
 **/wallet/
 Wallet_*.zip
 **/Wallet_*/
