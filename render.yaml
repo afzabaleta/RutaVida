@@ -14,5 +14,9 @@ services:
         sync: false
       - key: RUTAVIDA_DB_PASSWORD
         sync: false
+      # Base64 of the complete Oracle Autonomous Database wallet ZIP. The Docker
+      # entrypoint extracts it at runtime to /etc/secrets, outside source control.
+      - key: RUTAVIDA_ORACLE_WALLET_B64
+        sync: false
       - key: RUTAVIDA_CORS_ORIGINS
         sync: false
