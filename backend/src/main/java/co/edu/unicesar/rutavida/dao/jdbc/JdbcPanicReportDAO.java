@@ -43,6 +43,13 @@ public class JdbcPanicReportDAO extends AbstractJdbcDAO implements PanicReportDA
     }
 
     @Override
+    public void lockValidation(long systemUserId) {
+        queryOne("SELECT id_usuario FROM usuario WHERE id_usuario = ? FOR UPDATE",
+                row -> row.getLong("id_usuario"), systemUserId)
+                .orElseThrow(() -> new NotFoundException("Usuario del sistema", systemUserId));
+    }
+
+    @Override
     public long insert(PanicReport report) {
         Objects.requireNonNull(report, "report");
         if (report.getId() != 0) {

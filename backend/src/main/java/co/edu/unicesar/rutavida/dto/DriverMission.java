@@ -18,7 +18,11 @@ public record DriverMission(
         AssignmentStatus status,
         LocalDateTime departedAt,
         LocalDateTime arrivedAt,
-        LocalDateTime finishedAt
+        LocalDateTime finishedAt,
+        String emergencyType,
+        String emergencyDescription,
+        LocalDateTime reportedAt,
+        TrackedMission tracking
 ) {
     public boolean active() {
         return assignmentId != null;

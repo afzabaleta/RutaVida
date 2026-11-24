@@ -47,7 +47,7 @@ public final class EmergencyTestSupport {
         public int calls;
 
         @Override
-        public <T> T callInTransaction(Supplier<T> work) {
+        public synchronized <T> T callInTransaction(Supplier<T> work) {
             calls++;
             return work.get();
         }

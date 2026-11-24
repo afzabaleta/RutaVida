@@ -3,7 +3,11 @@ package co.edu.unicesar.rutavida.service;
 
 import co.edu.unicesar.rutavida.controller.PanicController;
 import co.edu.unicesar.rutavida.controller.SessionContext;
+import co.edu.unicesar.rutavida.controller.WebTestSupport.MutableClock;
+import co.edu.unicesar.rutavida.dao.UnitDriverDAO;
 import co.edu.unicesar.rutavida.dto.PanicAlertRequest;
+import co.edu.unicesar.rutavida.dto.GpsPositionRequest;
+import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.PanicReport;
 import co.edu.unicesar.rutavida.model.Permission;
@@ -12,10 +16,14 @@ import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.enums.PanicReportStatus;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import co.edu.unicesar.rutavida.util.PasswordHasher;
 
 import java.time.LocalDateTime;
 import java.util.Set;
+import java.util.Map;
+import java.util.OptionalLong;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static co.edu.unicesar.rutavida.service.EmergencyTestSupport.CLOCK;
 
@@ -48,15 +56,28 @@ public final class PanicTestSupport {
     public final InMemoryAlertDAO alerts = new InMemoryAlertDAO();
     public final InMemoryCitizenSessionDAO phoneSessions = new InMemoryCitizenSessionDAO();
     public final PasswordHasher hasher = new PasswordHasher(1_000);
+    public final MutableClock gpsClock = new MutableClock(CLOCK.instant());
+    public final UnitDriverDAO links = new DriverLinks();
+    public final InMemoryVehicleLocationDAO locations = new InMemoryVehicleLocationDAO();
+    public final GpsTrackingService gps = new GpsTrackingService(links, city.vehicles, locations,
+            city.transactions, gpsClock, new RouteMonitor(city.routes,
+                    new RouteService(city.graph, city.routes, city.transactions, CLOCK), city.vehicles,
+                    () -> DispatchTestSupport.VEHICLE_TYPES, city.assignments,
+                    new AlertService(alerts, users, roles, city.transactions, CLOCK), city.transactions));
     private CitizenService citizenService;
 
     public PanicTestSupport() {
         roles.add(new Role(3, "COORDINADOR", "Prueba",
-                RecordStatus.ACTIVE, Set.of(DISPATCH, VIEW, MANAGE)));
+                RecordStatus.ACTIVE, Set.of(DISPATCH, VIEW, MANAGE,
+                        new Permission(10, "EMERGENCIAS", "CONSULTAR", null),
+                        new Permission(11, "RUTAS", "CONSULTAR", null))));
         roles.add(new Role(6, "POLICIA", "Prueba",
                 RecordStatus.ACTIVE, Set.of(VALIDATE, VIEW, REPORT)));
         roles.add(new Role(7, CitizenService.CITIZEN_ROLE, "Prueba",
                 RecordStatus.ACTIVE, Set.of(REPORT)));
+        roles.add(new Role(9, "BOMBERO_PARAMEDICO", "Prueba", RecordStatus.ACTIVE,
+                Set.of(new Permission(12, "GPS", "REPORTAR", null),
+                        new Permission(13, "GPS", "OPERAR", null))));
 
         user(3, "sistema.rutavida", RecordStatus.INACTIVE);
         user(3, "coordinador", RecordStatus.ACTIVE);
@@ -79,7 +100,8 @@ public final class PanicTestSupport {
         return new PanicService(
                 reports, city.emergencyTypes, users, roles,
                 emergencies, city.service(), routes,
-                alertService, audit, citizenService(), city.transactions, CLOCK);
+                alertService, audit, citizenService(), city.transactions, CLOCK, links, gps,
+                PanicService.DEFAULT_GPS_MAX_AGE);
     }
 
     /** The citizens of the button on the same users, alerts and phone sessions (DT-13). */
@@ -136,13 +158,48 @@ public final class PanicTestSupport {
                 LocalDateTime.now(CLOCK));
     }
 
-    private void user(long roleId, String username, RecordStatus status) {
+    private long user(long roleId, String username, RecordStatus status) {
         long next = users.findAll().size() + 1;
 
-        users.insert(new User(
+        return users.insert(new User(
                 0, roleId, "PRUEBA" + next, "Prueba", "Panico",
-                username + "@ejemplo.com", username, "NO_ES_UN_HASH",
+                username + "@ejemplo.com", username, hasher.hash(PASSWORD.toCharArray()),
                 status, LocalDateTime.now(CLOCK)));
+    }
+
+    public long ambulance(String code, GeoPoint location, VehicleOperationalStatus status) {
+        return city.vehicles.insert(new EmergencyVehicle(0, 1, 1, code, null, status, location, null));
+    }
+
+    public UserSession bindDriver(String username, long vehicleId, RecordStatus status) {
+        long userId = user(9, username, status);
+        links.assign(userId, vehicleId);
+        return sessionOf(userId);
+    }
+
+    public void transmit(UserSession driver, GeoPoint location) {
+        gps.record(driver, new GpsPositionRequest(location, null, null));
+    }
+
+    public LiveMapService liveMap() {
+        return new LiveMapService(city.vehicles, () -> DispatchTestSupport.VEHICLE_TYPES,
+                city.assignments, city.routes, alerts, locations,
+                new RouteService(city.graph, city.routes, city.transactions, CLOCK), () -> false, CLOCK,
+                gps::routeUnavailable);
+    }
+
+    private static final class DriverLinks implements UnitDriverDAO {
+        private final Map<Long, Long> links = new ConcurrentHashMap<>();
+        @Override public OptionalLong findVehicleIdByUser(long userId) {
+            Long id = links.get(userId);
+            return id == null ? OptionalLong.empty() : OptionalLong.of(id);
+        }
+        @Override public OptionalLong findUserIdByVehicle(long vehicleId) {
+            return links.entrySet().stream().filter(entry -> entry.getValue() == vehicleId)
+                    .mapToLong(Map.Entry::getKey).findFirst();
+        }
+        @Override public void assign(long userId, long vehicleId) { links.put(userId, vehicleId); }
+        @Override public void removeByVehicle(long vehicleId) { links.values().remove(vehicleId); }
     }
 
     /** Citizen registration with this support, for the tests of the API (CU-23). */

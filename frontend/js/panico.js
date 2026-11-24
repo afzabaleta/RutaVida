@@ -155,7 +155,7 @@ sosButton.addEventListener("click", async () => {
 
     panicStatus.textContent =
       result.message ||
-      "Reporte recibido por el servidor. Su estado depende de la validación del sistema.";
+      "Reporte recibido por el servidor.";
   } catch (error) {
     if (error.status === 401) {
       showAccountRequired("Tu sesión terminó. Inicia sesión de nuevo para enviar la alerta.");
@@ -224,9 +224,7 @@ function showAccount(session) {
 
   const note = document.createElement("p");
   note.className = "panic-hint";
-  note.textContent = hasPermission(session, "PANICO:VALIDAR")
-    ? "Como policía, tu reporte valida la alerta de inmediato."
-    : "Las alertas quedan a tu nombre. Dos alertas falsas bloquean la cuenta.";
+  note.textContent = "Un reporte valida la alerta. Dos alertas falsas bloquean la cuenta.";
 
   box.append(text, note, exit);
 }

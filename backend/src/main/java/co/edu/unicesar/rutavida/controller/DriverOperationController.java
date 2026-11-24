@@ -4,11 +4,13 @@ import co.edu.unicesar.rutavida.dto.DriverMission;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.model.UserSession;
+import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.service.AuthService;
 import co.edu.unicesar.rutavida.service.DriverOperationService;
 import co.edu.unicesar.rutavida.util.Messages;
 
 import java.util.Objects;
+import java.util.List;
 import java.util.function.Function;
 
 /** Driver-only operational endpoints for the Compartir ubicación screen. */
@@ -31,12 +33,16 @@ public final class DriverOperationController {
         return run(GpsController.REPORT, operations::current);
     }
 
+    public OperationResult<List<Route>> routes() {
+        return run(GpsController.REPORT, operations::currentRoutes);
+    }
+
     public OperationResult<DriverMission> startGps() {
         return run(OPERATE, operations::startGps);
     }
 
     public OperationResult<DriverMission> stopGps() {
-        return run(OPERATE, operations::stopGps);
+        return run(GpsController.REPORT, operations::stopGps);
     }
 
     public OperationResult<DriverMission> confirmArrival() {
@@ -47,7 +53,7 @@ public final class DriverOperationController {
         return run(OPERATE, operations::finishAttention);
     }
 
-    private OperationResult<DriverMission> run(String permission, Function<UserSession, DriverMission> work) {
+    private <T> OperationResult<T> run(String permission, Function<UserSession, T> work) {
         if (!session.isActive()) return OperationResult.error(ErrorKind.AUTHENTICATION, Messages.SESSION_REQUIRED);
         try {
             UserSession user = session.current();

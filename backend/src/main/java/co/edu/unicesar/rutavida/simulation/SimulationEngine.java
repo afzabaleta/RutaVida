@@ -92,7 +92,19 @@ public class SimulationEngine {
                             TrafficRecorder trafficRecorder, RouteMonitor routeMonitor,
                             VehicleMovementSimulator movement, TrackingService tracking, DispatchService dispatch,
                             Clock clock, Duration tick, Duration trafficEvery, PatrolSimulator patrols) {
+        this(graph, traffic, roadConditions, trafficRecorder, routeMonitor, movement, tracking, dispatch,
+                clock, tick, trafficEvery, patrols, vehicleId -> false);
+    }
+
+    private final java.util.function.LongPredicate drivenByGps;
+
+    public SimulationEngine(RoadGraph graph, SimulatedTrafficProvider traffic, RoadConditionService roadConditions,
+                            TrafficRecorder trafficRecorder, RouteMonitor routeMonitor,
+                            VehicleMovementSimulator movement, TrackingService tracking, DispatchService dispatch,
+                            Clock clock, Duration tick, Duration trafficEvery, PatrolSimulator patrols,
+                            java.util.function.LongPredicate drivenByGps) {
         this.patrols = patrols;
+        this.drivenByGps = Objects.requireNonNull(drivenByGps, "drivenByGps");
         this.graph = Objects.requireNonNull(graph, "graph");
         this.traffic = Objects.requireNonNull(traffic, "traffic");
         this.roadConditions = Objects.requireNonNull(roadConditions, "roadConditions");
@@ -215,6 +227,7 @@ public class SimulationEngine {
         Set<Long> moving = new HashSet<>();
         for (ActiveMission mission : dispatch.activeMissions()) {
             long vehicleId = mission.assignment().getVehicleId();
+            if (drivenByGps.test(vehicleId)) continue;
             moving.add(vehicleId);
             missions.put(vehicleId, mission.assignment());
             if (Objects.equals(following.get(vehicleId), mission.route().getId())) {

@@ -143,6 +143,16 @@ public class DispatchService {
      * emergency by the loaded road network is left out.
      */
     public List<UnitCandidate> candidates(long emergencyId) {
+        return candidates(emergencyId, null);
+    }
+
+    List<UnitCandidate> gpsCandidates(long emergencyId,
+                                      java.util.function.Function<EmergencyVehicle, Optional<GeoPoint>> gpsStart) {
+        return candidates(emergencyId, Objects.requireNonNull(gpsStart));
+    }
+
+    private List<UnitCandidate> candidates(long emergencyId,
+                                           java.util.function.Function<EmergencyVehicle, Optional<GeoPoint>> gpsStart) {
         Emergency emergency = findEmergency(emergencyId);
         requireReported(emergency);
         String emergencyType = emergencyTypeName(emergency);
@@ -154,8 +164,12 @@ public class DispatchService {
             if (!suits(emergencyType, vehicleType)) {
                 continue;
             }
+            if (gpsStart != null && (!"AMBULANCIA".equals(vehicleType)
+                    || assignmentDao.findOpenByVehicle(vehicle.getId()).isPresent())) {
+                continue;
+            }
             EmergencyStation station = stationDao.findById(vehicle.getStationId()).orElse(null);
-            GeoPoint start = startOf(vehicle, station);
+            GeoPoint start = gpsStart == null ? startOf(vehicle, station) : gpsStart.apply(vehicle).orElse(null);
             if (start == null) {
                 continue;
             }
@@ -169,7 +183,7 @@ public class DispatchService {
                 // This unit cannot reach the emergency by the loaded road network.
             }
         }
-        candidates.sort(Comparator.comparingDouble(UnitCandidate::etaMinutes));
+        candidates.sort(Comparator.comparingDouble(UnitCandidate::etaMinutes).thenComparingLong(UnitCandidate::vehicleId));
         return candidates;
     }
 
@@ -193,6 +207,16 @@ public class DispatchService {
      * traffic may have changed since the preview.
      */
     public DispatchResult dispatch(long emergencyId, long vehicleId, UserSession session) {
+        return dispatch(emergencyId, vehicleId, session, null);
+    }
+
+    DispatchResult dispatchGps(long emergencyId, long vehicleId, UserSession session,
+                               java.util.function.Function<EmergencyVehicle, Optional<GeoPoint>> gpsStart) {
+        return dispatch(emergencyId, vehicleId, session, Objects.requireNonNull(gpsStart));
+    }
+
+    private DispatchResult dispatch(long emergencyId, long vehicleId, UserSession session,
+                                    java.util.function.Function<EmergencyVehicle, Optional<GeoPoint>> gpsStart) {
         ValidationUtil.requireNonNull(session, "sesión");
         long userId = session.user().getId();
 
@@ -212,8 +236,13 @@ public class DispatchService {
             }
 
             VehicleProfile profile = VehicleProfile.forType(vehicleType);
-            List<RouteOption> options =
-                    routeService.calculateOptions(requireStart(vehicle), emergency.getLocation(), profile);
+            if (gpsStart != null && (!"AMBULANCIA".equals(vehicleType)
+                    || assignmentDao.findOpenByVehicle(vehicleId).isPresent())) {
+                throw new BusinessRuleException("La unidad no está disponible para el despacho GPS.");
+            }
+            GeoPoint start = gpsStart == null ? requireStart(vehicle) : gpsStart.apply(vehicle)
+                    .orElseThrow(() -> new BusinessRuleException("La ambulancia ya no tiene GPS activo."));
+            List<RouteOption> options = routeService.calculateOptions(start, emergency.getLocation(), profile);
 
             EmergencyAssignment assignment = new EmergencyAssignment(0, emergencyId, vehicleId, userId,
                     LocalDateTime.now(clock), null, null, AssignmentStatus.ASSIGNED);

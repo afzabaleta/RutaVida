@@ -9,6 +9,9 @@ import co.edu.unicesar.rutavida.controller.ReportController;
 import co.edu.unicesar.rutavida.controller.DispatchController;
 import co.edu.unicesar.rutavida.controller.EmergencyController;
 import co.edu.unicesar.rutavida.controller.FleetController;
+import co.edu.unicesar.rutavida.controller.DriverOperationController;
+import co.edu.unicesar.rutavida.controller.GpsController;
+import co.edu.unicesar.rutavida.controller.TrackingController;
 import co.edu.unicesar.rutavida.controller.HospitalController;
 import co.edu.unicesar.rutavida.controller.IncidentController;
 import co.edu.unicesar.rutavida.controller.RoadMapController;
@@ -16,10 +19,12 @@ import co.edu.unicesar.rutavida.controller.SessionContext;
 import co.edu.unicesar.rutavida.controller.UserController;
 import co.edu.unicesar.rutavida.controller.WebSessionController;
 import co.edu.unicesar.rutavida.dto.DashboardSummary;
+import co.edu.unicesar.rutavida.dto.SegmentView;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.Role;
 import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.enums.RecordStatus;
+import co.edu.unicesar.rutavida.model.enums.VehicleOperationalStatus;
 import co.edu.unicesar.rutavida.service.AuditQueryService;
 import co.edu.unicesar.rutavida.service.AlertService;
 import co.edu.unicesar.rutavida.service.AuditService;
@@ -29,6 +34,7 @@ import co.edu.unicesar.rutavida.service.ReportService;
 import co.edu.unicesar.rutavida.service.DispatchTestSupport;
 import co.edu.unicesar.rutavida.service.EmergencyTestSupport;
 import co.edu.unicesar.rutavida.service.FleetService;
+import co.edu.unicesar.rutavida.service.DriverOperationService;
 import co.edu.unicesar.rutavida.service.HospitalService;
 import co.edu.unicesar.rutavida.service.InMemoryAuditDAO;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyStationDAO;
@@ -37,7 +43,6 @@ import co.edu.unicesar.rutavida.service.InMemoryHospitalDAO;
 import co.edu.unicesar.rutavida.service.IncidentTestSupport;
 import co.edu.unicesar.rutavida.service.PanicTestSupport;
 import co.edu.unicesar.rutavida.service.RoadMapService;
-import co.edu.unicesar.rutavida.service.TrackingTestSupport;
 import co.edu.unicesar.rutavida.service.UserService;
 import co.edu.unicesar.rutavida.service.EmergencyService;
 import co.edu.unicesar.rutavida.service.InMemoryEmergencyDAO;
@@ -55,6 +60,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -62,9 +68,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -126,7 +136,12 @@ class PanicApiTest {
         DashboardController dashboard = new DashboardController(new DashboardService(
                 (since, start, end) -> new DashboardSummary(0, 0, 0, 0, 0, 0, 0, null), CLOCK));
         IncidentController incidents = new IncidentController(new IncidentTestSupport().service(), auth, session);
-        RoadMapController roadMap = new RoadMapController(new RoadMapService(ids -> List.of()));
+        var graph = panic.city.graph;
+        RoadMapController roadMap = new RoadMapController(new RoadMapService(ids ->
+                IntStream.range(0, graph.edgeCount()).mapToObj(graph::edge)
+                        .filter(edge -> ids.contains(edge.dbId()))
+                        .map(edge -> new SegmentView(edge.dbId(), "Prueba",
+                                pointAt(edge.from()), pointAt(edge.to()))).toList()));
         AlertController alerts = new AlertController(alertService, session);
         DispatchController dispatch = new DispatchController(panic.city.service(), auth, session);
 
@@ -135,10 +150,18 @@ class PanicApiTest {
             throw new UnsupportedOperationException("not used here");
         }, CLOCK));
 
-        server = new ApiServer(new WebSessionController(auth, session, CLOCK, panic.citizenService()),
+        var web = new WebSessionController(auth, session, CLOCK, panic.citizenService());
+        var gpsController = new GpsController(panic.gps, auth, session);
+        var driver = new DriverOperationController(new DriverOperationService(panic.links,
+                panic.city.vehicles, panic.city.assignments, panic.city.emergencies, panic.city.service(),
+                alertService, audit, panic.city.transactions, CLOCK, panic.city.emergencyTypes,
+                panic.liveMap(), panic.gps), auth, session);
+        server = new ApiServer(web,
                 new CatalogController(new CatalogTestSupport().service()), emergencies, dashboard, reports, incidents,
-                roadMap, alerts, dispatch, admin, new TrackingTestSupport().controller(auth, session),
-                panic.controller(auth, session), panic.citizenController(), null);
+                roadMap, alerts, dispatch, admin, new TrackingController(panic.liveMap(), auth, session),
+                panic.controller(auth, session), panic.citizenController(), null)
+                .withGps(gpsController, new GpsHub(web, gpsController::assignedVehicleId))
+                .withDriverOperations(driver);
         int port = freePort();
         server.start(port);
         base = "http://localhost:" + port;
@@ -213,31 +236,30 @@ class PanicApiTest {
     }
 
     @Test
-    void aCitizenPressesTheButtonAndIsToldToWait() throws Exception {
+    void aCitizenValidatesWithOneReportAndSeesWhenNoGpsUnitIsAvailable() throws Exception {
         HttpResponse<String> response = send("POST", "/api/panic", citizen(1), press("celular-1", 0));
 
         assertEquals(201, response.statusCode(), response.body());
         JsonNode body = json.readTree(response.body());
         assertTrue(body.get("success").asBoolean());
-        assertEquals("Su reporte quedó registrado. Esperamos la confirmación de otras personas cercanas.",
-                body.get("message").asText());
-        assertEquals("PENDIENTE", body.get("value").get("status").asText());
-        assertTrue(body.get("value").get("emergencyId").isNull());
-        assertEquals(3, body.get("value").get("reportsNeeded").asInt());
+        assertTrue(body.get("message").asText().contains("GPS activo"));
+        assertEquals("VALIDADO", body.get("value").get("status").asText());
+        assertFalse(body.get("value").get("emergencyId").isNull());
+        assertEquals(1, body.get("value").get("reportsNeeded").asInt());
     }
 
     @Test
-    void threeCitizensCloseTogetherValidateTheAlertAndAUnitIsSent() throws Exception {
-        send("POST", "/api/panic", citizen(1), press("celular-1", 0));
+    void repeatedCitizensReportsLinkToTheFirstEmergency() throws Exception {
+        var first = value(send("POST", "/api/panic", citizen(1), press("celular-1", 0)));
         send("POST", "/api/panic", citizen(2), press("celular-2", 60));
         HttpResponse<String> third = send("POST", "/api/panic", citizen(3), press("celular-3", -40));
 
         assertEquals(201, third.statusCode(), third.body());
         JsonNode body = json.readTree(third.body());
-        assertEquals("Su alerta fue validada: la ayuda va en camino.", body.get("message").asText());
+        assertTrue(body.get("message").asText().contains("vinculó"));
         assertEquals("VALIDADO", body.get("value").get("status").asText());
-        assertEquals("EJEMPLO-AMB-01", body.get("value").get("dispatchedUnit").asText());
-        assertFalse(body.get("value").get("emergencyId").isNull());
+        assertTrue(body.get("value").get("dispatchedUnit").isNull());
+        assertEquals(first.get("emergencyId"), body.get("value").get("emergencyId"));
     }
 
     @Test
@@ -289,8 +311,7 @@ class PanicApiTest {
         assertTrue(value(all).get(0).get("byPolice").asBoolean(), "newest first: the police report");
 
         JsonNode pending = value(send("GET", "/api/panic/reports?status=PENDIENTE", coordinator, null));
-        assertEquals(1, pending.size());
-        assertEquals("PENDIENTE", pending.get(0).get("status").asText());
+        assertEquals(0, pending.size());
 
         assertEquals(400, send("GET", "/api/panic/reports?status=VOLANDO", coordinator, null).statusCode());
         assertEquals(401, send("GET", "/api/panic/reports", null, null).statusCode());
@@ -299,7 +320,7 @@ class PanicApiTest {
 
     @Test
     void aCoordinatorDiscardsAPendingAlertAndOnlyThat() throws Exception {
-        long id = value(send("POST", "/api/panic", citizen(1), press("celular-1", 0))).get("reportId").asLong();
+        long id = panic.oldReport(1, 1);
         String path = "/api/panic/reports/" + id + "/status";
         String coordinator = login("coordinador.web");
 
@@ -322,7 +343,10 @@ class PanicApiTest {
         String coordinator = login("coordinador.web");
 
         for (int i = 0; i < 2; i++) {
-            long id = value(send("POST", "/api/panic", phone, press("celular-1", 0))).get("reportId").asLong();
+            JsonNode report = value(send("POST", "/api/panic", phone, press("celular-1", 0)));
+            long id = report.get("reportId").asLong();
+            long emergencyId = report.get("emergencyId").asLong();
+            assertEquals(200, send("POST", "/api/emergencies/" + emergencyId + "/close", coordinator, null).statusCode());
             assertEquals(200, send("PATCH", "/api/panic/reports/" + id + "/status", coordinator,
                     "{\"status\": \"DESCARTADO\"}").statusCode());
         }
@@ -332,6 +356,119 @@ class PanicApiTest {
         HttpResponse<String> again = send("POST", "/api/auth/login", null,
                 "{\"username\": \"ciudadano1\", \"password\": \"" + PASSWORD + "\"}");
         assertEquals(401, again.statusCode(), "blocked: it cannot log in again");
+    }
+
+    @Test
+    void panicPushesPrivateMissionAndBothMapsReadTheGpsRouteAndProgress() throws Exception {
+        var available = VehicleOperationalStatus.AVAILABLE;
+        long ambulance = panic.ambulance("AMB-GPS-11", DispatchTestSupport.at(1, 1), available);
+        long other = panic.ambulance("AMB-GPS-22", DispatchTestSupport.at(0, 0), available);
+        panic.bindDriver("camila.conductora", ambulance, RecordStatus.ACTIVE);
+        panic.bindDriver("tomás.conductor", other, RecordStatus.ACTIVE);
+        String driver = login("camila.conductora");
+        String unrelated = login("tomás.conductor");
+        String coordinator = login("coordinador.web");
+
+        try (var driverSocket = socket(driver, "driver");
+             var otherSocket = socket(unrelated, "driver");
+             var coordinatorSocket = socket(coordinator, "viewer")) {
+            assertEquals(200, gps(driver, DispatchTestSupport.at(1, 1)).statusCode());
+            assertEquals("position", coordinatorSocket.next().get("type").asText());
+            JsonNode report = value(send("POST", "/api/panic", citizen(1), press("panico-web", 0)));
+            long emergency = report.get("emergencyId").asLong();
+            assertEquals(ambulance, report.get("dispatchedVehicleId").asLong());
+            assertEquals("mission", driverSocket.next().get("type").asText());
+            assertEquals("mission", coordinatorSocket.next().get("type").asText());
+            assertEquals("panic", coordinatorSocket.next().get("type").asText());
+            assertNull(otherSocket.events.poll(250, TimeUnit.MILLISECONDS), "unrelated driver receives no mission");
+
+            JsonNode ownMission = value(send("GET", "/api/gps/mission", driver, null));
+            assertEquals(emergency, ownMission.get("emergencyId").asLong());
+            assertEquals("EMERGENCIA_MEDICA", ownMission.get("emergencyType").asText());
+            assertTrue(ownMission.get("tracking").get("etaMinutes").isNumber());
+            long original = ownMission.get("tracking").get("activeRouteId").asLong();
+            long assignment = ownMission.get("assignmentId").asLong();
+            JsonNode ownRoute = value(send("GET", "/api/gps/mission/routes", driver, null)).get(0);
+            assertEquals(original, ownRoute.get("routeId").asLong());
+            assertTrue(ownRoute.get("path").size() > 1);
+            assertEquals(0, value(send("GET", "/api/gps/mission/routes", unrelated, null)).size());
+            assertTrue(value(send("GET", "/api/gps/mission", unrelated, null)).get("assignmentId").isNull());
+            JsonNode staffRoute = value(send("GET", "/api/dispatches/" + assignment + "/routes", coordinator, null));
+            assertEquals(ownRoute.get("path"), staffRoute.get(0).get("path"));
+
+            assertEquals(200, gps(driver, new GeoPoint(10.60, -73.00)).statusCode());
+            assertEquals("position", coordinatorSocket.next().get("type").asText());
+            JsonNode unreachable = value(send("GET", "/api/gps/mission", driver, null)).get("tracking");
+            assertTrue(unreachable.get("routeUnavailable").asBoolean());
+            assertEquals(original, unreachable.get("activeRouteId").asLong());
+            assertTrue(value(send("GET", "/api/tracking", coordinator, null))
+                    .get("missions").get(0).get("routeUnavailable").asBoolean());
+
+            panic.gpsClock.advance(Duration.ofSeconds(21));
+            GeoPoint deviation = DispatchTestSupport.at(0, 1);
+            assertTrue(value(gps(driver, deviation)).get("routeRecalculated").asBoolean());
+            JsonNode moving = coordinatorSocket.next().get("position");
+            assertEquals(ambulance, moving.get("vehicleId").asLong());
+            assertEquals(deviation.latitude(), moving.get("location").get("latitude").asDouble(), 0.000001);
+            JsonNode revised = value(send("GET", "/api/gps/mission", driver, null)).get("tracking");
+            assertTrue(revised.get("activeRouteId").asLong() != original);
+            JsonNode staffMission = value(send("GET", "/api/tracking", coordinator, null)).get("missions").get(0);
+            assertEquals(revised.get("activeRouteId"), staffMission.get("activeRouteId"));
+            assertEquals(revised.get("destination"), staffMission.get("destination"));
+
+            assertEquals(409, send("POST", "/api/gps/session/stop", driver, null).statusCode());
+            assertEquals("EN_SITIO", value(send("POST", "/api/gps/mission/arrival", driver, null)).get("status").asText());
+            JsonNode finished = value(send("POST", "/api/gps/mission/finish", driver, null));
+            assertEquals("FINALIZADA", finished.get("status").asText());
+            assertTrue(finished.get("finishedAt").isTextual());
+            assertEquals(0, value(send("GET", "/api/tracking", coordinator, null)).get("missions").size());
+        }
+    }
+
+    private GeoPoint pointAt(int index) {
+        var node = panic.city.graph.node(index);
+        return new GeoPoint(node.lat(), node.lon());
+    }
+
+    private HttpResponse<String> gps(String token, GeoPoint point) throws Exception {
+        return send("POST", "/api/gps/position", token,
+                json.writeValueAsString(java.util.Map.of("location", point)));
+    }
+
+    private SocketEvents socket(String token, String audience) throws Exception {
+        SocketEvents events = new SocketEvents();
+        events.socket = http.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(5))
+                .buildAsync(URI.create(base.replace("http:", "ws:") + "/ws/gps"), events)
+                .get(5, TimeUnit.SECONDS);
+        events.socket.sendText(json.writeValueAsString(java.util.Map.of(
+                "type", "auth", "token", token, "audience", audience)), true).get(5, TimeUnit.SECONDS);
+        assertEquals("ready", events.next().get("type").asText());
+        return events;
+    }
+
+    private final class SocketEvents implements WebSocket.Listener, AutoCloseable {
+        final LinkedBlockingQueue<String> events = new LinkedBlockingQueue<>();
+        final StringBuilder frame = new StringBuilder();
+        WebSocket socket;
+
+        @Override
+        public java.util.concurrent.CompletionStage<?> onText(WebSocket source, CharSequence data, boolean last) {
+            frame.append(data);
+            if (last) {
+                events.add(frame.toString());
+                frame.setLength(0);
+            }
+            source.request(1);
+            return null;
+        }
+
+        JsonNode next() throws Exception {
+            String event = events.poll(5, TimeUnit.SECONDS);
+            if (event == null) throw new AssertionError("WebSocket event did not arrive");
+            return json.readTree(event);
+        }
+
+        @Override public void close() { socket.abort(); }
     }
 
     // ------------------------------------------------------------------ helpers

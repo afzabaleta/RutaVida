@@ -153,6 +153,7 @@ public final class AppContext {
     private final TrackingController trackingController;
     private final GpsController gpsController;
     private final DriverOperationController driverOperationController;
+    private final GpsTrackingService gpsTracking;
     private final AuditController auditController;
     private final GraphLoader graphLoader;
     private final AuthService authService;
@@ -246,19 +247,20 @@ public final class AppContext {
 
         // Live map (A12e): positions, open missions and unread alerts. The simulation engine
         // (K9, simulationEngine()) gives the "running" flag through isSimulationRunning().
-        this.trackingController = new TrackingController(new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
+        this.gpsTracking = new GpsTrackingService(new JdbcUnitDriverDAO(jdbc),
+                new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), jdbc, clock,
+                gpsRouteMonitor(), gpsDeviationMeters());
+        LiveMapService liveMap = new LiveMapService(new JdbcEmergencyVehicleDAO(jdbc),
                 new JdbcVehicleTypeDAO(jdbc), new JdbcEmergencyAssignmentDAO(jdbc), new JdbcRouteDAO(jdbc),
                 new JdbcAlertDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), routeService(),
-                this::isSimulationRunning, clock),
-                authService, session);
-        this.gpsController = new GpsController(new GpsTrackingService(new JdbcUnitDriverDAO(jdbc),
-                new JdbcEmergencyVehicleDAO(jdbc), new JdbcVehicleLocationDAO(jdbc), jdbc, clock,
-                gpsRouteMonitor(), gpsDeviationMeters()),
-                authService, session);
+                this::isSimulationRunning, clock, gpsTracking::routeUnavailable);
+        this.trackingController = new TrackingController(liveMap, authService, session);
+        this.gpsController = new GpsController(gpsTracking, authService, session);
         this.driverOperationController = new DriverOperationController(new DriverOperationService(
                 new JdbcUnitDriverDAO(jdbc), new JdbcEmergencyVehicleDAO(jdbc),
                 new JdbcEmergencyAssignmentDAO(jdbc), new JdbcEmergencyDAO(jdbc), dispatchService(),
-                alertService, auditService, jdbc, clock), authService, session);
+                alertService, auditService, jdbc, clock, new JdbcEmergencyTypeDAO(jdbc), liveMap, gpsTracking),
+                authService, session);
         // Next DAOs, services and controllers are created here as they are implemented.
     }
 
@@ -472,12 +474,14 @@ public final class AppContext {
                     new JdbcEmergencyAssignmentDAO(jdbc), alertService, jdbc);
             TrackingService tracking = new TrackingService(movement, new JdbcEmergencyVehicleDAO(jdbc),
                     new JdbcVehicleLocationDAO(jdbc), dispatchService(), jdbc);
+            JdbcUnitDriverDAO unitDrivers = new JdbcUnitDriverDAO(jdbc);
             simulationEngine = new SimulationEngine(graph,
                     new SimulatedTrafficProvider(graph, new Random(TRAFFIC_SEED), clock),
                     new RoadConditionService(graph, new JdbcRoadIncidentDAO(jdbc), clock),
                     new TrafficRecorder(graph, new JdbcTrafficReadingDAO(jdbc), jdbc, clock),
                     monitor, movement, tracking, dispatchService(), clock,
-                    SimulationEngine.DEFAULT_TICK, SimulationEngine.DEFAULT_TRAFFIC_EVERY, patrols(graph));
+                    SimulationEngine.DEFAULT_TICK, SimulationEngine.DEFAULT_TRAFFIC_EVERY, patrols(graph),
+                    vehicleId -> unitDrivers.findUserIdByVehicle(vehicleId).isPresent());
         }
         return simulationEngine;
     }
@@ -537,10 +541,17 @@ public final class AppContext {
         if (panicController == null) {
             PanicService panicService = new PanicService(new JdbcPanicReportDAO(jdbc),
                     new JdbcEmergencyTypeDAO(jdbc), userDao, roleDao, emergencyService, dispatchService(),
-                    routeService(), alertService, auditService, citizenService, jdbc, clock);
+                    routeService(), alertService, auditService, citizenService, jdbc, clock,
+                    new JdbcUnitDriverDAO(jdbc), gpsTracking, panicGpsMaxAge());
             panicController = new PanicController(panicService, authService, session);
         }
         return panicController;
+    }
+
+    private static java.time.Duration panicGpsMaxAge() {
+        String value = System.getenv("RUTAVIDA_PANIC_GPS_MAX_AGE_SECONDS");
+        return value == null || value.isBlank() ? PanicService.DEFAULT_GPS_MAX_AGE
+                : java.time.Duration.ofSeconds(Long.parseLong(value.trim()));
     }
 
     /** Citizen registration of the panic button (CU-23, DT-13). */

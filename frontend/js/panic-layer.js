@@ -106,11 +106,11 @@ export function startPanicLayer(map, session, elements = {}) {
           card.appendChild(focus);
         }
 
-        if (pending && hasPermission(session, "PANICO:GESTIONAR")) {
+        if ((pending || report.status === "VALIDADO") && hasPermission(session, "PANICO:GESTIONAR")) {
           const discard = document.createElement("button");
           discard.type = "button";
           discard.className = "panic-discard";
-          discard.textContent = "Descartar reporte";
+          discard.textContent = pending ? "Descartar reporte" : "Marcar reporte falso";
 
           discard.addEventListener("click", async () => {
             if (!window.confirm(`¿Descartar el reporte SOS #${report.id}?`)) {

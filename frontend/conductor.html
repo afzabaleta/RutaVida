@@ -26,6 +26,18 @@
       <p id="driver-unit" class="driver-unit">Consultando tu unidad…</p>
       <p class="driver-copy">RutaVida enviará la ubicación real de este teléfono cada 5 segundos mientras mantengas esta pantalla abierta.</p>
 
+      <button id="driver-emergency" class="driver-emergency" type="button" hidden>
+        <span class="driver-emergency-icon" aria-hidden="true">!</span>
+        <span>
+          <strong id="driver-emergency-title">Emergencia asignada</strong>
+          <small id="driver-emergency-detail"></small>
+          <small id="driver-emergency-address"></small>
+          <small id="driver-emergency-description"></small>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
+      <p id="driver-announcement" class="visually-hidden" role="status"></p>
+
       <section class="driver-map-card" aria-label="Mapa operativo de la unidad">
         <div id="driver-map" class="driver-map" aria-label="Mapa de operación"></div>
         <p id="driver-map-state" class="driver-map-state">GPS detenido</p>
@@ -42,6 +54,7 @@
         <div><span>Distancia restante</span><strong id="route-distance">—</strong></div>
         <div><span>Tiempo estimado</span><strong id="route-eta">—</strong></div>
       </section>
+      <p id="driver-route-warning" class="driver-route-warning" hidden role="status"></p>
 
       <section id="driver-finished" class="driver-finished" hidden aria-live="polite" aria-label="Resumen de atención finalizada">
         <div class="driver-finished-title"><span aria-hidden="true">✓</span><div><strong>Atención finalizada</strong><small>La unidad quedó disponible. El GPS sigue activo si no lo detienes.</small></div></div>
@@ -52,12 +65,6 @@
           <div><dt>Estado de la unidad</dt><dd>Disponible</dd></div>
         </dl>
       </section>
-
-      <button id="driver-emergency" class="driver-emergency" type="button" hidden>
-        <span class="driver-emergency-icon" aria-hidden="true">!</span>
-        <span><strong>Emergencia asignada</strong><small id="driver-emergency-detail">—</small></span>
-        <span aria-hidden="true">›</span>
-      </button>
 
       <section class="driver-hospitals" aria-labelledby="hospitals-title">
         <div class="driver-section-head">

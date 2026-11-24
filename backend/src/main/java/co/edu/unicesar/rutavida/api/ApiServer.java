@@ -350,12 +350,14 @@ public final class ApiServer {
                     }));
             if (driverOperations != null) {
                 config.routes.get("/api/gps/mission", secured(GpsController.MODULE, GpsController.REPORT,
-                        USER_ACTION, ctx -> send(ctx, driverOperations.current(), ApiStatus.OK)));
+                        AUTOMATIC, ctx -> send(ctx, driverOperations.current(), ApiStatus.OK)));
+                config.routes.get("/api/gps/mission/routes", secured(GpsController.MODULE, GpsController.REPORT,
+                        AUTOMATIC, ctx -> send(ctx, roadMap.routesOnMap(driverOperations.routes()), ApiStatus.OK)));
                 config.routes.post("/api/gps/session/start", secured(DriverOperationController.MODULE,
                         DriverOperationController.OPERATE, USER_ACTION,
                         ctx -> sendDriverMission(ctx, driverOperations.startGps())));
-                config.routes.post("/api/gps/session/stop", secured(DriverOperationController.MODULE,
-                        DriverOperationController.OPERATE, USER_ACTION,
+                config.routes.post("/api/gps/session/stop", secured(GpsController.MODULE,
+                        GpsController.REPORT, USER_ACTION,
                         ctx -> sendDriverMission(ctx, driverOperations.stopGps())));
                 config.routes.post("/api/gps/mission/arrival", secured(DriverOperationController.MODULE,
                         DriverOperationController.OPERATE, USER_ACTION,
@@ -592,7 +594,13 @@ public final class ApiServer {
             send(ctx, OperationResult.error(ErrorKind.BUSINESS_RULE, TOO_MANY_PANIC), ApiStatus.OK);
             return;
         }
-        send(ctx, panic.report(readBody(ctx, PanicAlertRequest.class)), ApiStatus.CREATED);
+        var result = panic.report(readBody(ctx, PanicAlertRequest.class));
+        if (result.success() && gpsHub != null && result.value().createdEmergency()) {
+            Long vehicleId = result.value().dispatchedVehicleId();
+            if (vehicleId != null) gpsHub.broadcastMission(vehicleId);
+            gpsHub.broadcastPanic();
+        }
+        send(ctx, result, ApiStatus.CREATED);
     }
 
     /** The filters of GET /api/audit: from, to, module, userId, result and limit, all optional. */

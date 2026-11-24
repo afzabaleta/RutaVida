@@ -2,6 +2,7 @@ package co.edu.unicesar.rutavida.service;
 
 import co.edu.unicesar.rutavida.dao.EmergencyAssignmentDAO;
 import co.edu.unicesar.rutavida.dao.EmergencyDAO;
+import co.edu.unicesar.rutavida.dao.EmergencyTypeDAO;
 import co.edu.unicesar.rutavida.dao.EmergencyVehicleDAO;
 import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.UnitDriverDAO;
@@ -13,6 +14,7 @@ import co.edu.unicesar.rutavida.model.Emergency;
 import co.edu.unicesar.rutavida.model.EmergencyAssignment;
 import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.GeoPoint;
+import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.enums.AlertType;
 import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
@@ -21,6 +23,7 @@ import co.edu.unicesar.rutavida.model.enums.AuditResult;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.List;
 
 /**
  * Field actions of the driver in the "Compartir ubicación" screen.  This service does not
@@ -43,11 +46,15 @@ public final class DriverOperationService {
     private final AuditService audit;
     private final TransactionManager transactions;
     private final Clock clock;
+    private final EmergencyTypeDAO emergencyTypes;
+    private final LiveMapService liveMap;
+    private final GpsTrackingService gps;
 
     public DriverOperationService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
                                   EmergencyAssignmentDAO assignments, EmergencyDAO emergencies,
                                   DispatchService dispatch, AlertService alerts, AuditService audit,
-                                  TransactionManager transactions, Clock clock) {
+                                  TransactionManager transactions, Clock clock, EmergencyTypeDAO emergencyTypes,
+                                  LiveMapService liveMap, GpsTrackingService gps) {
         this.drivers = Objects.requireNonNull(drivers, "drivers");
         this.vehicles = Objects.requireNonNull(vehicles, "vehicles");
         this.assignments = Objects.requireNonNull(assignments, "assignments");
@@ -57,6 +64,9 @@ public final class DriverOperationService {
         this.audit = Objects.requireNonNull(audit, "audit");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.emergencyTypes = Objects.requireNonNull(emergencyTypes, "emergencyTypes");
+        this.liveMap = Objects.requireNonNull(liveMap, "liveMap");
+        this.gps = Objects.requireNonNull(gps, "gps");
     }
 
     /** Context for the mobile conductor screen. A unit without an open mission still keeps GPS. */
@@ -65,6 +75,11 @@ public final class DriverOperationService {
         return assignments.findOpenByVehicle(vehicle.getId())
                 .map(assignment -> describe(vehicle, assignment))
                 .orElseGet(() -> describe(vehicle, null));
+    }
+
+    public List<Route> currentRoutes(UserSession driver) {
+        return assignments.findOpenByVehicle(ownVehicle(driver).getId())
+                .map(assignment -> dispatch.missionRoutes(assignment.getId())).orElseGet(List::of);
     }
 
     /** Records the beginning of a GPS session and marks an assigned mission as EN_RUTA. */
@@ -83,12 +98,17 @@ public final class DriverOperationService {
 
     /** Evidence of a manual stop. It intentionally leaves the mission and route untouched. */
     public DriverMission stopGps(UserSession driver) {
-        return transactions.callInTransaction(() -> {
+        DriverMission mission = transactions.callInTransaction(() -> {
             EmergencyVehicle vehicle = ownVehicle(driver);
             EmergencyAssignment assignment = assignments.findOpenByVehicle(vehicle.getId()).orElse(null);
+            if (assignment != null) {
+                throw new BusinessRuleException("Hay una misión activa. Comunícate con coordinación si necesitas detener el GPS.");
+            }
             audit(driver, STOP, assignment, vehicle, "GPS detenido por el conductor");
-            return assignment == null ? describe(vehicle, null) : describe(vehicle, assignment);
+            return describe(vehicle, null);
         });
+        gps.stopReporting(mission.unit().vehicleId());
+        return mission;
     }
 
     /**
@@ -98,7 +118,9 @@ public final class DriverOperationService {
     public DriverMission confirmArrival(UserSession driver) {
         return transactions.callInTransaction(() -> {
             EmergencyVehicle vehicle = ownVehicle(driver);
-            requireLocation(vehicle);
+            GeoPoint arrival = gps.freshLocation(vehicle.getId(), driver.user().getId(),
+                    PanicService.DEFAULT_GPS_MAX_AGE)
+                    .orElseThrow(() -> new BusinessRuleException("Espera una lectura GPS reciente antes de confirmar la llegada."));
             EmergencyAssignment assignment = openMission(vehicle);
             if (assignment.getStatus() == AssignmentStatus.ASSIGNED) {
                 assignment = dispatch.advance(assignment.getId(), AssignmentStatus.EN_ROUTE);
@@ -107,7 +129,7 @@ public final class DriverOperationService {
                 throw new BusinessRuleException("La llegada solo se confirma cuando la unidad está EN_RUTA.");
             }
             assignment = dispatch.advance(assignment.getId(), AssignmentStatus.ON_SCENE);
-            audit(driver, ARRIVE, assignment, vehicle, "Llegada confirmada al sitio");
+            audit(driver, ARRIVE, assignment, vehicle, "Llegada confirmada al sitio", arrival);
             alerts.driverOperation(assignment, AlertType.OTHER,
                     "La unidad " + vehicle.getUnitCode() + " confirmó llegada a la emergencia "
                             + assignment.getEmergencyId() + ".");
@@ -137,6 +159,7 @@ public final class DriverOperationService {
             alerts.driverOperation(assignment, AlertType.OTHER,
                     "La unidad " + vehicle.getUnitCode() + " finalizó la atención de la emergencia "
                             + assignment.getEmergencyId() + ".");
+            gps.clearRouteWarning(vehicle.getId());
             return describe(vehicle, assignment);
         });
     }
@@ -159,22 +182,32 @@ public final class DriverOperationService {
         DriverUnit unit = new DriverUnit(vehicle.getId(), vehicle.getUnitCode(), vehicle.getPlate(),
                 vehicle.getLastLocation(), vehicle.getLastLocationAt());
         if (assignment == null) {
-            return new DriverMission(unit, null, null, null, null, null, null, null, null);
+            return new DriverMission(unit, null, null, null, null, null, null, null, null,
+                    null, null, null, null);
         }
         Emergency emergency = emergencies.findById(assignment.getEmergencyId())
                 .orElseThrow(() -> new NotFoundException("Emergencia", assignment.getEmergencyId()));
         return new DriverMission(unit, assignment.getId(), assignment.getEmergencyId(),
                 emergency.getAddressReference(), emergency.getLocation(), assignment.getStatus(),
-                assignment.getDepartedAt(), assignment.getArrivedAt(), assignment.getFinishedAt());
+                assignment.getDepartedAt(), assignment.getArrivedAt(), assignment.getFinishedAt(),
+                emergencyTypes.findById(emergency.getEmergencyTypeId())
+                        .map(type -> type.getName()).orElse(null),
+                emergency.getDescription(), emergency.getReportedAt(),
+                liveMap.missionOf(assignment, vehicle));
     }
 
     private void audit(UserSession driver, String operation, EmergencyAssignment assignment,
                        EmergencyVehicle vehicle, String text) {
+        audit(driver, operation, assignment, vehicle, text, vehicle.getLastLocation());
+    }
+
+    private void audit(UserSession driver, String operation, EmergencyAssignment assignment,
+                       EmergencyVehicle vehicle, String text, GeoPoint position) {
         Long recordId = assignment == null ? vehicle.getId() : assignment.getId();
         audit.record(driver.user().getId(), AUDIT_MODULE, operation, recordId, AuditResult.SUCCESS,
                 text + "; unidad=" + vehicle.getUnitCode() + "; emergencia="
                         + (assignment == null ? "sin asignación" : assignment.getEmergencyId())
-                        + "; " + coordinates(vehicle.getLastLocation()));
+                        + "; " + coordinates(position));
     }
 
     private static void requireLocation(EmergencyVehicle vehicle) {
