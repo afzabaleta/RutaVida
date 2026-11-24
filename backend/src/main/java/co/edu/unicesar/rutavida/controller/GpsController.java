@@ -37,6 +37,12 @@ public final class GpsController {
         return run(user -> tracking.record(user, request));
     }
 
+    /** Resolves a socket subscriber from its authenticated session and current driver link. */
+    public long assignedVehicleId(UserSession user) {
+        auth.requirePermission(user, MODULE, REPORT);
+        return tracking.unitOf(user).vehicleId();
+    }
+
     private <T> OperationResult<T> run(Function<UserSession, T> work) {
         if (!session.isActive()) return OperationResult.error(ErrorKind.AUTHENTICATION, Messages.SESSION_REQUIRED);
         try {

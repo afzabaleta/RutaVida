@@ -64,7 +64,8 @@ public final class WebServer {
                         context.auditController()),
                 context.trackingController(), context.panicController(), context.citizenController(), frontend)
                 .withSimulation(context.simulationController())
-                .withGps(context.gpsController(), new GpsHub(context.webSessionController()))
+                .withGps(context.gpsController(), new GpsHub(context.webSessionController(),
+                        context.gpsController()::assignedVehicleId))
                 .withDriverOperations(context.driverOperationController());
         try {
             server.start(port);

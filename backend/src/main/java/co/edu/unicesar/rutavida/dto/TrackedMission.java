@@ -19,6 +19,7 @@ public record TrackedMission(
         int routesVersion,
         GeoPoint destination,
         Double remainingDistanceKm,
-        Double etaMinutes
+        Double etaMinutes,
+        boolean routeUnavailable
 ) {
 }

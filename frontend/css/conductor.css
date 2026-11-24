@@ -54,7 +54,11 @@
 .driver-emergency { display: flex; width: 100%; align-items: center; gap: 12px; margin-top: 15px; padding: 14px; border: 1px solid #843044; border-radius: 16px; background: linear-gradient(135deg, #37101d, #20101b); color: #fff; text-align: left; cursor: pointer; }
 .driver-emergency > span:nth-child(2) { display: grid; flex: 1; gap: 2px; min-width: 0; }
 .driver-emergency strong { font-size: .93rem; }
-.driver-emergency small { overflow: hidden; color: #d9b1bb; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.driver-emergency small { overflow-wrap: anywhere; color: #f0c8d2; font-size: .82rem; }
+.driver-emergency small:empty { display: none; }
+.driver-route-warning { color: #ff9ca7; font-size: .9rem; }
+.driver-card [hidden] { display: none; }
+.driver-card .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .driver-emergency-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: #cc263a; font-size: 1.2rem; font-weight: 900; }
 
 .driver-hospitals { margin-top: 20px; }

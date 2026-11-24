@@ -53,7 +53,7 @@ class PanicControllerTest {
     }
 
     @Test
-    void aCitizenReportsWithItsAccountAndIsToldToWait() {
+    void aCitizenReportsWithItsAccountAndValidatesImmediately() {
         assertEquals(ErrorKind.AUTHENTICATION, controller.report(press("celular-1", 0)).error(),
                 "DT-13: without an account the button does not report");
 
@@ -63,17 +63,17 @@ class PanicControllerTest {
 
         assertTrue(result.success());
         assertEquals(
-                PanicController.WAITING_FOR_OTHERS,
+                PanicController.WAITING_FOR_DISPATCH,
                 result.message()
         );
         assertEquals(
-                PanicReportStatus.PENDING,
+                PanicReportStatus.VALIDATED,
                 result.value().status()
         );
     }
 
     @Test
-    void aPoliceOfficerWithSessionValidatesAndIsToldHelpIsOnItsWay() {
+    void aPoliceOfficerValidatesAndIsInformedIfNoGpsUnitExists() {
         session.start(support.sessionOf(POLICE));
 
         OperationResult<PanicResult> result =
@@ -81,7 +81,7 @@ class PanicControllerTest {
 
         assertTrue(result.success());
         assertEquals(
-                PanicController.HELP_ON_ITS_WAY,
+                PanicController.WAITING_FOR_DISPATCH,
                 result.message()
         );
         assertEquals(
@@ -93,11 +93,7 @@ class PanicControllerTest {
     @Test
     void listingAndDiscardingNeedSessionAndPermission() {
 
-        session.start(support.citizen(1));
-        long id = controller.report(
-                press("celular-1", 0)
-        ).value().reportId();
-        session.end();
+        long id = support.oldReport(1, 1);
 
         assertEquals(
                 ErrorKind.AUTHENTICATION,

@@ -6,11 +6,13 @@ import co.edu.unicesar.rutavida.model.enums.PanicReportStatus;
  * What the panic button page receives after a report (docs/api.md 16.1).
  *
  * @param reportId       the saved report
- * @param status         PENDIENTE while it waits for other people, VALIDADO when the alert was validated
- * @param emergencyId    the emergency of the alert; null while PENDIENTE
- * @param dispatchedUnit the unit sent on its own (for example EJEMPLO-AMB-01); null if none was sent
- * @param reportsNearby  distinct people that reported within the radius and the window, this one included
- * @param reportsNeeded  people needed to validate an alert (RN-14)
+ * @param status         VALIDADO after an authenticated report
+ * @param emergencyId    the new or existing open emergency
+ * @param dispatchedUnit the eligible ambulance code, if assigned by this report
+ * @param reportsNearby  compatibility field, now 1
+ * @param reportsNeeded  compatibility field, now 1
+ * @param createdEmergency whether this report created the incident
+ * @param dispatchedVehicleId the assigned vehicle identifier, if any
  */
 public record PanicResult(
         long reportId,
@@ -18,6 +20,8 @@ public record PanicResult(
         Long emergencyId,
         String dispatchedUnit,
         int reportsNearby,
-        int reportsNeeded
+        int reportsNeeded,
+        boolean createdEmergency,
+        Long dispatchedVehicleId
 ) {
 }

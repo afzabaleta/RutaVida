@@ -497,10 +497,11 @@ Un usuario con el permiso `GPS/REPORTAR` entra a `conductor.html`. La asociació
 |---|---|---|---|
 | `GET` | `/api/gps/unit` | `GPS/REPORTAR` | Unidad asociada al conductor autenticado. |
 | `POST` | `/api/gps/position` | `GPS/REPORTAR` | Guarda `{ location, speedKmh, headingDegrees }`, actualiza la unidad y la difunde al mapa. |
-| `GET` | `/api/gps/mission` | `GPS/REPORTAR` | Contexto de la única unidad y misión abierta del conductor; nunca expone la flota. |
+| `GET` | `/api/gps/mission` | `GPS/REPORTAR` | Unidad propia, emergencia, datos del reporte y métricas de la misión abierta. |
+| `GET` | `/api/gps/mission/routes` | `GPS/REPORTAR` | Geometría de las rutas de esa misión. La unidad se obtiene de la sesión. |
 | `POST` | `/api/gps/session/start` | `GPS/OPERAR` | Audita el inicio de la sesión GPS y pasa una misión `ASIGNADA` a `EN_RUTA`. |
-| `POST` | `/api/gps/session/stop` | `GPS/OPERAR` | Audita la detención manual; no cambia la misión ni la ruta. |
-| `POST` | `/api/gps/mission/arrival` | `GPS/OPERAR` | Guarda llegada, cambia a `EN_SITIO`, audita y avisa al coordinador. El GPS continúa. |
+| `POST` | `/api/gps/session/stop` | `GPS/REPORTAR` | Invalida la señal reciente. Devuelve `409` si existe una misión activa. |
+| `POST` | `/api/gps/mission/arrival` | `GPS/OPERAR` | Exige GPS reciente, registra hora y coordenadas en auditoría, cambia a `EN_SITIO` y avisa a coordinación. |
 | `POST` | `/api/gps/mission/finish` | `GPS/OPERAR` | Guarda finalización, libera la unidad, cierra la emergencia si no quedan asignaciones abiertas y avisa al coordinador. El GPS continúa. |
 | `WS` | `/ws/gps` | `EMERGENCIAS/CONSULTAR` | Actualizaciones instantáneas. El primer mensaje debe ser `{ "type": "auth", "token": "..." }`. |
 
@@ -896,7 +897,8 @@ Errores: `400` si una fecha no tiene la forma indicada, si `from` es posterior a
 
 ### 16.1 `POST /api/panic`
 
-La página del botón (D9) la llama al presionarlo, con el token de la persona. El reporte queda a nombre de ese usuario (`REPORTE_PANICO.id_usuario`); con el token de un usuario con `PANICO/VALIDAR` (Policía), su reporte valida la alerta solo.
+La página del botón llama al endpoint con el token de la persona. Un reporte autenticado
+con permiso `PANICO/REPORTAR` valida la alerta y queda registrado a nombre de la cuenta.
 
 ```json
 { "deviceId": "8f1c2b0e-5d7a-4c61-9a0e-3f0b2f7c9d11",
@@ -904,20 +906,22 @@ La página del botón (D9) la llama al presionarlo, con el token de la persona. 
   "emergencyTypeId": 1, "description": "Hay una persona herida" }
 ```
 
-- `deviceId`: un UUID que la página genera la primera vez y guarda en el navegador. El servidor guarda solo su hash SHA-256. Desde DT-13 ya no sirve para limitar ni para contar personas (eso se hace con la cuenta), pero se conserva para los reportes anteriores y para la auditoría.
+- `deviceId` es un identificador del navegador. El servidor guarda su hash SHA-256 y limita los reportes por cuenta y dispositivo.
 - `emergencyTypeId` y `description` (máximo 200 caracteres) son opcionales.
 
 Salida `201`:
 
 ```json
 { "success": true, "message": "Su alerta fue validada: la ayuda va en camino.", "value": {
-  "reportId": 41, "status": "VALIDADO", "emergencyId": 77, "dispatchedUnit": "EJEMPLO-AMB-01",
-  "reportsNearby": 3, "reportsNeeded": 3 } }
+  "reportId": 41, "status": "VALIDADO", "emergencyId": 77, "dispatchedUnit": "AMB-01",
+  "reportsNearby": 1, "reportsNeeded": 1, "createdEmergency": true, "dispatchedVehicleId": 23 } }
 ```
 
-Si todavía no se valida: `"status": "PENDIENTE"`, `"emergencyId": null`, `"dispatchedUnit": null` y el mensaje "Su reporte quedó registrado. Esperamos la confirmación de otras personas cercanas.".
-
-Si se valida pero no hay unidad disponible: `"dispatchedUnit": null` y el mensaje "Su alerta fue validada. Un coordinador enviará una unidad.". Si ya hay una alerta validada y abierta a menos de 300 m (10 minutos), el reporte se une a ella: `"status": "VALIDADO"`, su `emergencyId` y `"dispatchedUnit": null` (no se manda otra unidad).
+Sin ambulancia elegible, los campos de unidad son `null` y la emergencia queda `REPORTADA`.
+Un reporte del mismo tipo dentro de 300 m y 10 minutos se vincula al incidente abierto con
+`createdEmergency: false`. El servidor registra el reporte y solo despacha al crear un incidente.
+El socket de coordinación recibe un evento `panic`. Tras la asignación, el conductor autenticado
+en `/ws/gps` con `audience: "driver"` recibe un evento `mission` para releer su propia misión.
 
 Errores: `400` si falta la ubicación o el `deviceId`, o la ubicación está fuera de la zona de la red vial; `401` sin sesión o con la sesión vencida (la página muestra "Necesitas una cuenta"); `403` si el rol no tiene `PANICO/REPORTAR` (un operador, por ejemplo); `409` si la persona ya envió 3 reportes en 10 minutos ("Ya envió varios reportes. Si la emergencia sigue, llame al 123.").
 
@@ -935,11 +939,16 @@ Los reportes de las últimas 2 horas, el más reciente primero, para el mapa del
 
 ### 16.3 `PATCH /api/panic/reports/{id}/status`
 
-`{ "status": "DESCARTADO" }` (cualquier otro estado da `400`): un coordinador marca como falsa una alerta pendiente. Pasan a `DESCARTADO` el reporte y los demás `PENDIENTE` a menos de 300 m en sus 10 minutos, para que un reporte más no la valide. Salida `200`: el reporte (forma de 16.2). Después, cada **ciudadano** de esos reportes que ya sume **2 alertas descartadas en 30 días** queda bloqueado (RN-16): su usuario pasa a inactivo, se cierran sus sesiones del celular, se audita `BLOQUEAR` y los coordinadores reciben una alerta. Un policía o un administrador nunca se bloquea así. `409` si el reporte no está `PENDIENTE`: una alerta ya validada no se descarta, se cierra su emergencia como falsa alarma (6.7, después de cancelar la misión si ya salió una unidad).
+Con `{ "status": "DESCARTADO" }`, coordinación puede marcar como falso un reporte pendiente
+o un reporte validado cuya emergencia ya se cerró. El historial pendiente usa el agrupamiento
+original. La operación conserva el bloqueo de ciudadanos con dos reportes descartados en 30
+días y registra el descarte en auditoría. Si la emergencia asociada sigue abierta, devuelve `409`.
 
 ### 16.4 `GET /api/panic/emergency-types`
 
-Los tipos de emergencia para la página del botón (D9), **sin sesión**: la página llena el formulario mientras comprueba la cuenta, y así el ciudadano puede decir que es un incendio para que la alerta despache bomberos. Es la misma lista de 5.1 (`GET /api/emergency-types`, que sigue pidiendo `EMERGENCIAS/CONSULTAR`); solo lee un catálogo y no tiene datos personales.
+Los tipos de emergencia para la página del botón están disponibles sin sesión. Si el tipo
+requiere otra clase de unidad, la alerta queda pendiente para coordinación. El catálogo es
+el mismo de `GET /api/emergency-types`.
 
 ```json
 { "success": true, "message": null, "value": [
@@ -947,7 +956,7 @@ Los tipos de emergencia para la página del botón (D9), **sin sesión**: la pá
 ] }
 ```
 
-Si la persona no elige tipo, la alerta validada usa el que eligieron la mayoría de los reportes cercanos, y si nadie eligió, `EMERGENCIA_MEDICA` (`PanicService`).
+Si la persona no elige un tipo, se usa `EMERGENCIA_MEDICA`.
 
 ### 16.5 `POST /api/citizens`
 

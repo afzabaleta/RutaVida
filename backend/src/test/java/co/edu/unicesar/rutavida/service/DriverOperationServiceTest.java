@@ -1,6 +1,8 @@
 package co.edu.unicesar.rutavida.service;
 
 import co.edu.unicesar.rutavida.dao.UnitDriverDAO;
+import co.edu.unicesar.rutavida.dto.GpsPositionRequest;
+import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.model.Role;
 import co.edu.unicesar.rutavida.model.User;
 import co.edu.unicesar.rutavida.model.UserSession;
@@ -18,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Field-driver lifecycle: arrival and finalization never turn the GPS session off. */
 class DriverOperationServiceTest {
@@ -32,22 +35,29 @@ class DriverOperationServiceTest {
                 EmergencyTestSupport.session("DESPACHO:GESTIONAR")).assignment().getId();
 
         InMemoryAlertDAO alerts = new InMemoryAlertDAO();
+        var links = new DriverLink(DispatchTestSupport.AMBULANCE);
+        var gps = new GpsTrackingService(links, city.vehicles, new InMemoryVehicleLocationDAO(),
+                city.transactions, EmergencyTestSupport.CLOCK);
+        var live = new LiveMapService(city.vehicles, () -> DispatchTestSupport.VEHICLE_TYPES,
+                city.assignments, city.routes, alerts, () -> false, EmergencyTestSupport.CLOCK);
         DriverOperationService service = new DriverOperationService(
-                new DriverLink(DispatchTestSupport.AMBULANCE), city.vehicles, city.assignments,
+                links, city.vehicles, city.assignments,
                 city.emergencies, city.service(),
                 new AlertService(alerts, new InMemoryUserDAO(), new InMemoryRoleDAO(), city.transactions,
                         EmergencyTestSupport.CLOCK),
                 new AuditService(city.audit, EmergencyTestSupport.CLOCK), city.transactions,
-                EmergencyTestSupport.CLOCK);
+                EmergencyTestSupport.CLOCK, city.emergencyTypes, live, gps);
 
+        assertThrows(BusinessRuleException.class, () -> service.confirmArrival(driver()));
+        gps.record(driver(), new GpsPositionRequest(DispatchTestSupport.at(1, 2), null, null));
         assertEquals(AssignmentStatus.EN_ROUTE, service.startGps(driver()).status());
 
         var onScene = service.confirmArrival(driver());
         assertEquals(AssignmentStatus.ON_SCENE, onScene.status());
         assertNotNull(onScene.arrivedAt());
 
-        // Recording an explicit stop is an audit-only action: it cannot undo the arrival.
-        assertEquals(AssignmentStatus.ON_SCENE, service.stopGps(driver()).status());
+        assertThrows(BusinessRuleException.class, () -> service.stopGps(driver()));
+        assertEquals(AssignmentStatus.ON_SCENE, service.current(driver()).status());
 
         var finished = service.finishAttention(driver());
         assertEquals(AssignmentStatus.FINISHED, finished.status());
@@ -61,6 +71,11 @@ class DriverOperationServiceTest {
         assertTrue(city.audit.saved.stream().anyMatch(log -> "CONFIRMAR_LLEGADA".equals(log.getOperation())));
         assertTrue(city.audit.saved.stream().anyMatch(log -> "FINALIZAR_ATENCION".equals(log.getOperation())));
         assertFalse(city.assignments.findOpenByVehicle(DispatchTestSupport.AMBULANCE).isPresent());
+        assertTrue(gps.freshLocation(DispatchTestSupport.AMBULANCE, DRIVER_ID,
+                PanicService.DEFAULT_GPS_MAX_AGE).isPresent());
+        service.stopGps(driver());
+        assertTrue(gps.freshLocation(DispatchTestSupport.AMBULANCE, DRIVER_ID,
+                PanicService.DEFAULT_GPS_MAX_AGE).isEmpty());
     }
 
     private static UserSession driver() {

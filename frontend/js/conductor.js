@@ -1,6 +1,6 @@
 import {
-  confirmDriverArrival, finishDriverAttention, getDriverMission, getDriverUnit, getTracking,
-  hasPermission, listHospitals, listMissionRoutes, listStations, reportGpsPosition,
+  apiWebSocketUrl, confirmDriverArrival, finishDriverAttention, getDriverMission, getDriverUnit,
+  gpsSocketToken, hasPermission, listHospitals, listDriverMissionRoutes, listStations, reportGpsPosition,
   startDriverGpsSession, stopDriverGpsSession,
 } from "./api-client.js";
 import { startPage } from "./page-session.js";
@@ -15,7 +15,8 @@ const $ = (id) => document.getElementById(id);
 let watchId = null;
 let timer = null;
 let latest = null;
-let sending = false;
+let publication = null;
+let stopping = false;
 let tracking = false;
 let trackingVersion = 0;
 let gpsSessionRecorded = false;
@@ -24,8 +25,10 @@ let addressPosition = null;
 let addressRequest = 0;
 let canOperate = false;
 let currentMission = null;
-let liveMission = null;
 let missionRefreshing = false;
+let missionRefreshQueued = false;
+let routeRequest = 0;
+let routeLoadingKey = null;
 let lastRouteKey = null;
 let map = null;
 let ownMarker = null;
@@ -246,26 +249,52 @@ function setEmergencyMarker(mission) {
 }
 
 function clearRoute() {
+  routeRequest += 1;
+  routeLoadingKey = null;
   routeLine?.remove();
   routeLine = null;
   lastRouteKey = null;
 }
 
-async function drawRoute(mission) {
-  if (!map || !mission?.assignmentId || mission.activeRouteId == null) {
+async function drawRoute(mission, active) {
+  const warning = $("driver-route-warning");
+  const enRoute = ["ASIGNADA", "EN_RUTA", "TRASLADANDO"].includes(mission?.status);
+  if (!map || !active || mission.tracking?.activeRouteId == null) {
     clearRoute();
+    warning.hidden = !active || !enRoute;
+    warning.textContent = warning.hidden ? "" : "Ruta no disponible. Informa a coordinación.";
     return;
   }
-  const key = `${mission.assignmentId}:${mission.routesVersion}`;
-  if (key === lastRouteKey) return;
+  if (mission.tracking.routeUnavailable) {
+    warning.hidden = false;
+    warning.textContent = "No se pudo recalcular desde tu ubicación. Se muestra el recorrido anterior.";
+  } else if (warning.textContent.startsWith("No se pudo recalcular")) {
+    warning.hidden = true;
+  }
+  const key = mission.assignmentId + ":" + mission.tracking.activeRouteId + ":" + mission.tracking.routesVersion;
+  if (key === lastRouteKey || key === routeLoadingKey) return;
+  if (lastRouteKey && !lastRouteKey.startsWith(mission.assignmentId + ":")) clearRoute();
+  routeLoadingKey = key;
+  const request = ++routeRequest;
   try {
-    const routes = await listMissionRoutes(mission.assignmentId);
-    const active = routes.find((route) => route.status === "ACTIVA");
+    const routes = await listDriverMissionRoutes();
+    if (request !== routeRequest) return;
+    const route = routes.find((item) => item.routeId === mission.tracking.activeRouteId
+      && item.status === "ACTIVA");
+    if (!route?.path || route.path.length < 2) {
+      throw new Error("La ruta activa todavía no está disponible.");
+    }
     routeLine?.remove();
-    routeLine = active?.path?.length > 1 ? L.polyline(active.path, { color: "#3d8bff", weight: 6, opacity: .88 }).addTo(map) : null;
+    routeLine = L.polyline(route.path, { color: "#3d8bff", weight: 6, opacity: .88 }).addTo(map);
     lastRouteKey = key;
+    if (!mission.tracking.routeUnavailable) warning.hidden = true;
   } catch (error) {
+    if (request !== routeRequest) return;
+    warning.hidden = false;
+    warning.textContent = "No se pudo mostrar la ruta actual. Informa a coordinación.";
     console.warn("No se pudo mostrar la ruta activa", error);
+  } finally {
+    if (request === routeRequest) routeLoadingKey = null;
   }
 }
 
@@ -298,20 +327,33 @@ function formatDuration(start, end) {
 }
 
 function renderMission(mission) {
+  const isNew = Boolean(mission?.assignmentId) && mission.assignmentId !== currentMission?.assignmentId;
   currentMission = mission;
   const active = Boolean(mission?.assignmentId) && mission.status !== "FINALIZADA" && mission.status !== "CANCELADA";
   const status = mission?.status;
   $("mission-arrival").disabled = !canOperate || !["ASIGNADA", "EN_RUTA"].includes(status);
   $("mission-finish").disabled = !canOperate || status !== "EN_SITIO";
-  $("driver-emergency").hidden = !mission?.emergencyId;
-  if (mission?.emergencyId) {
-    $("driver-emergency-detail").textContent = `EMG-${mission.emergencyId}${mission.emergencyAddress ? ` · ${mission.emergencyAddress}` : ""}`;
+  $("driver-emergency").hidden = !active;
+  if (active) {
+    const id = "EMG-" + mission.emergencyId;
+    const type = mission.emergencyType?.replaceAll("_", " ").toLocaleLowerCase("es-CO");
+    $("driver-emergency-detail").textContent = [id, type, formatTime(mission.reportedAt)].filter(Boolean).join(" · ");
+    $("driver-emergency-address").textContent = mission.emergencyAddress ?? "";
+    $("driver-emergency-description").textContent = mission.emergencyDescription ?? "";
+    if (isNew) {
+      $("driver-emergency-title").textContent = "Nueva emergencia asignada";
+      $("driver-announcement").textContent = "Nueva emergencia asignada " + id;
+    }
+  } else {
+    $("driver-announcement").textContent = "";
   }
-  const hasRoute = active && Number.isFinite(mission?.remainingDistanceKm);
+  const metrics = mission?.tracking;
+  const hasRoute = active && metrics?.activeRouteId != null;
   $("driver-route").hidden = !hasRoute;
   if (hasRoute) {
-    $("route-distance").textContent = `${mission.remainingDistanceKm.toFixed(2)} km`;
-    $("route-eta").textContent = Number.isFinite(mission.etaMinutes) ? `${Math.ceil(mission.etaMinutes)} min` : "—";
+    $("route-distance").textContent = Number.isFinite(metrics.remainingDistanceKm)
+      ? metrics.remainingDistanceKm.toFixed(2) + " km" : "—";
+    $("route-eta").textContent = Number.isFinite(metrics.etaMinutes) ? Math.ceil(metrics.etaMinutes) + " min" : "—";
   }
   const finished = mission?.status === "FINALIZADA" && mission.finishedAt;
   $("driver-finished").hidden = !finished;
@@ -320,33 +362,80 @@ function renderMission(mission) {
     $("finished-at").textContent = formatTime(mission.finishedAt);
     $("finished-duration").textContent = formatDuration(mission.arrivedAt, mission.finishedAt);
   }
-  setEmergencyMarker(mission);
-  drawRoute(mission);
+  setEmergencyMarker(active ? mission : null);
+  if (isNew && active && map && emergencyMarker) {
+    const points = ownMarker ? [ownMarker.getLatLng(), emergencyMarker.getLatLng()] : [emergencyMarker.getLatLng()];
+    map.fitBounds(points, { padding: [32, 32], maxZoom: 16 });
+  }
+  drawRoute(mission, active);
 }
 
 async function refreshMission() {
-  if (missionRefreshing) return;
+  if (missionRefreshing) {
+    missionRefreshQueued = true;
+    return;
+  }
   missionRefreshing = true;
   try {
-    const [mission, trackingSnapshot] = await Promise.all([getDriverMission(), getTracking()]);
-    const live = mission.assignmentId
-      ? trackingSnapshot.missions?.find((item) => item.assignmentId === mission.assignmentId)
-      : null;
-    liveMission = live ?? null;
-    const combined = live ? { ...mission, ...live } : mission;
-    if (combined.assignmentId) completedMission = null;
-    if (!combined.assignmentId && completedMission) {
+    const mission = await getDriverMission();
+    if (mission.assignmentId) completedMission = null;
+    if (!mission.assignmentId && completedMission) {
       renderMission(completedMission);
       return;
     }
-    renderMission(combined);
-    const point = combined.unit?.location;
-    if (point) updateOwnMarker([point.latitude, point.longitude]);
+    const point = mission.unit?.location;
+    if (point && !tracking) updateOwnMarker([point.latitude, point.longitude]);
+    renderMission(mission);
   } catch (error) {
     console.warn("No se pudo actualizar la misión del conductor", error);
   } finally {
     missionRefreshing = false;
+    if (missionRefreshQueued) {
+      missionRefreshQueued = false;
+      refreshMission();
+    }
   }
+}
+
+function subscribeToMission() {
+  let socket;
+  let retry;
+  const connect = () => {
+    const token = gpsSocketToken();
+    if (!token || !window.WebSocket || socket) return;
+    const connection = new WebSocket(apiWebSocketUrl("/ws/gps"));
+    socket = connection;
+    connection.addEventListener("open", () => connection.send(JSON.stringify({ type: "auth", token, audience: "driver" })));
+    connection.addEventListener("message", ({ data }) => {
+      try {
+        const { type } = JSON.parse(data);
+        if (type === "ready" || type === "mission") refreshMission();
+      } catch {
+        // The periodic REST refresh remains available.
+      }
+    });
+    connection.addEventListener("close", (event) => {
+      if (socket !== connection) return;
+      socket = null;
+      if (event.code !== 1008) retry = setTimeout(connect, EVERY_MS);
+    });
+    connection.addEventListener("error", () => connection.close());
+  };
+  let fallback = setInterval(refreshMission, EVERY_MS);
+  connect();
+  window.addEventListener("pagehide", () => {
+    clearTimeout(retry);
+    clearInterval(fallback);
+    const closing = socket;
+    socket = null;
+    closing?.close();
+  });
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) return;
+    refreshMission();
+    fallback = setInterval(refreshMission, EVERY_MS);
+    connect();
+  });
 }
 
 function estimatedHospitalMinutes(kilometers) {
@@ -401,10 +490,24 @@ function applyTelemetry(position) {
   if (!$("nearby-hospitals-list").hidden) renderNearbyHospitals();
 }
 
-async function publish(version = trackingVersion) {
-  if (!tracking || version !== trackingVersion || !latest || sending || !navigator.onLine) return;
-  sending = true;
+function publish(version = trackingVersion) {
+  if (!tracking || stopping || version !== trackingVersion || publication || !navigator.onLine) return;
+  publication = publishFix(version).finally(() => { publication = null; });
+}
+
+async function publishFix(version) {
   try {
+    // A stationary phone may stop issuing watch callbacks. Request a fresh fix instead of
+    // repeating the old coordinates and letting the server mistake them for live GPS.
+    if (!latest || Date.now() - latest.timestamp > EVERY_MS) {
+      const fix = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(
+        resolve, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 6000 },
+      ));
+      if (!tracking || stopping || version !== trackingVersion) return;
+      latest = fix;
+      applyTelemetry(fix);
+    }
+    if (Date.now() - latest.timestamp > EVERY_MS) return;
     const saved = await reportGpsPosition({ latitude: latest.coords.latitude, longitude: latest.coords.longitude, speedMps: latest.coords.speed, headingDegrees: latest.coords.heading });
     if (tracking && version === trackingVersion) {
       $("gps-updated").textContent = formatTime(saved.updatedAt);
@@ -428,27 +531,37 @@ async function publish(version = trackingVersion) {
       status("Sin conexión", "offline");
       message(error.message, true);
     }
-  } finally {
-    sending = false;
   }
 }
 
 async function stop() {
+  if (stopping) return;
+  stopping = true;
+  $("gps-stop").disabled = true;
+  try {
+    await publication;
+    if (gpsSessionRecorded || latest) await stopDriverGpsSession();
+  } catch (error) {
+    stopping = false;
+    $("gps-stop").disabled = false;
+    message(error.message, true);
+    refreshMission();
+    return;
+  }
   tracking = false;
   trackingVersion += 1;
   if (watchId != null) navigator.geolocation.clearWatch(watchId);
   clearInterval(timer);
   watchId = null;
   timer = null;
+  latest = null;
   $("gps-start").disabled = false;
   $("gps-stop").disabled = true;
   status("Desconectado", "offline");
   $("gps-updated").textContent = formatTime(new Date());
   message("GPS detenido.");
-  if (gpsSessionRecorded && canOperate) {
-    try { await stopDriverGpsSession(); } catch (error) { console.warn("No se pudo registrar la detención GPS", error); }
-  }
   gpsSessionRecorded = false;
+  stopping = false;
 }
 
 function start() {
@@ -469,10 +582,13 @@ function start() {
   status("Buscando señal…", "idle");
   message("Permite la ubicación precisa cuando el teléfono la solicite.");
   watchId = navigator.geolocation.watchPosition((position) => {
+    if (!tracking || stopping || version !== trackingVersion) return;
+    const first = latest == null;
     latest = position;
     applyTelemetry(position);
-    publish(version);
+    if (first) publish(version);
   }, (error) => {
+    if (!tracking || version !== trackingVersion) return;
     const text = error.code === error.PERMISSION_DENIED ? "Debes permitir la ubicación para compartirla."
       : error.code === error.POSITION_UNAVAILABLE ? "El teléfono no pudo obtener una ubicación." : "Se agotó el tiempo para obtener la ubicación.";
     status("GPS no disponible", "error");
@@ -537,6 +653,7 @@ async function initialize() {
     message("Ejecuta database/15_operacion_conductor.sql y vuelve a iniciar sesión para habilitar llegada y finalización.", true);
   }
   await Promise.all([loadResources(), refreshMission()]);
+  subscribeToMission();
   $("gps-start").addEventListener("click", start);
   $("gps-stop").addEventListener("click", stop);
   $("mission-arrival").addEventListener("click", confirmArrival);

@@ -562,6 +562,12 @@ export function getDriverMission() {
   return request("GET", "/api/gps/mission");
 }
 
+/** The active or proposed routes of the authenticated driver's own open mission. */
+export async function listDriverMissionRoutes() {
+  const routes = await request("GET", "/api/gps/mission/routes");
+  return routes.map(toRoute);
+}
+
 /** Registers the first confirmed GPS reading of a sharing session. */
 export function startDriverGpsSession() {
   return request("POST", "/api/gps/session/start");

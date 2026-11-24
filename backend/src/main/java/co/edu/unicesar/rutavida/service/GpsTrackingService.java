@@ -23,6 +23,9 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Saves a real phone location only for the unit explicitly assigned to the signed-in driver.
@@ -46,6 +49,33 @@ public final class GpsTrackingService {
     private final Duration recalculationCooldown;
     private RouteMonitor routeMonitor;
     private final Map<Long, LocalDateTime> lastRecalculation = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Long, DriverFix> latestFixes = new ConcurrentHashMap<>();
+    private final Set<Long> routeWarnings = ConcurrentHashMap.newKeySet();
+
+    private record DriverFix(long userId, GpsPosition position) { }
+
+    /** Only fixes accepted by this running server qualify, and a manual stop invalidates them. */
+    public Optional<GeoPoint> freshLocation(long vehicleId, long userId, Duration maxAge) {
+        DriverFix fix = latestFixes.get(vehicleId);
+        if (fix == null || fix.userId() != userId) return Optional.empty();
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDateTime recorded = fix.position().updatedAt();
+        return recorded.isAfter(now) || recorded.isBefore(now.minus(maxAge))
+                ? Optional.empty() : Optional.of(fix.position().location());
+    }
+
+    public void stopReporting(long vehicleId) {
+        latestFixes.remove(vehicleId);
+    }
+
+    public boolean routeUnavailable(long vehicleId) {
+        return routeWarnings.contains(vehicleId);
+    }
+
+    void clearRouteWarning(long vehicleId) {
+        routeWarnings.remove(vehicleId);
+        lastRecalculation.remove(vehicleId);
+    }
 
     public GpsTrackingService(UnitDriverDAO drivers, EmergencyVehicleDAO vehicles,
                               VehicleLocationDAO locations,
@@ -114,7 +144,6 @@ public final class GpsTrackingService {
         LocalDateTime now = LocalDateTime.now(clock).withNano(0);
 
         GpsPosition stored = transactions.callInTransaction(() -> {
-            // Real GPS is observational data. It must never invoke route recalculation or mission changes.
             vehicle.setLastLocation(location);
             vehicle.setLastLocationAt(now);
             vehicles.updateLocation(vehicle.getId(), location, now);
@@ -122,6 +151,7 @@ public final class GpsTrackingService {
                     speed, heading, PositionSource.GPS)));
             return new GpsPosition(vehicle.getId(), location, now, speed, heading, PositionSource.GPS, false);
         });
+        latestFixes.put(vehicle.getId(), new DriverFix(driver.user().getId(), stored));
         boolean recalculated = recalculateIfNeeded(vehicle.getId(), location, now);
         return recalculated
                 ? new GpsPosition(stored.vehicleId(), stored.location(), stored.updatedAt(), stored.speedKmh(),
@@ -139,8 +169,11 @@ public final class GpsTrackingService {
         try {
             recalculated = routeMonitor.recalculateAfterGpsDeviation(vehicleId, location,
                     deviationThresholdMeters).isPresent();
+            routeWarnings.remove(vehicleId);
         } catch (BusinessRuleException outsideNetwork) {
-            // The GPS history remains valid even when its point cannot be snapped to the road graph.
+            // Keep the assigned mission and its previous route. Both views read the warning.
+            routeWarnings.add(vehicleId);
+            lastRecalculation.put(vehicleId, now);
             return false;
         }
         if (recalculated) lastRecalculation.put(vehicleId, now);

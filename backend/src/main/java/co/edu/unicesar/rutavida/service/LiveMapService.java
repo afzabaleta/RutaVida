@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
 
 /**
@@ -53,6 +54,7 @@ public class LiveMapService {
     private final RouteService routeService;
     private final BooleanSupplier simulationRunning;
     private final Clock clock;
+    private final LongPredicate routeUnavailable;
 
     /**
      * @param simulationRunning true while the simulation moves the units; the simulation
@@ -77,6 +79,7 @@ public class LiveMapService {
         this.routeService = null;
         this.simulationRunning = Objects.requireNonNull(simulationRunning, "simulationRunning");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.routeUnavailable = vehicleId -> false;
     }
 
     /** Enables remaining GPS distance/ETA without changing legacy map construction. */
@@ -84,6 +87,14 @@ public class LiveMapService {
                           EmergencyAssignmentDAO assignmentDao, RouteDAO routeDao, AlertDAO alertDao,
                           VehicleLocationDAO locationDao, RouteService routeService,
                           BooleanSupplier simulationRunning, Clock clock) {
+        this(vehicleDao, vehicleTypeDao, assignmentDao, routeDao, alertDao, locationDao, routeService,
+                simulationRunning, clock, vehicleId -> false);
+    }
+
+    public LiveMapService(EmergencyVehicleDAO vehicleDao, VehicleTypeDAO vehicleTypeDao,
+                          EmergencyAssignmentDAO assignmentDao, RouteDAO routeDao, AlertDAO alertDao,
+                          VehicleLocationDAO locationDao, RouteService routeService,
+                          BooleanSupplier simulationRunning, Clock clock, LongPredicate routeUnavailable) {
         this.vehicleDao = Objects.requireNonNull(vehicleDao, "vehicleDao");
         this.vehicleTypeDao = Objects.requireNonNull(vehicleTypeDao, "vehicleTypeDao");
         this.assignmentDao = Objects.requireNonNull(assignmentDao, "assignmentDao");
@@ -93,6 +104,7 @@ public class LiveMapService {
         this.routeService = Objects.requireNonNull(routeService, "routeService");
         this.simulationRunning = Objects.requireNonNull(simulationRunning, "simulationRunning");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.routeUnavailable = Objects.requireNonNull(routeUnavailable, "routeUnavailable");
     }
 
     /** The whole state of the map now, for the user of the session. */
@@ -135,6 +147,17 @@ public class LiveMapService {
                 latest == null ? null : latest.getHeadingDegrees());
     }
 
+    /** Metrics for the driver's own mission using the same projection as the coordinator. */
+    TrackedMission missionOf(EmergencyAssignment assignment, EmergencyVehicle vehicle) {
+        Map<Long, String> types = vehicleTypeDao.findAll().stream()
+                .collect(Collectors.toMap(VehicleType::getId, VehicleType::getName));
+        Map<Long, Route> routes = routeDao.findByEmergency(assignment.getEmergencyId()).stream()
+                .filter(route -> route.getVehicleId() == vehicle.getId())
+                .filter(route -> route.getStatus() == co.edu.unicesar.rutavida.model.enums.RouteStatus.ACTIVE)
+                .findFirst().map(route -> Map.of(vehicle.getId(), route)).orElseGet(Map::of);
+        return toMission(assignment, vehicle, types, routes);
+    }
+
     private TrackedMission toMission(EmergencyAssignment mission, EmergencyVehicle vehicle,
                                      Map<Long, String> typeNames, Map<Long, Route> activeByVehicle) {
         Route active = Optional.ofNullable(activeByVehicle.get(mission.getVehicleId()))
@@ -153,11 +176,13 @@ public class LiveMapService {
                         VehicleProfile.forType(typeNames.getOrDefault(vehicle.getVehicleTypeId(), "UNIDAD")))
                         .orElse(null);
                 if (progress != null) { distance = progress.distanceKm(); eta = progress.etaMinutes(); }
+                else { distance = active.getDistanceKm(); eta = active.getEstimatedMinutes(); }
             } catch (RuntimeException ignored) {
                 // A map metric must not hide the rest of the live map if an old route is incomplete.
             }
         }
         return new TrackedMission(mission.getId(), mission.getEmergencyId(), mission.getVehicleId(),
-                mission.getStatus(), activeRouteId, version, destination, distance, eta);
+                mission.getStatus(), activeRouteId, version, destination, distance, eta,
+                active != null && routeUnavailable.test(vehicle.getId()));
     }
 }
