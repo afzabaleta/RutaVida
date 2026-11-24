@@ -664,6 +664,7 @@ export async function registerCitizen(form) {
 
 /** Where a session starts working: the button for citizens and police, the panel for the staff. */
 export function homeOf(session) {
+  if (session?.role === "ADMINISTRADOR") return "./dashboard.html";
   return hasPermission(session, "GPS:REPORTAR")
     ? "./conductor.html"
     : hasPermission(session, "PANICO:REPORTAR") && !hasPermission(session, "DESPACHO:GESTIONAR")
