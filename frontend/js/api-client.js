@@ -533,6 +533,10 @@ export async function getTracking() {
 
   return {
     ...snapshot,
+    missions: snapshot.missions.map((mission) => ({
+      ...mission,
+      destination: toPoint(mission.destination),
+    })),
     units: snapshot.units.map((unit) => ({
       ...unit,
       location: toPoint(unit.location),
@@ -581,6 +585,17 @@ export function stopDriverGpsSession() {
 /** Confirms arrival of the unit assigned to the logged-in driver. */
 export function confirmDriverArrival() {
   return request("POST", "/api/gps/mission/arrival");
+}
+
+/** Lists eligible hospitals for the driver's own mission after arrival. */
+export async function listDriverTransferHospitals(assignmentId) {
+  const hospitals = await request("GET", `/api/gps/mission/${encodeURIComponent(assignmentId)}/hospitals`);
+  return hospitals.map((hospital) => ({ ...hospital, location: toPoint(hospital.location) }));
+}
+
+/** Starts the hospital leg for the driver's own mission. */
+export function startDriverTransfer(assignmentId, hospitalId) {
+  return request("POST", `/api/gps/mission/${encodeURIComponent(assignmentId)}/transfer`, { hospitalId });
 }
 
 /** Finishes attention for the driver's assigned mission without stopping GPS. */

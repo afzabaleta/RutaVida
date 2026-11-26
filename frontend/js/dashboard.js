@@ -408,6 +408,7 @@ async function initializeDashboard() {
 
   const live = startLiveMap(map, session, {
     onPanic: refreshEmergencies,
+    onMission: refreshEmergencies,
     onRouteChanged(mission, route) {
       const unit = unitCodes.get(mission.vehicleId)
         ?? `la unidad ${mission.vehicleId}`;

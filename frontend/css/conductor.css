@@ -92,6 +92,10 @@
 .driver-modal-panel h2 { margin: 0 0 10px; font-size: 1.65rem; }
 .driver-modal-panel p { color: #c5d1e2; line-height: 1.5; }
 .driver-modal-panel ul { margin: 18px 0 22px; padding: 13px 16px 13px 34px; border: 1px solid #405777; border-radius: 13px; background: #0d192c; color: #dce6f4; line-height: 1.7; }
+.driver-transfer-dialog { max-height: calc(100dvh - 36px); overflow: auto; }
+.driver-transfer-dialog::backdrop { background: rgb(2 7 16 / 74%); backdrop-filter: blur(6px); }
+.driver-transfer-dialog h2 { padding-right: 24px; }
+.driver-transfer-dialog .driver-link { margin-top: 12px; }
 .driver-modal-panel li::marker { color: #3fdc87; }
 .driver-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
 .driver-modal-actions .button { min-height: 54px; }

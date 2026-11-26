@@ -14,6 +14,7 @@ import co.edu.unicesar.rutavida.model.EmergencyVehicle;
 import co.edu.unicesar.rutavida.model.GeoPoint;
 import co.edu.unicesar.rutavida.model.Route;
 import co.edu.unicesar.rutavida.model.VehicleType;
+import co.edu.unicesar.rutavida.model.enums.AssignmentStatus;
 import co.edu.unicesar.rutavida.model.enums.RouteStatus;
 
 import java.util.ArrayList;
@@ -122,16 +123,7 @@ public class RouteMonitor {
         }
         double minutesSaved = blocked ? 0 : (remaining.getAsDouble() - newSeconds) / 60;
 
-        return Optional.of(transactions.callInTransaction(() -> {
-            for (Route old : missionRoutes(active)) {
-                routeDao.updateStatus(old.getId(), RouteStatus.DISCARDED);
-            }
-            List<Route> saved = routeService.saveForMission(active.getEmergencyId(), active.getVehicleId(),
-                    active.getDestinationHospitalId(), profile, options);
-            missionOf(active).ifPresent(assignment ->
-                    alertService.routeRecalculated(assignment, vehicle.getUnitCode(), minutesSaved));
-            return saved.get(0);
-        }));
+        return replaceIfCurrent(active, vehicle, profile, options, minutesSaved);
     }
 
     /**
@@ -152,16 +144,30 @@ public class RouteMonitor {
                 .orElseThrow(() -> new NotFoundException("Unidad", vehicleId));
         VehicleProfile profile = VehicleProfile.forType(typeName(vehicle));
         List<RouteOption> options = routeService.calculateOptions(position, routeService.destinationOf(active), profile);
-        return Optional.of(transactions.callInTransaction(() -> {
-            for (Route old : missionRoutes(active)) {
+        return replaceIfCurrent(active, vehicle, profile, options, 0);
+    }
+
+    /** An arrival, transfer or concurrent recalculation can invalidate the route while we compute. */
+    private Optional<Route> replaceIfCurrent(Route active, EmergencyVehicle vehicle, VehicleProfile profile,
+                                             List<RouteOption> options, double minutesSaved) {
+        return transactions.callInTransaction(() -> {
+            Optional<EmergencyAssignment> current = missionOf(active)
+                    .flatMap(mission -> assignmentDao.findByIdForUpdate(mission.getId()))
+                    .filter(mission -> mission.getStatus() != AssignmentStatus.FINISHED
+                            && mission.getStatus() != AssignmentStatus.CANCELLED);
+            List<Route> oldRoutes = missionRoutes(active);
+            if (current.isEmpty() || oldRoutes.stream().noneMatch(route -> route.getId() == active.getId()
+                    && route.getStatus() == RouteStatus.ACTIVE)) {
+                return Optional.empty();
+            }
+            for (Route old : oldRoutes) {
                 routeDao.updateStatus(old.getId(), RouteStatus.DISCARDED);
             }
-            List<Route> saved = routeService.saveForMission(active.getEmergencyId(), vehicleId,
+            List<Route> saved = routeService.saveForMission(active.getEmergencyId(), active.getVehicleId(),
                     active.getDestinationHospitalId(), profile, options);
-            missionOf(active).ifPresent(assignment ->
-                    alertService.routeRecalculated(assignment, vehicle.getUnitCode(), 0));
-            return saved.get(0);
-        }));
+            alertService.routeRecalculated(current.get(), vehicle.getUnitCode(), minutesSaved);
+            return Optional.of(saved.get(0));
+        });
     }
 
     /** RN-09: replace when the new route saves more than 15 % or more than 30 s. */

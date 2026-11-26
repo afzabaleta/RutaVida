@@ -69,6 +69,7 @@
       <section class="driver-hospitals" aria-labelledby="hospitals-title">
         <div class="driver-section-head">
           <h2 id="hospitals-title">Hospitales</h2>
+          <button id="driver-transfer" class="driver-link" type="button" hidden>Elegir hospital de traslado</button>
           <button id="nearby-hospitals" class="driver-link" type="button">Hospitales más cercanos</button>
         </div>
         <ol id="nearby-hospitals-list" class="nearby-hospitals" hidden></ol>
@@ -85,6 +86,14 @@
     </section>
   </main>
 
+  <dialog id="transfer-modal" class="driver-modal-panel driver-transfer-dialog" aria-labelledby="transfer-title">
+    <button id="transfer-close" class="driver-modal-close" type="button" aria-label="Cerrar">×</button>
+    <h2 id="transfer-title">¿A qué hospital será trasladado el paciente?</h2>
+    <p id="transfer-status" role="status"></p>
+    <ol id="transfer-hospitals" class="nearby-hospitals"></ol>
+    <button id="transfer-retry" class="driver-link" type="button" hidden>Volver a consultar</button>
+  </dialog>
+
   <div id="finish-modal" class="driver-modal" hidden role="dialog" aria-modal="true" aria-labelledby="finish-title">
     <div class="driver-modal-panel">
       <button id="finish-cancel-top" class="driver-modal-close" type="button" aria-label="Cerrar">×</button>
@@ -97,6 +106,7 @@
         <li>La unidad quedará disponible para nuevas emergencias.</li>
         <li>El GPS seguirá transmitiendo si no lo detienes manualmente.</li>
       </ul>
+      <p id="finish-error" class="driver-message is-error" role="alert" hidden></p>
       <div class="driver-modal-actions">
         <button id="finish-cancel" class="button button-secondary" type="button">Cancelar</button>
         <button id="finish-confirm" class="driver-action driver-action-finish" type="button">Confirmar finalización</button>

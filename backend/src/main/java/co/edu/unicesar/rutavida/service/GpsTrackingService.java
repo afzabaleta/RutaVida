@@ -38,7 +38,8 @@ public final class GpsTrackingService {
     /** GPS accuracy normally varies by several metres; recalculate only after a material deviation. */
     public static final double DEVIATION_THRESHOLD_METERS = 40;
     /** Prevent a noisy device from repeatedly replacing the same route. */
-    public static final Duration RECALCULATION_COOLDOWN = Duration.ofSeconds(20);
+    public static final Duration RECALCULATION_COOLDOWN = Duration.ofSeconds(8);
+    private static final Duration ROUTE_FAILURE_COOLDOWN = Duration.ofSeconds(20);
 
     private final UnitDriverDAO drivers;
     private final EmergencyVehicleDAO vehicles;
@@ -162,7 +163,8 @@ public final class GpsTrackingService {
     private boolean recalculateIfNeeded(long vehicleId, GeoPoint location, LocalDateTime now) {
         if (routeMonitor == null) return false;
         LocalDateTime previous = lastRecalculation.get(vehicleId);
-        if (previous != null && Duration.between(previous, now).compareTo(recalculationCooldown) < 0) {
+        Duration cooldown = routeWarnings.contains(vehicleId) ? ROUTE_FAILURE_COOLDOWN : recalculationCooldown;
+        if (previous != null && Duration.between(previous, now).compareTo(cooldown) < 0) {
             return false;
         }
         boolean recalculated;
