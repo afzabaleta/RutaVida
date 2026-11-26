@@ -64,6 +64,11 @@ public class JdbcEmergencyAssignmentDAO extends AbstractJdbcDAO implements Emerg
     }
 
     @Override
+    public Optional<EmergencyAssignment> findByIdForUpdate(long id) {
+        return queryOne(SELECT + " WHERE id_asignacion = ? FOR UPDATE", MAPPER, id);
+    }
+
+    @Override
     public List<EmergencyAssignment> findOpenByEmergency(long emergencyId) {
         return queryList(SELECT + " WHERE id_emergencia = ? AND" + OPEN + OLDEST_FIRST, MAPPER, emergencyId);
     }

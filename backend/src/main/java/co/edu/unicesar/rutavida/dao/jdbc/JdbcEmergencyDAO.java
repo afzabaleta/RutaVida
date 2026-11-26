@@ -72,6 +72,11 @@ public class JdbcEmergencyDAO extends AbstractJdbcDAO implements EmergencyDAO {
     }
 
     @Override
+    public Optional<Emergency> findByIdForUpdate(long id) {
+        return queryOne(SELECT + " WHERE id_emergencia = ? FOR UPDATE", MAPPER, id);
+    }
+
+    @Override
     public List<Emergency> findActive() {
         return queryList(SELECT + " WHERE estado <> ? ORDER BY fecha_hora_reporte DESC, id_emergencia DESC",
                 MAPPER, EmergencyStatus.CLOSED);

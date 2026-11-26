@@ -2,6 +2,7 @@ package co.edu.unicesar.rutavida.controller;
 
 import co.edu.unicesar.rutavida.dto.DriverMission;
 import co.edu.unicesar.rutavida.dto.ErrorKind;
+import co.edu.unicesar.rutavida.dto.HospitalOption;
 import co.edu.unicesar.rutavida.dto.OperationResult;
 import co.edu.unicesar.rutavida.model.UserSession;
 import co.edu.unicesar.rutavida.model.Route;
@@ -47,6 +48,14 @@ public final class DriverOperationController {
 
     public OperationResult<DriverMission> confirmArrival() {
         return run(OPERATE, operations::confirmArrival);
+    }
+
+    public OperationResult<List<HospitalOption>> transferHospitals(long assignmentId) {
+        return run(OPERATE, user -> operations.transferHospitals(user, assignmentId));
+    }
+
+    public OperationResult<DriverMission> startTransfer(long assignmentId, long hospitalId) {
+        return run(OPERATE, user -> operations.startTransfer(user, assignmentId, hospitalId));
     }
 
     public OperationResult<DriverMission> finishAttention() {

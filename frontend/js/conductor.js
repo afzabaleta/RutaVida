@@ -1,11 +1,13 @@
 import {
   apiWebSocketUrl, confirmDriverArrival, finishDriverAttention, getDriverMission, getDriverUnit,
-  gpsSocketToken, hasPermission, listHospitals, listDriverMissionRoutes, listStations, reportGpsPosition,
-  startDriverGpsSession, stopDriverGpsSession,
+  gpsSocketToken, hasPermission, listHospitals, listDriverMissionRoutes, listDriverTransferHospitals,
+  listStations, reportGpsPosition, startDriverGpsSession, startDriverTransfer, stopDriverGpsSession,
 } from "./api-client.js";
 import { startPage } from "./page-session.js";
 
 const EVERY_MS = 5000;
+const MOVING_UPDATE_MS = 2500;
+const MOVEMENT_METERS = 15;
 const REVERSE_GEOCODE_MS = 20000;
 const ADDRESS_MOVE_METERS = 35;
 const NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse";
@@ -16,6 +18,8 @@ let watchId = null;
 let timer = null;
 let latest = null;
 let publication = null;
+let lastPublishedPoint = null;
+let lastPublishAt = 0;
 let stopping = false;
 let tracking = false;
 let trackingVersion = 0;
@@ -27,9 +31,13 @@ let canOperate = false;
 let currentMission = null;
 let missionRefreshing = false;
 let missionRefreshQueued = false;
+let missionRevision = 0;
+let operationPending = false;
+let transferQuery = 0;
 let routeRequest = 0;
 let routeLoadingKey = null;
 let lastRouteKey = null;
+let lastRouteDestination = null;
 let map = null;
 let ownMarker = null;
 let emergencyMarker = null;
@@ -254,6 +262,7 @@ function clearRoute() {
   routeLine?.remove();
   routeLine = null;
   lastRouteKey = null;
+  lastRouteDestination = null;
 }
 
 async function drawRoute(mission, active) {
@@ -284,9 +293,20 @@ async function drawRoute(mission, active) {
     if (!route?.path || route.path.length < 2) {
       throw new Error("La ruta activa todavía no está disponible.");
     }
+    const nextLine = L.polyline(route.path, { color: "#3d8bff", weight: 6, opacity: .88 }).addTo(map);
     routeLine?.remove();
-    routeLine = L.polyline(route.path, { color: "#3d8bff", weight: 6, opacity: .88 }).addTo(map);
+    routeLine = nextLine;
     lastRouteKey = key;
+    const destination = route.destinationHospitalId == null
+      ? "emergency:" + mission.emergencyId : "hospital:" + route.destinationHospitalId;
+    if (lastRouteDestination !== destination) {
+      map.fitBounds(routeLine.getBounds(), { padding: [32, 32], maxZoom: 16 });
+      lastRouteDestination = destination;
+    }
+    if (route.destinationHospitalId != null && selectedHospitalId !== route.destinationHospitalId) {
+      selectedHospitalId = route.destinationHospitalId;
+      renderResources();
+    }
     if (!mission.tracking.routeUnavailable) warning.hidden = true;
   } catch (error) {
     if (request !== routeRequest) return;
@@ -300,18 +320,14 @@ async function drawRoute(mission, active) {
 
 async function loadResources() {
   if (!map) return;
-  try {
-    const [loadedHospitals, stations] = await Promise.all([listHospitals(), listStations()]);
-    hospitals = loadedHospitals.filter((hospital) => hospital.location);
-    resources = [
-      ...hospitals,
-      ...stations.filter((station) => station.location && isAmbulanceBase(station))
-        .map((station) => ({ ...station, kind: "base" })),
-    ];
-    renderResources();
-  } catch (error) {
-    console.warn("No se pudieron cargar todos los recursos operativos", error);
-  }
+  const [hospitalResult, stationResult] = await Promise.allSettled([listHospitals(), listStations()]);
+  hospitals = hospitalResult.status === "fulfilled"
+    ? hospitalResult.value.filter((hospital) => hospital.location) : [];
+  const bases = stationResult.status === "fulfilled"
+    ? stationResult.value.filter((station) => station.location && isAmbulanceBase(station))
+      .map((station) => ({ ...station, kind: "base" })) : [];
+  resources = [...hospitals, ...bases];
+  renderResources();
 }
 
 function formatTime(value) {
@@ -331,8 +347,8 @@ function renderMission(mission) {
   currentMission = mission;
   const active = Boolean(mission?.assignmentId) && mission.status !== "FINALIZADA" && mission.status !== "CANCELADA";
   const status = mission?.status;
-  $("mission-arrival").disabled = !canOperate || !["ASIGNADA", "EN_RUTA"].includes(status);
-  $("mission-finish").disabled = !canOperate || status !== "EN_SITIO";
+  setMissionButtons();
+  if (!mission?.canTransfer && $("transfer-modal").open) $("transfer-modal").close();
   $("driver-emergency").hidden = !active;
   if (active) {
     const id = "EMG-" + mission.emergencyId;
@@ -340,8 +356,9 @@ function renderMission(mission) {
     $("driver-emergency-detail").textContent = [id, type, formatTime(mission.reportedAt)].filter(Boolean).join(" · ");
     $("driver-emergency-address").textContent = mission.emergencyAddress ?? "";
     $("driver-emergency-description").textContent = mission.emergencyDescription ?? "";
+    $("driver-emergency-title").textContent = status === "TRASLADANDO"
+      ? "Traslado al hospital" : isNew ? "Nueva emergencia asignada" : "Emergencia asignada";
     if (isNew) {
-      $("driver-emergency-title").textContent = "Nueva emergencia asignada";
       $("driver-announcement").textContent = "Nueva emergencia asignada " + id;
     }
   } else {
@@ -370,14 +387,30 @@ function renderMission(mission) {
   drawRoute(mission, active);
 }
 
+function setMissionButtons() {
+  const status = currentMission?.status;
+  $("mission-arrival").disabled = !canOperate || operationPending || !["ASIGNADA", "EN_RUTA"].includes(status);
+  $("mission-finish").disabled = !canOperate || operationPending || !["EN_SITIO", "TRASLADANDO"].includes(status);
+  $("driver-transfer").hidden = !canOperate || !currentMission?.canTransfer;
+  $("driver-transfer").disabled = operationPending;
+}
+
+function setOperationPending(value) {
+  operationPending = value;
+  if (value) missionRevision += 1;
+  setMissionButtons();
+}
+
 async function refreshMission() {
-  if (missionRefreshing) {
+  if (missionRefreshing || operationPending) {
     missionRefreshQueued = true;
     return;
   }
   missionRefreshing = true;
+  const revision = missionRevision;
   try {
     const mission = await getDriverMission();
+    if (revision !== missionRevision || operationPending) return;
     if (mission.assignmentId) completedMission = null;
     if (!mission.assignmentId && completedMission) {
       renderMission(completedMission);
@@ -390,7 +423,7 @@ async function refreshMission() {
     console.warn("No se pudo actualizar la misión del conductor", error);
   } finally {
     missionRefreshing = false;
-    if (missionRefreshQueued) {
+    if (missionRefreshQueued && !operationPending) {
       missionRefreshQueued = false;
       refreshMission();
     }
@@ -458,9 +491,10 @@ function renderNearbyHospitals() {
   const point = latest ? [latest.coords.latitude, latest.coords.longitude]
     : currentMission?.unit?.location ? [currentMission.unit.location.latitude, currentMission.unit.location.longitude] : null;
   list.replaceChildren();
-  if (!point) {
+  if (!point || hospitals.length === 0) {
     const item = document.createElement("li");
-    item.textContent = "Inicia el GPS para ordenar hospitales por cercanía.";
+    item.textContent = point ? "No hay hospitales de referencia disponibles."
+      : "Inicia el GPS para ordenar hospitales por cercanía.";
     list.append(item);
     return;
   }
@@ -492,6 +526,7 @@ function applyTelemetry(position) {
 
 function publish(version = trackingVersion) {
   if (!tracking || stopping || version !== trackingVersion || publication || !navigator.onLine) return;
+  lastPublishAt = Date.now();
   publication = publishFix(version).finally(() => { publication = null; });
 }
 
@@ -508,18 +543,21 @@ async function publishFix(version) {
       applyTelemetry(fix);
     }
     if (Date.now() - latest.timestamp > EVERY_MS) return;
-    const saved = await reportGpsPosition({ latitude: latest.coords.latitude, longitude: latest.coords.longitude, speedMps: latest.coords.speed, headingDegrees: latest.coords.heading });
+    const { latitude, longitude, speed, heading } = latest.coords;
+    const saved = await reportGpsPosition({ latitude, longitude, speedMps: speed, headingDegrees: heading });
+    lastPublishedPoint = { latitude, longitude };
     if (tracking && version === trackingVersion) {
       $("gps-updated").textContent = formatTime(saved.updatedAt);
+      const wasOnline = $("gps-status").dataset.state === "online";
       status("Transmitiendo", "online");
-      message("Ubicación enviada al mapa en vivo.");
+      if (!wasOnline) message("Ubicación enviada al mapa en vivo.");
       if (!gpsSessionRecorded && canOperate) {
         // A failure to register the audit event must not pretend that the confirmed GPS
         // position was lost; it was already stored by reportGpsPosition above.
         try {
           const operation = await startDriverGpsSession();
           gpsSessionRecorded = true;
-          renderMission(operation);
+          if (!operationPending && !currentMission?.assignmentId) renderMission(operation);
         } catch (error) {
           console.warn("No se pudo registrar el inicio de GPS", error);
         }
@@ -555,6 +593,8 @@ async function stop() {
   watchId = null;
   timer = null;
   latest = null;
+  lastPublishedPoint = null;
+  lastPublishAt = 0;
   $("gps-start").disabled = false;
   $("gps-stop").disabled = true;
   status("Desconectado", "offline");
@@ -586,7 +626,8 @@ function start() {
     const first = latest == null;
     latest = position;
     applyTelemetry(position);
-    if (first) publish(version);
+    if (first || (lastPublishedPoint && Date.now() - lastPublishAt >= MOVING_UPDATE_MS
+      && distanceMeters(lastPublishedPoint, position.coords) >= MOVEMENT_METERS)) publish(version);
   }, (error) => {
     if (!tracking || version !== trackingVersion) return;
     const text = error.code === error.PERMISSION_DENIED ? "Debes permitir la ubicación para compartirla."
@@ -594,38 +635,115 @@ function start() {
     status("GPS no disponible", "error");
     message(text, true);
   }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
-  timer = setInterval(() => publish(version), EVERY_MS);
+  timer = setInterval(() => {
+    if (Date.now() - lastPublishAt >= EVERY_MS) publish(version);
+  }, 1000);
 }
 
 async function confirmArrival() {
+  if (operationPending) return;
+  setOperationPending(true);
   try {
     const mission = await confirmDriverArrival();
     renderMission(mission);
     message("Llegada registrada. El GPS continúa transmitiendo.");
-    refreshMission();
   } catch (error) {
     message(error.message, true);
+    return;
+  } finally {
+    setOperationPending(false);
+    refreshMission();
+  }
+  if (currentMission?.canTransfer) showTransfer();
+}
+
+async function showTransfer() {
+  if (!currentMission?.canTransfer || operationPending) return;
+  const modal = $("transfer-modal");
+  const status = $("transfer-status");
+  const list = $("transfer-hospitals");
+  const assignmentId = currentMission.assignmentId;
+  const query = ++transferQuery;
+  list.replaceChildren();
+  $("transfer-retry").hidden = true;
+  status.textContent = "Buscando hospitales cercanos…";
+  if (!modal.open) modal.showModal();
+  try {
+    const candidates = await listDriverTransferHospitals(assignmentId);
+    if (!modal.open || query !== transferQuery || assignmentId !== currentMission?.assignmentId) return;
+    status.textContent = candidates.length ? "Ordenados por distancia según la ruta."
+      : "No hay hospitales operativos con urgencias y una ruta disponible desde tu ubicación.";
+    $("transfer-retry").hidden = candidates.length > 0;
+    for (const hospital of candidates) {
+      const item = document.createElement("li");
+      const details = document.createElement("span");
+      const name = document.createElement("strong");
+      name.textContent = hospital.name;
+      const eta = document.createElement("small");
+      eta.textContent = hospital.distanceKm.toFixed(2) + " km · " + Math.ceil(hospital.etaMinutes) + " min"
+        + (hospital.serviceConfirmed ? "" : " · Urgencias por confirmar");
+      details.append(name, eta);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Seleccionar";
+      button.addEventListener("click", () => transferTo(assignmentId, hospital));
+      item.append(details, button);
+      list.append(item);
+    }
+  } catch (error) {
+    if (!modal.open || query !== transferQuery) return;
+    status.textContent = error.message;
+    $("transfer-retry").hidden = false;
+  }
+}
+
+async function transferTo(assignmentId, hospital) {
+  if (operationPending || assignmentId !== currentMission?.assignmentId) return;
+  setOperationPending(true);
+  const buttons = $("transfer-modal").querySelectorAll("button");
+  buttons.forEach((button) => { button.disabled = true; });
+  $("transfer-status").textContent = "Calculando la ruta al hospital…";
+  try {
+    const mission = await startDriverTransfer(assignmentId, hospital.hospitalId);
+    selectedHospitalId = hospital.hospitalId;
+    renderResources();
+    renderMission(mission);
+    message("Traslado iniciado hacia " + hospital.name + ".");
+  } catch (error) {
+    $("transfer-status").textContent = error.message;
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+    setOperationPending(false);
+    refreshMission();
   }
 }
 
 function showFinishModal(show) {
   $("finish-modal").hidden = !show;
-  if (show) $("finish-confirm").focus();
+  if (show) {
+    $("finish-error").hidden = true;
+    $("finish-confirm").focus();
+  }
 }
 
 async function finishAttention() {
+  if (operationPending) return;
+  setOperationPending(true);
   $("finish-confirm").disabled = true;
+  $("finish-error").hidden = true;
   try {
     const mission = await finishDriverAttention();
     completedMission = mission;
     renderMission(mission);
     message("Atención finalizada. La unidad está disponible y el GPS sigue activo.");
     showFinishModal(false);
-    refreshMission();
   } catch (error) {
-    message(error.message, true);
+    $("finish-error").textContent = error.message;
+    $("finish-error").hidden = false;
   } finally {
     $("finish-confirm").disabled = false;
+    setOperationPending(false);
+    refreshMission();
   }
 }
 
@@ -658,6 +776,13 @@ async function initialize() {
   $("gps-stop").addEventListener("click", stop);
   $("mission-arrival").addEventListener("click", confirmArrival);
   $("mission-finish").addEventListener("click", () => showFinishModal(true));
+  $("driver-transfer").addEventListener("click", showTransfer);
+  $("transfer-retry").addEventListener("click", showTransfer);
+  $("transfer-close").addEventListener("click", () => $("transfer-modal").close());
+  $("transfer-modal").addEventListener("cancel", (event) => {
+    if (operationPending) event.preventDefault();
+  });
+  $("transfer-modal").addEventListener("close", () => { transferQuery += 1; });
   $("finish-cancel").addEventListener("click", () => showFinishModal(false));
   $("finish-cancel-top").addEventListener("click", () => showFinishModal(false));
   $("finish-confirm").addEventListener("click", finishAttention);

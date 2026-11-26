@@ -22,6 +22,11 @@ public interface EmergencyAssignmentDAO {
 
     Optional<EmergencyAssignment> findById(long id);
 
+    /** Serializes lifecycle and route changes while a database transaction is open. */
+    default Optional<EmergencyAssignment> findByIdForUpdate(long id) {
+        return findById(id);
+    }
+
     /** Open assignments of one emergency, oldest first. An emergency may need several units. */
     List<EmergencyAssignment> findOpenByEmergency(long emergencyId);
 

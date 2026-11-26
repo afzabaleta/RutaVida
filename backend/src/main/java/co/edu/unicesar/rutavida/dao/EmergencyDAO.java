@@ -18,6 +18,11 @@ public interface EmergencyDAO {
 
     Optional<Emergency> findById(long id);
 
+    /** Locks the emergency before mission changes that may close it. */
+    default Optional<Emergency> findByIdForUpdate(long id) {
+        return findById(id);
+    }
+
     /** Emergencies that are not CERRADA, newest report first. */
     List<Emergency> findActive();
 

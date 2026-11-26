@@ -418,10 +418,46 @@ class PanicApiTest {
 
             assertEquals(409, send("POST", "/api/gps/session/stop", driver, null).statusCode());
             assertEquals("EN_SITIO", value(send("POST", "/api/gps/mission/arrival", driver, null)).get("status").asText());
+            assertEquals("mission", driverSocket.next().get("type").asText());
+            assertEquals("mission", coordinatorSocket.next().get("type").asText());
+
+            String transfer = "/api/gps/mission/" + assignment;
+            long hospital = DispatchTestSupport.CONFIRMED_HOSPITAL;
+            String transferBody = "{\"hospitalId\":" + hospital + "}";
+            assertEquals(403, send("GET", transfer + "/hospitals", coordinator, null).statusCode());
+            assertEquals(409, send("POST", transfer + "/transfer", unrelated, transferBody).statusCode());
+            JsonNode hospitals = value(send("GET", transfer + "/hospitals", driver, null));
+            assertTrue(hospitals.size() > 0);
+            assertEquals(hospital, hospitals.get(0).get("hospitalId").asLong());
+            assertTrue(hospitals.get(0).get("etaMinutes").isNumber());
+            assertTrue(hospitals.get(0).get("distanceKm").isNumber());
+            var started = send("POST", transfer + "/transfer", driver, transferBody);
+            assertEquals(200, started.statusCode(), started.body());
+            JsonNode toHospital = value(started);
+            assertEquals("TRASLADANDO", toHospital.get("status").asText());
+            assertEquals("mission", driverSocket.next().get("type").asText());
+            assertEquals("mission", coordinatorSocket.next().get("type").asText());
+            long firstHospitalRoute = toHospital.get("tracking").get("activeRouteId").asLong();
+
+            panic.gpsClock.advance(Duration.ofSeconds(3));
+            assertTrue(value(gps(driver, DispatchTestSupport.at(1, 1))).get("routeRecalculated").asBoolean());
+            assertEquals("position", coordinatorSocket.next().get("type").asText());
+            JsonNode hospitalRoute = value(send("GET", "/api/gps/mission/routes", driver, null)).get(0);
+            assertTrue(hospitalRoute.get("routeId").asLong() != firstHospitalRoute);
+            assertEquals(hospital, hospitalRoute.get("destinationHospitalId").asLong());
+            assertEquals(hospitalRoute.get("routeId"), value(send("GET", "/api/tracking", coordinator, null))
+                    .get("missions").get(0).get("activeRouteId"));
+
             JsonNode finished = value(send("POST", "/api/gps/mission/finish", driver, null));
             assertEquals("FINALIZADA", finished.get("status").asText());
             assertTrue(finished.get("finishedAt").isTextual());
+            assertEquals("mission", driverSocket.next().get("type").asText());
+            assertEquals("mission", coordinatorSocket.next().get("type").asText());
             assertEquals(0, value(send("GET", "/api/tracking", coordinator, null)).get("missions").size());
+            panic.gpsClock.advance(Duration.ofSeconds(3));
+            assertEquals(200, gps(driver, DispatchTestSupport.at(0, 0)).statusCode());
+            assertEquals("position", coordinatorSocket.next().get("type").asText());
+            assertEquals(200, send("POST", "/api/gps/session/stop", driver, null).statusCode());
         }
     }
 

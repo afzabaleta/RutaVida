@@ -370,7 +370,7 @@ Las rutas vigentes de una misión (`id` = id de la asignación): la `ACTIVA` y l
 ] }
 ```
 
-La web vuelve a pedir esta ruta cuando `/api/tracking` indica que cambió `routesVersion` de la misión (recálculo, CU-17).
+La pantalla de despacho vuelve a pedir las rutas cuando cambia `routesVersion`. El mapa de coordinación usa `activeRouteId` para confirmar qué recorrido debe dibujar.
 
 ### 6.5 `GET /api/dispatches/{id}/hospitals`
 
@@ -502,12 +502,18 @@ Un usuario con el permiso `GPS/REPORTAR` entra a `conductor.html`. La asociació
 | `POST` | `/api/gps/session/start` | `GPS/OPERAR` | Audita el inicio de la sesión GPS y pasa una misión `ASIGNADA` a `EN_RUTA`. |
 | `POST` | `/api/gps/session/stop` | `GPS/REPORTAR` | Invalida la señal reciente. Devuelve `409` si existe una misión activa. |
 | `POST` | `/api/gps/mission/arrival` | `GPS/OPERAR` | Exige GPS reciente, registra hora y coordenadas en auditoría, cambia a `EN_SITIO` y avisa a coordinación. |
-| `POST` | `/api/gps/mission/finish` | `GPS/OPERAR` | Guarda finalización, libera la unidad, cierra la emergencia si no quedan asignaciones abiertas y avisa al coordinador. El GPS continúa. |
+| `GET` | `/api/gps/mission/{id}/hospitals` | `GPS/OPERAR` | Para la ambulancia de la misión propia en `EN_SITIO`, lista hospitales operativos con urgencias y una ruta desde el GPS reciente. Devuelve `HospitalOption` con distancia por vía y ETA, ordenados por distancia. |
+| `POST` | `/api/gps/mission/{id}/transfer` | `GPS/OPERAR` | Recibe `{ "hospitalId": 12 }`. Registra el destino en las rutas de la misión, inicia `TRASLADANDO` y devuelve el estado actualizado. |
+| `POST` | `/api/gps/mission/finish` | `GPS/OPERAR` | Desde `EN_SITIO` o `TRASLADANDO`, exige GPS reciente y audita sus coordenadas. Registra la hora de cierre, libera la unidad, cierra la emergencia si no quedan asignaciones abiertas y avisa a coordinación. El GPS continúa. |
 | `WS` | `/ws/gps` | `EMERGENCIAS/CONSULTAR` | Actualizaciones instantáneas. El primer mensaje debe ser `{ "type": "auth", "token": "..." }`. |
 
 El navegador sigue haciendo la foto completa por `GET /api/tracking` cada cinco segundos como respaldo. Los clientes conectados reciben una posición GPS al instante por WebSocket y actualizan únicamente el marcador afectado.
 
-`POST /api/gps/mission/arrival` y `POST /api/gps/mission/finish` envían además el evento nativo WebSocket `{ "type": "mission", "vehicleId": ... }`, para que el mapa de coordinación consulte de inmediato el estado y la ruta actualizados. No se añade Socket.IO: RutaVida usa el WebSocket nativo de Javalin de forma consistente con el resto de la aplicación.
+El despacho manual, la llegada, el inicio de traslado y la finalización publican el evento `mission` por el WebSocket nativo de Javalin. El conductor de esa unidad y coordinación consultan el estado tras recibirlo. Ambos mapas usan la ruta activa persistida y las métricas del seguimiento. La aplicación conserva la consulta periódica cuando el WebSocket está desconectado.
+
+El móvil puede reportar cada 2,5 segundos al desplazarse al menos 15 m y mantiene un respaldo de aproximadamente 5 segundos. El servidor conserva la tolerancia de desvío configurable de 30 a 50 m, con 40 m por defecto. Tras un recálculo exitoso espera 8 segundos para otro intento. Si no encuentra ruta, conserva el recorrido anterior, muestra el aviso y espera 20 segundos para volver a intentarlo.
+
+El traslado reutiliza `ruta.id_hospital_destino` y el estado `TRASLADANDO`. La hora de finalización y el permiso del conductor siguen usando `database/15_operacion_conductor.sql`. Ese script debe estar aplicado donde ya se use la operación de conductor.
 
 ### 8.3 `GET /api/traffic/segments`
 

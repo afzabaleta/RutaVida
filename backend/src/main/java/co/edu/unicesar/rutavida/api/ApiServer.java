@@ -310,16 +310,19 @@ public final class ApiServer {
         }));
         config.routes.post("/api/dispatches", secured("DESPACHO", "GESTIONAR", USER_ACTION, ctx -> {
             DispatchRequest request = readDispatch(ctx);
-            send(ctx, roadMap.dispatchOnMap(dispatch.dispatch(request.emergencyId(), request.vehicleId())),
-                    ApiStatus.CREATED);
+            var result = dispatch.dispatch(request.emergencyId(), request.vehicleId());
+            if (result.success()) broadcastMission(result.value().assignment().getVehicleId());
+            send(ctx, roadMap.dispatchOnMap(result), ApiStatus.CREATED);
         }));
         config.routes.get("/api/dispatches/{id}/routes", secured("RUTAS", "CONSULTAR", USER_ACTION,
                 ctx -> send(ctx, roadMap.routesOnMap(dispatch.missionRoutes(pathId(ctx))), ApiStatus.OK)));
         config.routes.get("/api/dispatches/{id}/hospitals", secured("DESPACHO", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, dispatch.hospitalsFor(pathId(ctx)), ApiStatus.OK)));
-        config.routes.patch("/api/dispatches/{id}/status", secured("DESPACHO", "GESTIONAR", USER_ACTION,
-                ctx -> send(ctx, advanceMission(pathId(ctx), readBody(ctx, AssignmentStatusRequest.class)),
-                        ApiStatus.OK)));
+        config.routes.patch("/api/dispatches/{id}/status", secured("DESPACHO", "GESTIONAR", USER_ACTION, ctx -> {
+            var result = advanceMission(pathId(ctx), readBody(ctx, AssignmentStatusRequest.class));
+            if (result.success()) broadcastMission(result.value().getVehicleId());
+            send(ctx, result, ApiStatus.OK);
+        }));
         config.routes.post("/api/emergencies/{id}/close", secured("DESPACHO", "GESTIONAR", USER_ACTION,
                 ctx -> send(ctx, dispatch.close(pathId(ctx)), ApiStatus.OK)));
 
@@ -362,6 +365,17 @@ public final class ApiServer {
                 config.routes.post("/api/gps/mission/arrival", secured(DriverOperationController.MODULE,
                         DriverOperationController.OPERATE, USER_ACTION,
                         ctx -> sendDriverMission(ctx, driverOperations.confirmArrival())));
+                config.routes.get("/api/gps/mission/{id}/hospitals", secured(DriverOperationController.MODULE,
+                        DriverOperationController.OPERATE, USER_ACTION,
+                        ctx -> send(ctx, driverOperations.transferHospitals(pathId(ctx)), ApiStatus.OK)));
+                config.routes.post("/api/gps/mission/{id}/transfer", secured(DriverOperationController.MODULE,
+                        DriverOperationController.OPERATE, USER_ACTION, ctx -> {
+                            Long hospitalId = readBody(ctx, DriverTransferRequest.class).hospitalId();
+                            if (hospitalId == null || hospitalId <= 0) {
+                                throw new ValidationException(TRANSFER_WITHOUT_HOSPITAL);
+                            }
+                            sendDriverMission(ctx, driverOperations.startTransfer(pathId(ctx), hospitalId));
+                        }));
                 config.routes.post("/api/gps/mission/finish", secured(DriverOperationController.MODULE,
                         DriverOperationController.OPERATE, USER_ACTION,
                         ctx -> sendDriverMission(ctx, driverOperations.finishAttention())));
@@ -796,12 +810,16 @@ public final class ApiServer {
      * transfer (CU-11): the routes to the hospital are saved and the web reads them with 6.4.
      * Every other status goes without a hospital. The answer is always the assignment.
      */
+    private record DriverTransferRequest(Long hospitalId) { }
+
     /** Sends an operation result and wakes WebSocket maps as soon as its mission changed. */
     private void sendDriverMission(Context ctx, OperationResult<DriverMission> result) {
-        if (result.success() && gpsHub != null) {
-            gpsHub.broadcastMission(result.value().unit().vehicleId());
-        }
+        if (result.success()) broadcastMission(result.value().unit().vehicleId());
         send(ctx, result, ApiStatus.OK);
+    }
+
+    private void broadcastMission(long vehicleId) {
+        if (gpsHub != null) gpsHub.broadcastMission(vehicleId);
     }
 
     private OperationResult<EmergencyAssignment> advanceMission(long assignmentId, AssignmentStatusRequest request) {
