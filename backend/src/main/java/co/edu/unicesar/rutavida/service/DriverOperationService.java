@@ -8,6 +8,7 @@ import co.edu.unicesar.rutavida.dao.TransactionManager;
 import co.edu.unicesar.rutavida.dao.UnitDriverDAO;
 import co.edu.unicesar.rutavida.dto.DriverMission;
 import co.edu.unicesar.rutavida.dto.DriverUnit;
+import co.edu.unicesar.rutavida.dto.HospitalOption;
 import co.edu.unicesar.rutavida.exception.BusinessRuleException;
 import co.edu.unicesar.rutavida.exception.NotFoundException;
 import co.edu.unicesar.rutavida.model.Emergency;
@@ -22,12 +23,13 @@ import co.edu.unicesar.rutavida.model.enums.AuditResult;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.List;
 
 /**
- * Field actions of the driver in the "Compartir ubicación" screen.  This service does not
- * calculate, replace or move routes; it only uses the already existing mission lifecycle.
+ * Field actions of the driver in "Compartir ubicación". Transfers and lifecycle transitions
+ * use the same dispatch and routing services as coordination.
  */
 public final class DriverOperationService {
 
@@ -118,9 +120,7 @@ public final class DriverOperationService {
     public DriverMission confirmArrival(UserSession driver) {
         return transactions.callInTransaction(() -> {
             EmergencyVehicle vehicle = ownVehicle(driver);
-            GeoPoint arrival = gps.freshLocation(vehicle.getId(), driver.user().getId(),
-                    PanicService.DEFAULT_GPS_MAX_AGE)
-                    .orElseThrow(() -> new BusinessRuleException("Espera una lectura GPS reciente antes de confirmar la llegada."));
+            GeoPoint arrival = requireFreshLocation(driver, vehicle);
             EmergencyAssignment assignment = openMission(vehicle);
             if (assignment.getStatus() == AssignmentStatus.ASSIGNED) {
                 assignment = dispatch.advance(assignment.getId(), AssignmentStatus.EN_ROUTE);
@@ -129,11 +129,35 @@ public final class DriverOperationService {
                 throw new BusinessRuleException("La llegada solo se confirma cuando la unidad está EN_RUTA.");
             }
             assignment = dispatch.advance(assignment.getId(), AssignmentStatus.ON_SCENE);
+            gps.clearRouteWarning(vehicle.getId());
             audit(driver, ARRIVE, assignment, vehicle, "Llegada confirmada al sitio", arrival);
             alerts.driverOperation(assignment, AlertType.OTHER,
                     "La unidad " + vehicle.getUnitCode() + " confirmó llegada a la emergencia "
                             + assignment.getEmergencyId() + ".");
             return describe(vehicle, assignment);
+        });
+    }
+
+    public List<HospitalOption> transferHospitals(UserSession driver, long assignmentId) {
+        EmergencyVehicle vehicle = ownVehicle(driver);
+        requireOwnMission(vehicle, assignmentId);
+        return dispatch.hospitalsFor(assignmentId, requireFreshLocation(driver, vehicle)).stream()
+                .sorted(Comparator.comparingDouble(HospitalOption::distanceKm)
+                        .thenComparingDouble(HospitalOption::etaMinutes))
+                .toList();
+    }
+
+    public DriverMission startTransfer(UserSession driver, long assignmentId, long hospitalId) {
+        EmergencyVehicle vehicle = ownVehicle(driver);
+        requireOwnMission(vehicle, assignmentId);
+        return transactions.callInTransaction(() -> {
+            GeoPoint origin = requireFreshLocation(driver, vehicle);
+            EmergencyAssignment assignment = dispatch.startTransfer(assignmentId, hospitalId, driver, origin)
+                    .assignment();
+            alerts.driverOperation(assignment, AlertType.OTHER,
+                    "La unidad " + vehicle.getUnitCode() + " inició el traslado al hospital.");
+            gps.clearRouteWarning(vehicle.getId());
+            return describe(vehicles.findById(vehicle.getId()).orElseThrow(), assignment);
         });
     }
 
@@ -145,9 +169,10 @@ public final class DriverOperationService {
     public DriverMission finishAttention(UserSession driver) {
         return transactions.callInTransaction(() -> {
             EmergencyVehicle vehicle = ownVehicle(driver);
-            requireLocation(vehicle);
+            GeoPoint finish = requireFreshLocation(driver, vehicle);
             EmergencyAssignment assignment = openMission(vehicle);
-            if (assignment.getStatus() != AssignmentStatus.ON_SCENE) {
+            if (assignment.getStatus() != AssignmentStatus.ON_SCENE
+                    && assignment.getStatus() != AssignmentStatus.TRANSPORTING) {
                 throw new BusinessRuleException("La atención solo se finaliza después de confirmar la llegada.");
             }
             assignment = dispatch.advance(assignment.getId(), AssignmentStatus.FINISHED);
@@ -155,7 +180,7 @@ public final class DriverOperationService {
             if (assignments.findOpenByEmergency(assignment.getEmergencyId()).isEmpty()) {
                 emergencies.close(assignment.getEmergencyId(), finishedAt);
             }
-            audit(driver, FINISH, assignment, vehicle, "Atención finalizada");
+            audit(driver, FINISH, assignment, vehicle, "Atención finalizada", finish);
             alerts.driverOperation(assignment, AlertType.OTHER,
                     "La unidad " + vehicle.getUnitCode() + " finalizó la atención de la emergencia "
                             + assignment.getEmergencyId() + ".");
@@ -178,12 +203,23 @@ public final class DriverOperationService {
                 .orElseThrow(() -> new BusinessRuleException("Tu unidad no tiene una emergencia asignada."));
     }
 
+    private void requireOwnMission(EmergencyVehicle vehicle, long assignmentId) {
+        if (openMission(vehicle).getId() != assignmentId) {
+            throw new NotFoundException("Misión", assignmentId);
+        }
+    }
+
+    private GeoPoint requireFreshLocation(UserSession driver, EmergencyVehicle vehicle) {
+        return gps.freshLocation(vehicle.getId(), driver.user().getId(), PanicService.DEFAULT_GPS_MAX_AGE)
+                .orElseThrow(() -> new BusinessRuleException("Espera una lectura GPS reciente e inténtalo de nuevo."));
+    }
+
     private DriverMission describe(EmergencyVehicle vehicle, EmergencyAssignment assignment) {
         DriverUnit unit = new DriverUnit(vehicle.getId(), vehicle.getUnitCode(), vehicle.getPlate(),
                 vehicle.getLastLocation(), vehicle.getLastLocationAt());
         if (assignment == null) {
             return new DriverMission(unit, null, null, null, null, null, null, null, null,
-                    null, null, null, null);
+                    null, null, null, null, false);
         }
         Emergency emergency = emergencies.findById(assignment.getEmergencyId())
                 .orElseThrow(() -> new NotFoundException("Emergencia", assignment.getEmergencyId()));
@@ -193,7 +229,8 @@ public final class DriverOperationService {
                 emergencyTypes.findById(emergency.getEmergencyTypeId())
                         .map(type -> type.getName()).orElse(null),
                 emergency.getDescription(), emergency.getReportedAt(),
-                liveMap.missionOf(assignment, vehicle));
+                liveMap.missionOf(assignment, vehicle),
+                assignment.getStatus() == AssignmentStatus.ON_SCENE && dispatch.isAmbulance(vehicle));
     }
 
     private void audit(UserSession driver, String operation, EmergencyAssignment assignment,

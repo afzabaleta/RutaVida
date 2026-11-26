@@ -22,7 +22,8 @@ public record DriverMission(
         String emergencyType,
         String emergencyDescription,
         LocalDateTime reportedAt,
-        TrackedMission tracking
+        TrackedMission tracking,
+        boolean canTransfer
 ) {
     public boolean active() {
         return assignmentId != null;

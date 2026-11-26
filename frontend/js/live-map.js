@@ -53,7 +53,7 @@ function unitPopup(unit) {
   return box;
 }
 
-export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged, onConnection, onPanic } = {}) {
+export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged, onConnection, onPanic, onMission } = {}) {
   if (!map || !hasPermission(session, "EMERGENCIAS:CONSULTAR")) {
     return null;
   }
@@ -123,7 +123,7 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
   function drawDestination(mission) {
     const previous = destinations.get(mission.assignmentId);
     if (!mission.destination) {
-      previous?.remove();
+      if (previous) routeLayer.removeLayer(previous);
       destinations.delete(mission.assignmentId);
       return;
     }
@@ -144,8 +144,9 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
 
     for (const [assignmentId, drawn] of lines) {
       if (!open.has(assignmentId)) {
-        drawn.line?.remove();
-        destinations.get(assignmentId)?.remove();
+        if (drawn.line) routeLayer.removeLayer(drawn.line);
+        const destination = destinations.get(assignmentId);
+        if (destination) routeLayer.removeLayer(destination);
         destinations.delete(assignmentId);
         lines.delete(assignmentId);
       }
@@ -159,40 +160,39 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
       drawDestination(mission);
 
       if (mission.activeRouteId == null) {
-        drawn?.line?.remove();
+        if (drawn?.line) routeLayer.removeLayer(drawn.line);
         lines.set(mission.assignmentId, {
-          version: mission.routesVersion,
           line: null,
           route: null,
         });
         continue;
       }
 
-      if (drawn && drawn.version === mission.routesVersion && drawn.line) {
+      if (drawn?.route?.routeId === mission.activeRouteId && drawn.line) {
         continue;
       }
 
       try {
         const routes = await listMissionRoutes(mission.assignmentId);
-        const active = routes.find((route) => route.status === "ACTIVA");
+        if (stopped) return;
+        const active = routes.find((route) => route.routeId === mission.activeRouteId
+          && route.status === "ACTIVA" && route.path.length >= 2);
+        // Another update can replace the route between the snapshot and the route request.
+        if (!active) continue;
 
-        drawn?.line?.remove();
-
-        const line = active
-          ? L.polyline(active.path, {
-              ...ACTIVE_ROUTE,
-              interactive: false,
-            }).addTo(routeLayer)
-          : null;
+        const line = L.polyline(active.path, {
+          ...ACTIVE_ROUTE,
+          interactive: false,
+        }).addTo(routeLayer);
+        if (drawn?.line) routeLayer.removeLayer(drawn.line);
 
         lines.set(mission.assignmentId, {
-          version: mission.routesVersion,
           line,
-          route: active ?? null,
+          route: active,
         });
 
         // D12: a mission that already had a route and got a new one was recalculated.
-        if (drawn?.route && drawn.version !== mission.routesVersion && active) {
+        if (drawn?.route && drawn.route.destinationHospitalId === active.destinationHospitalId) {
           onRouteChanged?.(mission, active);
         }
       } catch (error) {
@@ -275,7 +275,7 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
     drawUnits(lastSnapshot.units);
     // Distance and ETA are calculated on the same existing route service. Read a fresh snapshot
     // as soon as the GPS arrives, including when a deviation replaced the active route.
-    if (lastSnapshot.missions?.some((mission) => mission.vehicleId === position.vehicleId)) {
+    if (position.routeRecalculated || lastSnapshot.missions?.some((mission) => mission.vehicleId === position.vehicleId)) {
       queueRefresh();
     }
     onSnapshot?.(lastSnapshot, new Map([...lines].map(([id, drawn]) => [id, drawn.route])));
@@ -293,7 +293,10 @@ export function startLiveMap(map, session, { onSnapshot, onError, onRouteChanged
         const data = JSON.parse(event.data);
         if (data.type === "ready") onConnection?.("Seguimiento en tiempo real conectado", "online");
         if (data.type === "position") applyGpsPosition(data.position);
-        if (data.type === "mission") queueRefresh();
+        if (data.type === "mission") {
+          onMission?.();
+          queueRefresh();
+        }
         if (data.type === "panic") {
           onPanic?.();
           queueRefresh();
